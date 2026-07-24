@@ -1,0 +1,6 @@
+.claude
+.idea
+Makefile
+docker-compose.yaml
+__pycache__
+docker-compose.local.yaml

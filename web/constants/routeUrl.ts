@@ -1,0 +1,68 @@
+export const ZONE_URL = {
+    add: "/zone/add"
+}
+
+type ApiMethod = "get" | "post" | "patch" | "delete"
+
+interface StaticApiEndpointConfig {
+    method: ApiMethod;
+    endpoint: string;
+}
+
+interface EndpointArgs {
+    zone?: number;
+    category?: number;
+    restaurant?: number;
+    review?: number;
+}
+
+interface DynamicApiEndpointConfig {
+    method: ApiMethod;
+    endpoint: (args: EndpointArgs) => string;
+}
+
+export const ZONE_API = {
+    list: {method: "get", endpoint: "/zones"},
+    add: {method: "post", endpoint: "/zones"},
+    dashboard: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/dashboard`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+export const RESTAURANT_PAGE = {
+    detail: (_id: number) => `/restaurant/${_id}`
+}
+
+export const RESTAURANT_API = {
+    list: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/restaurants`
+    },
+    retrieve: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}`
+    },
+    add: {
+        method: "post",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}/restaurants`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+export const RESTAURANT_REVIEW_API = {
+    list: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews`
+    },
+    add: {
+        method: "post",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+export const USER_API = {
+    retrieve: {
+        method: "get",
+        endpoint: `/users/me`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
