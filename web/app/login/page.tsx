@@ -39,7 +39,9 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <LoginForm/>
+            <div>
+                <LoginForm/>
+            </div>
         </Suspense>
     )
 }
