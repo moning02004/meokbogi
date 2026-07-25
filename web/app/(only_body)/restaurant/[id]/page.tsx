@@ -13,17 +13,18 @@ import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import {FaArrowLeft, FaChevronRight} from "react-icons/fa";
 import {FiArrowUpLeft} from "react-icons/fi";
-import {LuCalendar} from "react-icons/lu";
+import {LuCalendar, LuEllipsisVertical} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
+import {ActionDrawer} from "@/components/ui/action_drawer";
 
 const SENTIMENTS = {
-    1: {icon: MdSentimentSatisfiedAlt, color: "#24564A", bg: "bg-[#E4EEEA]", text: "text-[#24564A]", label: "만족"},
-    0: {icon: MdSentimentNeutral, color: "#8A8172", bg: "bg-[#F1EFE8]", text: "text-[#8A8172]", label: "보통"},
+    1: {icon: MdSentimentSatisfiedAlt, color: "#24564A", bg: "bg-[#B5E3C4]", text: "text-[#24564A]", label: "만족"},
+    0: {icon: MdSentimentNeutral, color: "#8A8172", bg: "bg-[#D6D2CC]", text: "text-[#8A8172]", label: "보통"},
     [-1]: {
         icon: MdSentimentVeryDissatisfied,
         color: "#C23B1E",
-        bg: "bg-[#FDEBE1]",
+        bg: "bg-[#EBB9A2]",
         text: "text-[#C23B1E]",
         label: "별로"
     },
@@ -174,6 +175,22 @@ export default function Page() {
         })
     }
 
+    const deleteReview = (reviewId: number) => {
+        const reviewDelete = RESTAURANT_REVIEW_API.delete
+        apiRequest[reviewDelete.method](reviewDelete.endpoint({
+            restaurant: Number(restaurantId),
+            review: reviewId
+        })).then(() => {
+            setReviews((prev) => prev.filter((review) => review.id !== reviewId))
+            setReviewCount((prev) => Math.max(prev - 1, 0))
+
+            // 메뉴 요약/평균이 서버에서 재계산되므로 상세를 다시 불러온다
+            fetchRestaurant()
+        }).catch(() => {
+            toast.error("삭제에 실패했어요. 잠시 후 다시 시도해주세요.")
+        })
+    }
+
     if (!restaurantId) return <NotFound/>
     if (!restaurant) return <LoadingPage/>
 
@@ -215,9 +232,8 @@ export default function Page() {
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
                         {restaurant.category_name} · {restaurant.address || "주소 미등록"}
                     </div>
-                    {restaurant.description &&
-                        <div
-                            className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed">{restaurant.description}</div>}
+                    <div
+                        className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed">{restaurant.description || "소개 없음"}</div>
                     <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
                         방문 {restaurant.ordered_count}회 · 최근 방문 {restaurant.latest_ordered_at || "-"} · 전체
                         리뷰 {restaurant.review_count} 개
@@ -258,7 +274,8 @@ export default function Page() {
                                             className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#211D17] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
                                         >
                                             <span className="truncate">{summary.menu}</span>
-                                            <span className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {summary.review_count}</span>
+                                            <span
+                                                className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {summary.review_count}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -384,24 +401,35 @@ export default function Page() {
                                         <div key={review.id}
                                              className="flex gap-2.5 py-3.5 border-b border-[#F0EBDD] last:border-0">
                                             <div
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
-                                                <Icon size={16} color={color}/>
+                                                className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
+                                                <Icon size={20} color={color}/>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <div className="text-[14px] font-extrabold text-[#211D17] truncate">
                                                         {review.menu?.trim() || "메뉴 미기재"}
                                                     </div>
-                                                    <div
-                                                        className="text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0">
-                                                        {review.ordered_at}
-                                                    </div>
                                                 </div>
-                                                {review.content && (
-                                                    <div
-                                                        className="text-[13px] text-[#8A8172] mt-0.5 leading-snug">{review.content}</div>
-                                                )}
+                                                <div
+                                                    className="text-[13px] text-[#8A8172] mt-0.5 leading-snug">{review.content || "내용 없음"}</div>
                                             </div>
+                                            <div
+                                                className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0">
+                                                {review.ordered_at}
+                                            </div>
+                                            <ActionDrawer
+                                                trigger={
+                                                    <button
+                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-1 -m-1">
+                                                        <LuEllipsisVertical size={16}/>
+                                                    </button>
+                                                }
+                                                items={[{
+                                                    label: "리뷰 삭제",
+                                                    danger: true,
+                                                    onClick: () => deleteReview(review.id),
+                                                }]}
+                                            />
                                         </div>
                                     )
                                 })

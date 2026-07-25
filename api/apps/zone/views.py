@@ -35,8 +35,8 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                          review_avg=Coalesce(Sum("review_set__point") / Count("review_set"), 0),
                          review_point=Sum("review_set__point"),
                          latest_ordered_at=Max("review_set__ordered_at"),
-                         ordered_count=Count("review_set"),
-                     ).filter(latest_ordered_at__isnull=False, ordered_count__gte=3, review_avg__gte=0.25).distinct(),
+                         ordered_count=Count("review_set__ordered_at", distinct=True),
+                     ).filter(latest_ordered_at__isnull=False, ordered_count__gte=3, review_avg__gte=0.25).order_by("-review_avg").distinct(),
                      to_attr='delicious_restaurants'),
 
             Prefetch("category_set__restaurant_set",
@@ -44,7 +44,7 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                          review_avg=Coalesce(Sum("review_set__point") / Count("review_set"), 0),
                          review_point=Sum("review_set__point"),
                          latest_ordered_at=Max("review_set__ordered_at"),
-                         ordered_count=Count("review_set"),
+                         ordered_count=Count("review_set__ordered_at", distinct=True),
                      ).filter(latest_ordered_at__isnull=False).order_by("-latest_ordered_at").distinct(),
                      to_attr='recently_ordered_restaurants'),
         )

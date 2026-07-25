@@ -1,4 +1,5 @@
 from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
 
@@ -67,6 +68,5 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
 
 class RestaurantReviewDeleteAPIView(DestroyAPIView):
     def get_object(self):
-        return RestaurantReview.objects.get(restaurant_id=self.kwargs["restaurant_pk"],
-            pk=self.kwargs["review_pk"]
-        )
+        return get_object_or_404(RestaurantReview, restaurant_id=self.kwargs["restaurant_pk"],
+                                  pk=self.kwargs["review_pk"])

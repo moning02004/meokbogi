@@ -59,6 +59,10 @@ export const RESTAURANT_REVIEW_API = {
         method: "post",
         endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews`
     },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews/${args.review}`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const USER_API = {
