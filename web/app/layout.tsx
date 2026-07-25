@@ -1,4 +1,4 @@
-import type {Metadata} from "next";
+import type {Metadata, Viewport} from "next";
 import {Geist, Geist_Mono} from "next/font/google";
 import {Toaster} from "react-hot-toast";
 import "./globals.css";
@@ -16,6 +16,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
     title: "먹보기: 먹어보고 기록하고",
     description: "음식점을 기록하고 선택을 위한",
+    icons: {
+        apple: "/icons/apple-touch-icon.png",
+    },
+    appleWebApp: {
+        title: "먹보기",
+        statusBarStyle: "black-translucent",
+    },
+};
+
+export const viewport: Viewport = {
+    themeColor: "#24564A",
 };
 
 export default function RootLayout({
