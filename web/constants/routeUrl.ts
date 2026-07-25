@@ -31,6 +31,7 @@ export const ZONE_API = {
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const RESTAURANT_PAGE = {
+    add: "/restaurant/add",
     detail: (_id: number) => `/restaurant/${_id}`
 }
 

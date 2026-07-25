@@ -17,7 +17,7 @@ export default function MainLayout({children}: {
         <div className="flex flex-col h-screen w-full sm:w-[70%] mx-auto">
             <Topbar/>
 
-            <div className="flex-1 flex-wrap overflow-y-auto">
+            <div className="flex-1 flex-wrap overflow-y-auto h-[85vh]">
                 <Providers>
                     {children}
                 </Providers>

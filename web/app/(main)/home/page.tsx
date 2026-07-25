@@ -70,7 +70,7 @@ export default function Page() {
     if (!selectedZone) return <LoadingPage/>
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="p-4 flex flex-col gap-3 min-h-screen">
+            <div className="p-4 flex flex-col gap-3 h-[100%]">
 
                 {/* ---- 계기판 스타일 통계 카드 ---- */}
                 <div

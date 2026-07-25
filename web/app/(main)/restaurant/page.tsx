@@ -88,12 +88,12 @@ export default function Page() {
     if (!token || !selectedZone) return <LoadingPage/>
 
     return (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-[100%]">
             <div
-                className="flex gap-2 overflow-x-auto px-4 py-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                className="flex gap-2 overflow-x-auto px-4 py-2 sticky top-0 bg-white shadow-sm mb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                     onClick={() => setSelectedCategoryId(null)}
-                    className={`shrink-0 px-4 py-2 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
+                    className={`shrink-0 px-4 py-1 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
                         selectedCategoryId === null
                             ? "bg-[#24564A] text-white border-[#24564A]"
                             : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
@@ -105,7 +105,7 @@ export default function Page() {
                     <button
                         key={category.id}
                         onClick={() => setSelectedCategoryId(category.id)}
-                        className={`shrink-0 px-4 py-2 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
+                        className={`shrink-0 px-4 py-1 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
                             selectedCategoryId === category.id
                                 ? "bg-[#24564A] text-white border-[#24564A]"
                                 : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"

@@ -1,11 +1,9 @@
 "use client"
 
-import {useEffect} from "react"
 import {useRouter} from "next/navigation"
-import {useAuthStore} from "@/store/auth"
 
 export default function Page() {
-    const router = useRouter()
+    const router = useRouter() 
 
     return (
         <div className="min-h-[100dvh] bg-white">

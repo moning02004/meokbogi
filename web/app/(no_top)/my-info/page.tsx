@@ -32,7 +32,7 @@ export default function Page() {
     if (!user) return <LoadingPage/>
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="min-h-screen pb-6">
+            <div className="h-[100%] pb-6">
 
                 {/* ---- 프로필 헤더 ---- */}
                 <div className="bg-white px-5 py-6 border-b border-[#E7E0CF] flex items-center gap-3.5">

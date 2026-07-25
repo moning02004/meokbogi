@@ -183,7 +183,7 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="min-h-screen bg-white pb-10">
+            <div className="h-[100%] bg-white pb-10">
 
                 <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
                     <button className="text-[#211D17] cursor-pointer" onClick={() => router.back()}>

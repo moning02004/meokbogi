@@ -8,7 +8,7 @@ export function Bottombar() {
     const pathname = usePathname();
 
     return (
-        <div className="flex items-center justify-around px-2 bg-white border-t border-[#E7E0CF] h-16">
+        <div className="flex items-center justify-around px-2 bg-white border-t border-[#E7E0CF] h-[8vh]">
             {menuItems.map((item) => {
                 const isActive = pathname === item.path;
 

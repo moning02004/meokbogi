@@ -1,25 +1,14 @@
 'use client';
 
-import {Dispatch, SetStateAction, useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {ACCENT_COLORS, CARD_H, CARD_W, shuffle, wait} from '@/constants/play';
 import {ForkKnifeIcon} from "@/components/play/ForkKnifeIcon";
-
-/**
- * FoodCardShuffle
- * - 카드가 판 위에 그리드로 펼쳐져 보이다가 "섞기"를 누르면
- *   뒤집혀서 흩어지고 가운데로 모였다가 다시 그리드로 펼쳐지며
- *   실제로 카드 위치(=순위)가 뒤바뀝니다.
- * - 왼쪽 상단(1번) 자리에 오는 카드가 당첨입니다.
- *
- * 애니메이션 단계상 카드마다 위치(left/top)를 직접 계산해서 옮겨야 해서
- * 좌표 관련 값만 인라인 style로 다루고, 나머지 스타일은 Tailwind로 처리했습니다.
- */
 
 export interface FoodCardShuffleProps {
     categoryInfo: Record<string, number>;
     items: string[];
     trayColor?: string;
-    setSelectedCategory: (value: number) => void;
+    setSelectedCategory: (value: number | null) => void;
 }
 
 type Pos = { x: number; y: number };
@@ -27,7 +16,7 @@ type Pos = { x: number; y: number };
 export default function FoodCardShuffle({
                                             categoryInfo,
                                             items,
-                                            trayColor = '#3C3942',
+                                            trayColor = '#17372F',
                                             setSelectedCategory,
                                         }: FoodCardShuffleProps) {
     const n = items.length;
@@ -43,6 +32,7 @@ export default function FoodCardShuffle({
 
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState('');
+    const [hasPlayed, setHasPlayed] = useState(false);
     const boxH = rows * CARD_H + (rows - 1) * 16 + 40;
 
     function getBoxW() {
@@ -104,10 +94,10 @@ export default function FoodCardShuffle({
         if (front) {
             front.style.borderColor = '#E4DCC8';
             front.style.borderWidth = '1px';
+            front.style.background = '#FAF6EC';
         }
     }
 
-    // 초기 배치 + 리사이즈 대응
     useEffect(() => {
         const pos = gridPositions();
         pos.forEach((p, i) => place(i, p.x, p.y, 0, 1, 1));
@@ -163,41 +153,38 @@ export default function FoodCardShuffle({
         for (let i = 0; i < n; i++) flip(i, true);
         await wait(350);
 
+        // 당첨 카드 강조 (앰버로 채우기)
         const winnerIdx = order[0];
         const front = frontRefs.current[winnerIdx];
         if (front) {
-            front.style.borderColor = ACCENT_COLORS[winnerIdx % ACCENT_COLORS.length];
-            front.style.borderWidth = '2px';
+            front.style.borderColor = '#D2571E';
+            front.style.borderWidth = '3px';
         }
         const p0 = finalPos[0];
-        place(winnerIdx, p0.x, p0.y, 0, 1.1, 10);
+        place(winnerIdx, p0.x, p0.y, 0, 1.5, 10);
 
-        setResult(`${items[winnerIdx]} 당첨!`);
+        setResult(items[winnerIdx]);
         setSelectedCategory(categoryInfo[items[winnerIdx]])
         setBusy(false);
     }
 
     function handleShuffle() {
         if (busy) return;
+        setSelectedCategory(null)
+
         setBusy(true);
         setResult('');
+        setHasPlayed(true);
         for (let i = 0; i < n; i++) resetBorder(i);
         shuffleSequence();
     }
 
     return (
-        <div className="flex flex-col items-center gap-1 pb-4">
-
-            <button
-                onClick={handleShuffle}
-                disabled={busy}
-                className="rounded-lg border border-zinc-300 bg-white px-6 py-2 font-medium disabled:bg-zinc-100 disabled:text-zinc-400"
-            >
-                섞기
-            </button>
-            <div className="min-h-[28px] text-lg font-medium text-[#c0703a]">{result}</div>
-
-            <div className="w-full p-5" style={{background: trayColor}}>
+        <div className="flex flex-col items-center gap-1">
+            <div className="w-full p-5 relative overflow-hidden" style={{background: trayColor}}>
+                <div className="text-center text-[19px] font-bold tracking-tight text-white relative">
+                    오늘의 <span className="text-[#F0A87E]">메뉴</span>, 골라드릴게요
+                </div>
                 <div ref={deckRef} className="relative w-full" style={{height: boxH}}>
                     {items.map((item, i) => {
                         const accent = ACCENT_COLORS[i % ACCENT_COLORS.length];
@@ -216,28 +203,28 @@ export default function FoodCardShuffle({
                                     ref={(el) => {
                                         frontRefs.current[i] = el;
                                     }}
-                                    className="absolute inset-0 flex flex-col items-center justify-between rounded-lg border border-[#E4DCC8] bg-[#FAF6EC] p-1.5 shadow transition-[opacity,transform] duration-300"
+                                    className="absolute inset-0 flex flex-col items-center justify-between rounded-lg border border-[#E4DCC8] bg-[#FAF6EC] p-1.5 shadow transition-[opacity,transform,background,border-color] duration-300"
                                 >
-                  <span
-                      ref={(el) => {
-                          rankTopRefs.current[i] = el;
-                      }}
-                      className="text-[11px] font-medium text-[#8A8474]"
-                  >
-                    {i + 1}
-                  </span>
-                                    <span className="text-center text-sm font-medium leading-tight"
+                                    <span
+                                        ref={(el) => {
+                                            rankTopRefs.current[i] = el;
+                                        }}
+                                        className="text-[11px] font-medium text-[#8A8474]"
+                                    >
+                                        {i + 1}
+                                    </span>
+                                    <span className="text-center text-sm font-bold leading-tight"
                                           style={{color: accent}}>
-                    {item}
-                  </span>
+                                        {item}
+                                    </span>
                                     <span
                                         ref={(el) => {
                                             rankBottomRefs.current[i] = el;
                                         }}
                                         className="rotate-180 text-[11px] font-medium text-[#8A8474]"
                                     >
-                    {i + 1}
-                  </span>
+                                        {i + 1}
+                                    </span>
                                 </div>
 
                                 {/* 뒷면 */}
@@ -258,6 +245,25 @@ export default function FoodCardShuffle({
                     })}
                 </div>
             </div>
+
+            {/* 결과 칩 */}
+
+                <div className="inline-flex items-center gap-2 bg-[#FDEBE1] border border-[#F6C9B2] rounded-full px-4 py-2 mt-4">
+                    <span className="text-[11px] text-[#B7754F] font-bold">오늘의 메뉴</span>
+                    <span className="text-[14px] text-[#D2571E] font-extrabold">{result || "-"}</span>
+                </div>
+
+            {/* 섞기 / 다시 섞기 버튼 */}
+            <button
+                onClick={handleShuffle}
+                disabled={busy}
+                className="inline-flex items-center gap-2 rounded-full bg-[#24564A] text-white px-8 py-3 my-3 text-[14.5px] font-extrabold shadow-[0_10px_18px_-8px_rgba(36,86,74,0.5)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+            >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M4 4l4.5 4.5M15 15l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {busy ? "섞는 중..." : hasPlayed ? "다시 섞기" : "섞기"}
+            </button>
         </div>
     );
 }
