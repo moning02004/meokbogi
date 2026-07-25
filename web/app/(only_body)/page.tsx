@@ -1,6 +1,7 @@
 "use client"
 
 import {useRouter} from "next/navigation"
+import {InstallAppSection} from "@/components/ui/install_app_section"
 
 export default function Page() {
     const router = useRouter() 
@@ -53,6 +54,8 @@ export default function Page() {
                     ))}
                 </div>
             </div>
+
+            <InstallAppSection/>
 
             <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+40px)] text-center">
                 <button
