@@ -34,12 +34,14 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
     category = CategoryListSerializer(source="category_set", many=True, read_only=True)
     restaurant_count = serializers.IntegerField(read_only=True)
     review_count = serializers.IntegerField(read_only=True)
+    monthly_visited_count = serializers.IntegerField(read_only=True)
     delicious_restaurants = serializers.SerializerMethodField(read_only=True)
     recent_restaurants = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Zone
-        fields = ["id", "name", "category", "restaurant_count", "review_count", "delicious_restaurants",
+        fields = ["id", "name", "category", "restaurant_count", "review_count", "monthly_visited_count",
+                  "delicious_restaurants",
                   "recent_restaurants"]
 
     def create(self, validated_data):

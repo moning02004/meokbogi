@@ -1,5 +1,7 @@
-from django.db.models import Prefetch, Count, Sum, Max
-from django.db.models.functions import Coalesce
+from datetime import datetime
+
+from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField
+from django.db.models.functions import Coalesce, Concat
 from rest_framework import viewsets
 from rest_framework.generics import DestroyAPIView, ListCreateAPIView, RetrieveAPIView
 
@@ -24,10 +26,24 @@ class ZoneDashboardAPIView(RetrieveAPIView):
     serializer_class = ZoneDashboardSerializer
 
     def get_object(self):
+        current_date = datetime.now().date()
+
         queryset = Zone.objects.filter(user_id=self.request.user.id)
         queryset = queryset.annotate(
             restaurant_count=Count('category__restaurant', distinct=True),
-            review_count=Count('category__restaurant__review_set', distinct=True)
+            review_count=Count('category__restaurant__review_set', distinct=True),
+            monthly_visited_count=Count(
+                Concat(
+                    'category__restaurant__pk',
+                    Value('_'),
+                    'category__restaurant__review_set__ordered_at',
+                    output_field=CharField(),
+                ),
+                filter=Q(
+                    category__restaurant__review_set__ordered_at__year=current_date.year,
+                    category__restaurant__review_set__ordered_at__month=current_date.month,
+                ),
+                distinct=True, ),
         )
         queryset = queryset.prefetch_related(
             Prefetch("category_set__restaurant_set",
@@ -36,7 +52,8 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                          review_point=Sum("review_set__point"),
                          latest_ordered_at=Max("review_set__ordered_at"),
                          ordered_count=Count("review_set__ordered_at", distinct=True),
-                     ).filter(latest_ordered_at__isnull=False, ordered_count__gte=3, review_avg__gte=0.25).order_by("-review_avg").distinct(),
+                     ).filter(latest_ordered_at__isnull=False, ordered_count__gte=3, review_avg__gte=0.25).order_by(
+                         "-review_avg").distinct(),
                      to_attr='delicious_restaurants'),
 
             Prefetch("category_set__restaurant_set",

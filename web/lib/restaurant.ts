@@ -10,7 +10,7 @@ export interface DashboardResponseType {
     recent_restaurants: Array<RecentRegisteredRestaurant>;
     restaurant_count: number;
     review_count: number;
-
+    monthly_visited_count: number;
 }
 
 export const fetchZoneDashboard = async (zoneId: number) => {

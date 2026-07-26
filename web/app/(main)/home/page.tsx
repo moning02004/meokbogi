@@ -25,6 +25,7 @@ export default function Page() {
 
     const [restaurantCount, setRestaurantCount] = useState(0)
     const [reviewCount, setReviewCount] = useState(0)
+    const [monthlyVisitedCount, setMonthlyVisitedCount] = useState(0)
     const [deliciousRestaurants, setDeliciousRestaurants] = useState<DeliciousRestaurant[]>([])
     const [recentRegisteredRestaurants, setRecentRegisteredRestaurants] = useState<RecentRegisteredRestaurant[]>([])
     const [activeTab, setActiveTab] = useState<"delicious" | "recent">("delicious")
@@ -50,6 +51,7 @@ export default function Page() {
                 setRecentRegisteredRestaurants(res.recent_restaurants)
                 setRestaurantCount(res.restaurant_count)
                 setReviewCount(res.review_count)
+                setMonthlyVisitedCount(res.monthly_visited_count)
             }
         )
     }, [selectedZone]);
@@ -94,6 +96,14 @@ export default function Page() {
                                 {String(reviewCount).padStart(2, "0")}
                             </div>
                             <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">작성한 리뷰</p>
+                        </div>
+                        <div
+                            className="flex-1 text-center relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-2.5 before:w-px before:bg-white/[0.14]">
+                            <div
+                                className="mx-3.5 font-mono text-[34px] font-semibold rounded-[10px] py-1.5 bg-white/[0.06] border border-white/[0.12]">
+                                {String(monthlyVisitedCount).padStart(2, "0")}
+                            </div>
+                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">이번 달 주문</p>
                         </div>
                     </div>
                 </div>
