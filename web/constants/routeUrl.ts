@@ -48,6 +48,10 @@ export const RESTAURANT_API = {
         method: "post",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}/restaurants`
     },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const RESTAURANT_REVIEW_API = {

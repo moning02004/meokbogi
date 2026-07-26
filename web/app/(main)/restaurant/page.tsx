@@ -4,12 +4,15 @@ import {useCallback, useEffect, useRef, useState} from "react"
 import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {RESTAURANT_PAGE} from "@/constants/routeUrl";
+import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {RestaurantListItemType} from "@/types/restaurant";
 import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {fetchZoneRestaurants} from "@/lib/restaurant";
 import {Skeleton} from "@/components/skeleton";
+import {LuEllipsisVertical} from "react-icons/lu";
+import {ActionDrawer} from "@/components/ui/action_drawer";
+import {apiRequest} from "@/lib/api";
 
 export default function Page() {
     const router = useRouter()
@@ -84,6 +87,12 @@ export default function Page() {
     const gotoRestaurant = (_id: number) => {
         router.push(RESTAURANT_PAGE.detail(_id))
     }
+    const deleteRestaurant = (_id: number) => {
+        const deleteRestaurantAPI = RESTAURANT_API.delete
+        apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: _id})).then(() => {
+            setRestaurants(() => restaurants.filter(x => x.id != _id))
+        })
+    }
 
     if (!token || !selectedZone) return <LoadingPage/>
 
@@ -116,7 +125,7 @@ export default function Page() {
                 ))}
             </div>
 
-            <div className="px-4 pb-2 text-[12.5px] font-semibold text-[#8A8172]">총 {totalCount}곳</div>
+            <div className="px-4 my-2 text-[12.5px] font-semibold text-[#8A8172]">총 {totalCount}곳</div>
 
             <div className="flex flex-col px-4 gap-2.5 pb-3">
                 {isLoading ? (
@@ -127,13 +136,14 @@ export default function Page() {
                     restaurants.map((restaurant) => (
                         <div key={restaurant.id}
                              className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-white transition-colors"
-                             onClick={() => gotoRestaurant(restaurant.id)}
                         >
-                            <div>
+                            <div className="flex-1" onClick={() => gotoRestaurant(restaurant.id)}>
                                 <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
                                 <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${restaurant.category_name} 음식점`}</p>
                                 <div className="flex flex-row mt-1">
-                                    <div className="text-[12px] text-[#B7AF9F] font-medium">방문 {restaurant.ordered_count} 회</div>
+                                    <div
+                                        className="text-[12px] text-[#B7AF9F] font-medium">방문 {restaurant.ordered_count} 회
+                                    </div>
                                     {restaurant.latest_ordered_at && (
                                         <>
                                             <span className="inline-block mx-2 text-[#B7AF9F]">·</span>
@@ -143,6 +153,19 @@ export default function Page() {
                                     )}
                                 </div>
                             </div>
+                            <ActionDrawer
+                                trigger={
+                                    <button
+                                        className="ml-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-1 -m-1">
+                                        <LuEllipsisVertical size={16}/>
+                                    </button>
+                                }
+                                items={[{
+                                    label: "음식점 삭제",
+                                    danger: true,
+                                    onClick: () => deleteRestaurant(restaurant.id),
+                                }]}
+                            />
                         </div>
                     ))
                 )}
