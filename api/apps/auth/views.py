@@ -54,13 +54,6 @@ class LogoutAPIView(APIView):
     permission_classes = [AllowAny]
 
     def delete(self, request: Request, *args, **kwargs) -> Response:
-        refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
-        if refresh:
-            try:
-                RefreshToken(refresh).blacklist()
-            except TokenError:
-                pass
-
         response = Response(status=204)
         response.delete_cookie(settings.REFRESH_COOKIE_NAME)
         return response

@@ -22,7 +22,6 @@ export default function Page() {
             }
             setIsCheckingAutoLogin(false)
         })
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     useEffect(() => {

@@ -2,9 +2,16 @@
 
 import {useRouter} from "next/navigation"
 import {InstallAppSection} from "@/components/ui/install_app_section"
+import {useAuthStore} from "@/store/auth";
+import {useEffect} from "react";
 
 export default function Page() {
     const router = useRouter() 
+    const {token} = useAuthStore.getState();
+
+    useEffect(() => {
+        if (token) router.replace("/home")
+    }, []);
 
     return (
         <div className="min-h-[100dvh] bg-white">

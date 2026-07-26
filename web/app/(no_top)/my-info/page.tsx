@@ -5,6 +5,7 @@ import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {USER_API} from "@/constants/routeUrl";
 import {apiRequest} from "@/lib/api";
+import {authLogout} from "@/lib/auth";
 
 interface UserType {
     username: string;
@@ -28,6 +29,8 @@ export default function Page() {
 
         fetchUserInfo()
     }, []);
+
+
 
     if (!user) return <LoadingPage/>
     return (
@@ -119,6 +122,7 @@ export default function Page() {
                             <span className="text-[12px] text-[#B7AF9F] font-medium">{user.version}</span>
                         </div>
                         <button
+                            onClick={authLogout}
                             className="w-full text-left px-4 py-3.5 text-[14px] font-semibold text-[#C23B1E] cursor-pointer sm:hover:bg-[#FDEBE1] transition-colors">
                             로그아웃
                         </button>
