@@ -194,10 +194,6 @@ export default function Page() {
     if (!restaurantId) return <NotFound/>
     if (!restaurant) return <LoadingPage/>
 
-    const overallBadge = typeof restaurant.review_avg === "number"
-        ? SENTIMENTS[(restaurant.review_avg > 0.3 ? 1 : restaurant.review_avg < -0.3 ? -1 : 0) as SentimentKey]
-        : null
-
     return (
         <Suspense fallback={<LoadingPage/>}>
             <div className="h-[100%] bg-white pb-10">
@@ -222,12 +218,7 @@ export default function Page() {
                     <div className="flex items-center gap-2 mb-1">
                         <div
                             className="text-[18px] font-extrabold text-[#211D17] tracking-tight">{restaurant.name}</div>
-                        {overallBadge && (
-                            <span
-                                className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${overallBadge.bg} ${overallBadge.text}`}>
-                                {overallBadge.label}
-                            </span>
-                        )}
+                        {restaurant.review_avg && getReviewTextBox(restaurant.review_avg)}
                     </div>
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
                         {restaurant.category_name} · {restaurant.address || "주소 미등록"}

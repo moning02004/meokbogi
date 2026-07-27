@@ -1,4 +1,4 @@
-from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum
+from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum, Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
@@ -9,6 +9,7 @@ from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfo
 
 def annotate_restaurants(queryset):
     return queryset.select_related("category").annotate(
+        review_avg=Avg("review_set__point"),
         review_point=Sum("review_set__point"),
         latest_ordered_at=Max("review_set__ordered_at"),
         ordered_count=Count("review_set__ordered_at", distinct=True),
