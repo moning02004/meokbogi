@@ -40,6 +40,8 @@ class UserInfoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["version"] = os.environ.get("APP_VERSION", "0.0.1")
+        data["release_date"] = os.environ.get("APP_RELEASE_DATE", "2026-07-24")
+        data["last_updated_at"] = os.environ.get("APP_LAST_UPDATED_AT", "2026-07-27")
         return data
 
 

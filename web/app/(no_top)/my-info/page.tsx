@@ -7,6 +7,7 @@ import {USER_API} from "@/constants/routeUrl";
 import {apiRequest} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
+import {Modal} from "@/components/ui/modal";
 
 interface UserType {
     username: string;
@@ -15,6 +16,8 @@ interface UserType {
     restaurant_count: number;
     review_count: number;
     version: string;
+    release_date: string;
+    last_updated_at: string;
 }
 
 export default function Page() {
@@ -182,28 +185,32 @@ export default function Page() {
                 <div className="px-5 pt-5">
                     <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">설정</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
-                        <button
-                            onClick={() => isChangingPassword ? closePasswordForm() : setIsChangingPassword(true)}
-                            className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[#F0EBDD] text-[14px] font-semibold text-[#211D17] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors">
-                            비밀번호 변경
-                            <span className="text-[#B7AF9F]">{isChangingPassword ? "︿" : "›"}</span>
-                        </button>
-
-                        {isChangingPassword && (
-                            <div className="px-4 py-3.5 border-b border-[#F0EBDD] flex flex-col gap-2.5 bg-[#FBFAF6]">
+                        <Modal
+                            title="비밀번호 변경"
+                            open={isChangingPassword}
+                            onOpenChange={(open) => open ? setIsChangingPassword(true) : closePasswordForm()}
+                            trigger={
+                                <button
+                                    className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[#F0EBDD] text-[14px] font-semibold text-[#211D17] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors">
+                                    비밀번호 변경
+                                    <span className="text-[#B7AF9F]">›</span>
+                                </button>
+                            }
+                        >
+                            <div className="flex flex-col gap-2.5">
                                 <input
                                     type="password"
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
                                     placeholder="현재 비밀번호"
-                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors bg-white"
+                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
                                 />
                                 <input
                                     type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     placeholder="새 비밀번호"
-                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors bg-white"
+                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
                                 />
                                 <input
                                     type="password"
@@ -213,28 +220,22 @@ export default function Page() {
                                         if (e.key === "Enter" && !e.nativeEvent.isComposing) changePassword()
                                     }}
                                     placeholder="새 비밀번호 확인"
-                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors bg-white"
+                                    className="text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
                                 />
-                                <div className="flex gap-2 mt-1">
-                                    <button
-                                        onClick={changePassword}
-                                        className="flex-1 text-[13px] font-bold text-white bg-[#24564A] rounded-lg py-2.5 cursor-pointer sm:hover:bg-[#1c443a] transition-colors">
-                                        변경하기
-                                    </button>
-                                    <button
-                                        onClick={closePasswordForm}
-                                        className="text-[13px] font-bold text-[#8A8172] rounded-lg px-4 py-2.5 cursor-pointer sm:hover:bg-white transition-colors">
-                                        취소
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={changePassword}
+                                    className="w-full text-[13.5px] font-bold text-white bg-[#24564A] rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-[#1c443a] transition-colors">
+                                    변경하기
+                                </button>
                             </div>
-                        )}
+                        </Modal>
 
                         <div
                             className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[#F0EBDD] text-[14px] font-semibold text-[#211D17]">
                             버전 정보
                             <span className="text-[12px] text-[#B7AF9F] font-medium">{user.version}</span>
                         </div>
+
                         <button
                             onClick={authLogout}
                             className="w-full text-left px-4 py-3.5 text-[14px] font-semibold text-[#C23B1E] cursor-pointer sm:hover:bg-[#FDEBE1] transition-colors">
