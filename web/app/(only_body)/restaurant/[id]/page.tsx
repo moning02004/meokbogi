@@ -218,7 +218,7 @@ export default function Page() {
                     <div className="flex items-center gap-2 mb-1">
                         <div
                             className="text-[18px] font-extrabold text-[#211D17] tracking-tight">{restaurant.name}</div>
-                        {restaurant.review_avg && getReviewTextBox(restaurant.review_avg)}
+                        {restaurant.review_avg !== null && getReviewTextBox(restaurant.review_avg)}
                     </div>
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
                         {restaurant.category_name} · {restaurant.address || "주소 미등록"}

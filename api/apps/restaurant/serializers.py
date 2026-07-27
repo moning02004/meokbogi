@@ -28,7 +28,6 @@ class RestaurantReviewSerializer(serializers.ModelSerializer):
 class RestaurantListSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False, allow_blank=True, default="")
     category_name = serializers.CharField(source="category.keyword", read_only=True)
-    review_point = serializers.IntegerField(read_only=True)
     review_avg = serializers.FloatField(read_only=True)
     review_count = serializers.IntegerField(read_only=True)
     latest_ordered_at = serializers.DateField(read_only=True)
@@ -37,7 +36,7 @@ class RestaurantListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = ["id", "name", "description", "address", "category_name",
-                  "latest_ordered_at", "review_avg", "review_point", "review_count", "ordered_count"]
+                  "latest_ordered_at", "review_avg", "review_count", "ordered_count"]
         read_only_fields = ["id"]
 
     def create(self, validated_data):
@@ -47,8 +46,6 @@ class RestaurantListSerializer(serializers.ModelSerializer):
 
 class RestaurantInfoSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.keyword", read_only=True)
-    # review_set = RestaurantReviewSerializer(many=True, read_only=True)
-    review_point = serializers.IntegerField(read_only=True)
     latest_ordered_at = serializers.DateField(read_only=True)
     ordered_count = serializers.IntegerField(read_only=True)
     review_avg = serializers.FloatField(read_only=True)
@@ -58,8 +55,7 @@ class RestaurantInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = ["id", "name", "description", "address", "category_name",
-                  "latest_ordered_at", "ordered_count", "review_avg",
-                  "review_point", "menu_summaries", "review_count"]
+                  "latest_ordered_at", "ordered_count", "review_avg", "menu_summaries", "review_count"]
 
     def get_menu_summaries(self, obj):
         queryset = obj.review_set.all().values("menu").annotate(
