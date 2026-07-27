@@ -12,6 +12,7 @@ urlpatterns = [
     path("auth/refresh-token", auth_views.RefreshTokenAPIView.as_view(), name="refresh-token"),
     path("auth/token", auth_views.LogoutAPIView.as_view(), name="logout"),
     path("users/me", auth_views.UserInfoAPIView.as_view(), name="my-info"),
+    path("users/me/password", auth_views.ChangePasswordAPIView.as_view(), name="change-password"),
 
     # zone
     path("zones", zone_views.ZoneViewSet.as_view({

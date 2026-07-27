@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Count
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -13,7 +13,8 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.auth.serializers import ObtainTokenSerializer, RefreshTokenSerializer, UserInfoSerializer
+from apps.auth.serializers import (ChangePasswordSerializer, ObtainTokenSerializer, RefreshTokenSerializer,
+                                    UserInfoSerializer)
 
 settings.REFRESH_COOKIE_NAME = "refreshtoken"
 
@@ -59,7 +60,7 @@ class LogoutAPIView(APIView):
         return response
 
 
-class UserInfoAPIView(RetrieveAPIView):
+class UserInfoAPIView(RetrieveUpdateAPIView):
     serializer_class = UserInfoSerializer
 
     def get_object(self):
@@ -70,3 +71,11 @@ class UserInfoAPIView(RetrieveAPIView):
             review_count=Count("zone__category__restaurant__review_set", distinct=True),
         )
         return queryset.get(id=self.request.user.id)
+
+
+class ChangePasswordAPIView(APIView):
+    def patch(self, request: Request, *args, **kwargs) -> Response:
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=204)

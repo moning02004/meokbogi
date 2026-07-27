@@ -74,4 +74,12 @@ export const USER_API = {
         method: "get",
         endpoint: `/users/me`
     },
+    update: {
+        method: "patch",
+        endpoint: `/users/me`
+    },
+    changePassword: {
+        method: "patch",
+        endpoint: `/users/me/password`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
