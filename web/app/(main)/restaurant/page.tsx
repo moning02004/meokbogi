@@ -131,7 +131,7 @@ export default function Page() {
                 {isLoading ? (
                     Array.from({length: 6}).map((_, i) => <Skeleton key={i}/>)
                 ) : !restaurants.length ? (
-                    <p className="text-[#B7AF9F] text-center py-8 text-sm">아직 등록된 식당이 없습니다.</p>
+                    <p className="text-[#B7AF9F] text-center py-8 text-sm">아직 등록된 음식점이 없습니다.</p>
                 ) : (
                     restaurants.map((restaurant) => (
                         <div key={restaurant.id}

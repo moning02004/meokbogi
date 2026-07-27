@@ -213,7 +213,7 @@ export default function Page() {
                     목록으로
                 </div>
 
-                {/* ---- 식당 정보 ---- */}
+                {/* ---- 음식점 정보 ---- */}
                 <div className="mx-5 mt-2 mb-4 bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-4 py-3.5">
                     <div className="flex items-center gap-2 mb-1">
                         <div

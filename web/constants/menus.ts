@@ -14,7 +14,7 @@ interface MenuItemsType {
 export const menuItems: MenuItemsType[] = [
     {name: "홈", icon: IoMdHome, path: "/home"},
     {name: "뽑기", icon: FaGamepad, path: "/play"},
-    {name: "식당등록", icon: FaPlus, path: "/restaurant/add", floating: true},
-    {name: "식당", icon: BsForkKnife, path: "/restaurant"},
+    {name: "음식점등록", icon: FaPlus, path: "/restaurant/add", floating: true},
+    {name: "음식점", icon: BsForkKnife, path: "/restaurant"},
     {name: "내정보", icon: LuUser, path: "/my-info"},
 ];

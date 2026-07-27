@@ -65,8 +65,8 @@ export default function Page() {
     }
 
     const RESTAURANT_TABS = [
-        {key: "delicious" as const, label: "믿고 먹는 식당"},
-        {key: "recent" as const, label: "최근 먹었던 식당"},
+        {key: "delicious" as const, label: "믿고 먹는 음식점"},
+        {key: "recent" as const, label: "최근 먹었던 음식점"},
     ]
 
     if (!selectedZone) return <LoadingPage/>
@@ -87,7 +87,7 @@ export default function Page() {
                                 className="mx-3.5 font-mono text-[34px] font-semibold rounded-[10px] py-1.5 bg-white/[0.06] border border-white/[0.12]">
                                 {String(restaurantCount).padStart(2, "0")}
                             </div>
-                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">등록한 식당</p>
+                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">등록한 음식점</p>
                         </div>
                         <div
                             className="flex-1 text-center relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-2.5 before:w-px before:bg-white/[0.14]">
@@ -130,7 +130,7 @@ export default function Page() {
                     {activeTab === "delicious" ? (
 
                         !deliciousRestaurants.length ? (
-                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 식당이 없습니다.</p>
+                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 음식점이 없습니다.</p>
                             ) :
                             deliciousRestaurants.map((restaurant) => {
                                 const reviewTextBox = getReviewTextBox(restaurant.review_avg)
@@ -149,7 +149,7 @@ export default function Page() {
                             })
                     ) : (
                         !recentRegisteredRestaurants.length ? (
-                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 식당이 없습니다.</p>
+                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 음식점이 없습니다.</p>
                             ) :
                             recentRegisteredRestaurants.map((restaurant) => (
                                 <div key={restaurant.id}

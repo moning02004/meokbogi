@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField, OuterRef, Avg, FloatField
+from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField, Avg
 from django.db.models.functions import Coalesce, Concat
 from rest_framework import viewsets
 from rest_framework.generics import DestroyAPIView, ListCreateAPIView, RetrieveAPIView
 
-from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.models import Restaurant
 from apps.zone.models import Zone, Category
 from apps.zone.serializers import ZoneListSerializer, CategoryListSerializer, ZoneDashboardSerializer
 
@@ -14,21 +14,12 @@ class ZoneViewSet(viewsets.ModelViewSet):
     serializer_class = ZoneListSerializer
 
     def get_queryset(self):
-        return Zone.objects.filter(user_id=self.request.user.id)
+        return Zone.objects.filter(user_id=self.request.user.id).order_by("-id")
 
 
 class ZoneDeleteAPIView(DestroyAPIView):
     def get_queryset(self):
         return Zone.objects.filter(user=self.request.user)
-
-
-ordered_count_subq = (
-    RestaurantReview.objects
-    .filter(restaurant=OuterRef("pk"))
-    .values("restaurant")
-    .annotate(c=Count("ordered_at", distinct=True))
-    .values("c")
-)
 
 
 class ZoneDashboardAPIView(RetrieveAPIView):

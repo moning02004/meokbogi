@@ -74,7 +74,7 @@ export default function Page() {
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
                                     {user.restaurant_count}
                                 </div>
-                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">등록한 식당</p>
+                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">등록한 음식점</p>
                             </div>
                             <div className="flex-1 text-center">
                                 <div

@@ -24,7 +24,7 @@ export default function Page() {
                 <h1 className="text-[27px] font-extrabold text-[#211D17] tracking-tight mb-2">먹보기</h1>
                 <p className="text-[14.5px] text-[#8A8172] font-semibold leading-relaxed">
                     <span className="text-[#D2571E] font-extrabold">먹어보고 기록하고</span><br/>
-                    다녀온 식당을 나만의 기준으로
+                    다녀온 음식점을 나만의 기준으로
                 </p>
             </div>
 
@@ -72,7 +72,7 @@ export default function Page() {
 const FEATURES = [
     {
         title: "장소별로 나눠서 기록",
-        desc: "우리집, 회사, 친구집. 지금 있는 자리에 맞는 식당만 모아서 봅니다.",
+        desc: "우리집, 회사, 친구집. 지금 있는 자리에 맞는 음식점만 모아서 봅니다.",
         bg: "bg-[#E4EEEA]",
         icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
             <path d="M3 11l9-8 9 8" stroke="#24564A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

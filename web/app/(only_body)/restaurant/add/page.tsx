@@ -30,7 +30,7 @@ export default function Page() {
     // 카테고리는 입력 없이 기존 목록에서 선택만 가능
     const [showCategorySuggestions, setShowCategorySuggestions] = useState(false)
 
-    // 이름 입력 시 같은 존 안의 기존 식당 제안 (중복 등록 방지)
+    // 이름 입력 시 같은 존 안의 기존 음식점 제안 (중복 등록 방지)
     const [existingRestaurants, setExistingRestaurants] = useState<RestaurantListItemType[]>([])
     const [showNameSuggestions, setShowNameSuggestions] = useState(false)
 
@@ -146,7 +146,7 @@ export default function Page() {
                             <div
                                 className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
                                 <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-[#B7AF9F]">
-                                    이미 등록된 식당이에요. 눌러서 바로 이동할 수 있어요.
+                                    이미 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요.
                                 </p>
                                 {nameSuggestions.map((restaurant) => (
                                     <button
@@ -169,7 +169,7 @@ export default function Page() {
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             type="text"
-                            placeholder="이 식당에 대한 짧은 메모"
+                            placeholder="이 음식점에 대한 짧은 메모"
                             className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
                         />
                     </div>
