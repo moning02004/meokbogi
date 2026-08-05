@@ -7,16 +7,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.auth.serializers import (ChangePasswordSerializer, ObtainTokenSerializer, RefreshTokenSerializer,
-                                    UserInfoSerializer)
-
-settings.REFRESH_COOKIE_NAME = "refreshtoken"
+                                   UserInfoSerializer)
 
 
 @api_view(['GET'])
@@ -31,7 +26,7 @@ def _with_refresh_cookie(response: Response) -> Response:
     if refresh is not None:
         max_age = int(api_settings.REFRESH_TOKEN_LIFETIME.total_seconds())
         response.set_cookie(key=settings.REFRESH_COOKIE_NAME, value=refresh, max_age=max_age, httponly=True,
-                            samesite="Lax")
+                            samesite=settings.REFRESH_COOKIE_SAMESITE, secure=settings.REFRESH_COOKIE_SECURE)
     return response
 
 
@@ -56,7 +51,8 @@ class LogoutAPIView(APIView):
 
     def delete(self, request: Request, *args, **kwargs) -> Response:
         response = Response(status=204)
-        response.delete_cookie(settings.REFRESH_COOKIE_NAME)
+        # 설정과 같은 속성으로 지워야 브라우저가 같은 쿠키로 인식한다
+        response.delete_cookie(settings.REFRESH_COOKIE_NAME, samesite=settings.REFRESH_COOKIE_SAMESITE)
         return response
 
 

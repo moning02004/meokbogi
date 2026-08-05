@@ -54,8 +54,15 @@ class RestaurantInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Restaurant
-        fields = ["id", "name", "description", "address", "category_name",
+        fields = ["id", "name", "description", "address", "category", "category_name",
                   "latest_ordered_at", "ordered_count", "review_avg", "menu_summaries", "review_count"]
+        extra_kwargs = {"category": {"write_only": True}}
+
+    def validate_category(self, value):
+        # 다른 사람의 존에 있는 카테고리로는 옮길 수 없다
+        if value.zone.user_id != self.context["request"].user.id:
+            raise serializers.ValidationError("이동할 수 없는 카테고리입니다.")
+        return value
 
     def get_menu_summaries(self, obj):
         queryset = obj.review_set.all().values("menu").annotate(

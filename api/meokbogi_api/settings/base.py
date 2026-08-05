@@ -187,4 +187,13 @@ SIMPLE_JWT = {
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [origin for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
 CORS_ALLOW_CREDENTIALS = True
+
+# ------------------------------------------------------------------------------
+# refresh 토큰 쿠키
+# ------------------------------------------------------------------------------
+# 프론트와 API가 같은 사이트(등록가능도메인이 동일)면 "Lax"로 충분하다.
+# 서로 다른 사이트면 "None" + Secure(=HTTPS)가 필요하다. SameSite=None은 Secure를
+# 강제하므로 평문 HTTP인 로컬에서는 브라우저가 쿠키 자체를 거부한다 → 로컬은 Lax 유지.
 REFRESH_COOKIE_NAME = "refreshtoken"
+REFRESH_COOKIE_SAMESITE = os.environ.get("REFRESH_COOKIE_SAMESITE", "Lax")
+REFRESH_COOKIE_SECURE = os.environ.get("REFRESH_COOKIE_SECURE", "false").lower() == "true"

@@ -17,6 +17,9 @@ import {LuCalendar, LuEllipsisVertical} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
+import {Modal} from "@/components/ui/modal";
+import {useCategoryStore} from "@/store/category";
+import {CategoryType} from "@/types/zone";
 
 const SENTIMENTS = {
     1: {icon: MdSentimentSatisfiedAlt, color: "#24564A", bg: "bg-[#B5E3C4]", text: "text-[#24564A]", label: "만족"},
@@ -47,14 +50,55 @@ const DateChipButton = forwardRef<HTMLButtonElement, { value?: string; onClick?:
 )
 DateChipButton.displayName = "DateChipButton"
 
+// 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
+// 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
+function ReviewContent({content}: { content: string }) {
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [isOverflowing, setIsOverflowing] = useState(false)
+
+    const measureRef = useCallback((element: HTMLDivElement | null) => {
+        if (!element) return
+        setIsOverflowing(element.scrollHeight > element.clientHeight + 1)
+    }, [])
+
+    return (
+        <>
+            <div
+                ref={measureRef}
+                className={`text-[13px] text-[#8A8172] mt-0.5 leading-snug whitespace-pre-wrap ${
+                    isExpanded ? "" : "line-clamp-2"
+                }`}
+            >
+                {content}
+            </div>
+            {isOverflowing && (
+                <button
+                    onClick={() => setIsExpanded((prev) => !prev)}
+                    className="text-[12px] font-bold text-[#B7AF9F] mt-0.5 cursor-pointer sm:hover:text-[#24564A] transition-colors"
+                >
+                    {isExpanded ? "접기" : "더보기"}
+                </button>
+            )}
+        </>
+    )
+}
+
 export default function Page() {
     const {id: restaurantId} = useParams<{ id: string }>()
     const {token} = useAuthStore.getState()
     const router = useRouter()
+    const categories = useCategoryStore(state => state.categories)
     const maxDate = new Date();
 
     const [restaurant, setRestaurant] = useState<RestaurantType | null>(null)
     const [menuSummaries, setMenuSummaries] = useState<MenuSummaryType[]>([])
+
+    // 음식점 수정
+    const [isEditingRestaurant, setIsEditingRestaurant] = useState(false)
+    const [editCategory, setEditCategory] = useState<CategoryType | null>(null)
+    const [editName, setEditName] = useState("")
+    const [editDescription, setEditDescription] = useState("")
+    const [editAddress, setEditAddress] = useState("")
 
     // 리뷰 폼
     const [reviewPoint, setReviewPoint] = useState<SentimentKey>(1)
@@ -134,6 +178,50 @@ export default function Page() {
         setActiveTab("all")
     }
 
+    // 현재 값으로 폼을 채운 뒤 수정 모달을 연다
+    const editRestaurant = () => {
+        if (!restaurant) return
+        setEditCategory(categories.find((category) => category.keyword === restaurant.category_name) ?? null)
+        setEditName(restaurant.name)
+        setEditDescription(restaurant.description ?? "")
+        setEditAddress(restaurant.address ?? "")
+        setIsEditingRestaurant(true)
+    }
+
+    const saveRestaurant = () => {
+        if (!editName.trim() || !editCategory) {
+            toast.error("음식점 이름과 카테고리를 선택해주세요.")
+            return;
+        }
+
+        const restaurantUpdate = RESTAURANT_API.update
+        apiRequest[restaurantUpdate.method](restaurantUpdate.endpoint({
+            restaurant: Number(restaurantId)
+        }), {
+            body: JSON.stringify({
+                category: editCategory.id,
+                name: editName.trim(),
+                description: editDescription,
+                address: editAddress,
+            })
+        }).then(() => {
+            setIsEditingRestaurant(false)
+            fetchRestaurant()
+        }).catch(() => {
+            toast.error("수정에 실패했어요. 잠시 후 다시 시도해주세요.")
+        })
+    }
+
+    const deleteRestaurant = () => {
+        if (!confirm("음식점을 삭제하시겠습니까?")) return
+        const deleteRestaurantAPI = RESTAURANT_API.delete
+        apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: Number(restaurantId)}))
+            .then(() => {
+                toast.success("음식점이 삭제되었습니다.")
+                router.replace("/restaurant")
+            })
+    }
+
     // 입력한 텍스트로 시작하는 기존 메뉴 (없으면 새 메뉴로 기록됨)
     const keyword = reviewMenu.trim()
     const menuSuggestions = keyword
@@ -196,7 +284,7 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="h-[100%] bg-white pb-10">
+            <div className="min-h-[100%] bg-white mb-10">
 
                 <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
                     <button className="text-[#211D17] cursor-pointer" onClick={() => router.back()}>
@@ -216,15 +304,31 @@ export default function Page() {
                 {/* ---- 음식점 정보 ---- */}
                 <div className="mx-5 mt-2 mb-4 bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-4 py-3.5">
                     <div className="flex items-center gap-2 mb-1">
-                        <div
-                            className="text-[18px] font-extrabold text-[#211D17] tracking-tight">{restaurant.name}</div>
-                        {restaurant.review_avg !== null && getReviewTextBox(restaurant.review_avg)}
+                        <div className="flex flex-row">
+                            <div
+                                className="text-[18px] font-extrabold text-[#211D17] tracking-tight">
+                                {restaurant.name}
+                            </div>
+                            {restaurant.review_avg !== null && getReviewTextBox(restaurant.review_avg)}
+                        </div>
+                        <div className="ml-auto">
+                            <ActionDrawer
+                                items={[{
+                                    label: "음식점 수정",
+                                    onClick: () => editRestaurant(),
+                                }, {
+                                    label: "음식점 삭제",
+                                    danger: true,
+                                    onClick: () => deleteRestaurant(),
+                                }]}
+                            />
+                        </div>
                     </div>
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
                         {restaurant.category_name} · {restaurant.address || "주소 미등록"}
                     </div>
                     <div
-                        className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed">{restaurant.description || "소개 없음"}</div>
+                        className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed bg-white px-3 py-1 rounded border border-[#E7E0CF]">{restaurant.description || "소개 없음"}</div>
                     <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
                         방문 {restaurant.ordered_count}회 · 최근 방문 {restaurant.latest_ordered_at || "-"} · 전체
                         리뷰 {restaurant.review_count} 개
@@ -292,14 +396,12 @@ export default function Page() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <input
+                        <textarea
                             value={reviewContent}
                             onChange={(e) => setReviewContent(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.nativeEvent.isComposing) registerReview()
-                            }}
                             placeholder="한줄평 (선택)"
-                            className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none"
+                            rows={2}
                         />
                         <button
                             onClick={registerReview}
@@ -354,7 +456,7 @@ export default function Page() {
                 )}
 
                 {/* ---- 리스트 ---- */}
-                <div className="mx-5 border border-[#E7E0CF] rounded-2xl px-3.5">
+                <div className="mx-5 border border-[#E7E0CF] rounded-2xl px-3.5 mb-10">
                     {activeTab === "menu" ? (
                         menuSummaries.length === 0 ? (
                             <p className="text-[13px] text-[#B7AF9F] text-center py-8">아직 기록된 메뉴가 없어요.</p>
@@ -401,8 +503,7 @@ export default function Page() {
                                                         {review.menu?.trim() || "메뉴 미기재"}
                                                     </div>
                                                 </div>
-                                                <div
-                                                    className="text-[13px] text-[#8A8172] mt-0.5 leading-snug">{review.content || "내용 없음"}</div>
+                                                <ReviewContent content={review.content || "내용 없음"}/>
                                             </div>
                                             <div
                                                 className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0">
@@ -438,6 +539,79 @@ export default function Page() {
                         </>
                     )}
                 </div>
+
+                {/* ---- 음식점 수정 ---- */}
+                <Modal
+                    title="음식점 수정"
+                    open={isEditingRestaurant}
+                    onOpenChange={setIsEditingRestaurant}
+                >
+                    <div className="flex flex-col gap-3">
+                        <div>
+                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                대표 카테고리 <span className="text-[#D2571E]">*</span>
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {categories.map((category: CategoryType) => (
+                                    <button
+                                        key={category.id}
+                                        type="button"
+                                        onClick={() => setEditCategory(category)}
+                                        className={`px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
+                                            editCategory?.id === category.id
+                                                ? "bg-[#24564A] text-white border-[#24564A]"
+                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                        }`}
+                                    >
+                                        {category.keyword}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                이름 <span className="text-[#D2571E]">*</span>
+                            </label>
+                            <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                placeholder="예: 미뜨레피자"
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">설명</label>
+                            <input
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                placeholder="이 음식점에 대한 짧은 메모"
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">주소</label>
+                            <input
+                                value={editAddress}
+                                onChange={(e) => setEditAddress(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.nativeEvent.isComposing) saveRestaurant()
+                                }}
+                                placeholder="예: 서울시 강남구 ..."
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            />
+                        </div>
+
+                        <button
+                            onClick={saveRestaurant}
+                            className="w-full text-[13.5px] font-bold text-white bg-[#24564A] rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-[#1c443a] transition-colors"
+                        >
+                            수정하기
+                        </button>
+                    </div>
+                </Modal>
             </div>
         </Suspense>
     )

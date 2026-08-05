@@ -23,8 +23,8 @@ export function ActionDrawer({trigger, items, closeLabel = "취소", extraButton
             <Drawer.Trigger asChild>
                 {trigger ?? (
                     <div className="drawer-button">
-                        <button className="drawer-menu">
-                            <LuEllipsisVertical size={22}/>
+                        <button className="cursor-pointer sm:hover:bg-gray-200 rounded-full">
+                            <LuEllipsisVertical size={16}/>
                         </button>
                     </div>
                 )}

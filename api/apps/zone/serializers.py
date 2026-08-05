@@ -21,7 +21,8 @@ class ZoneListSerializer(serializers.ModelSerializer):
         validated_data["user_id"] = self.context["request"].user.id
         instance = super().create(validated_data)
 
-        category_keywords = ["치킨", "피자", "파스타", "족발/보쌈", "회", "찜/탕", "중식", "분식", "돈까스", "일식", "동남아"]
+        category_keywords = ["치킨", "피자", "파스타", "족발/보쌈", "회", "찜/탕", "중식", "분식", "돈까스", "일식", "동남아", "카레",
+                             "햄버거"]
         bulk_creates = list()
         for keyword in category_keywords:
             bulk_creates.append(Category(zone=instance, keyword=keyword))
@@ -41,8 +42,7 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Zone
         fields = ["id", "name", "category", "restaurant_count", "review_count", "monthly_visited_count",
-                  "delicious_restaurants",
-                  "recent_restaurants"]
+                  "delicious_restaurants", "recent_restaurants"]
 
     def create(self, validated_data):
         validated_data["user_id"] = self.context["request"].user.id

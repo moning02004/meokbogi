@@ -14,7 +14,9 @@ class ZoneViewSet(viewsets.ModelViewSet):
     serializer_class = ZoneListSerializer
 
     def get_queryset(self):
-        return Zone.objects.filter(user_id=self.request.user.id).order_by("-id")
+        return Zone.objects.filter(user_id=self.request.user.id).annotate(
+            latest_ordered_at=Coalesce(Max("category__restaurant__review_set__ordered_at"), None)
+        ).order_by("-latest_ordered_at", "id")
 
 
 class ZoneDeleteAPIView(DestroyAPIView):
