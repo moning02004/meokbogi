@@ -1,11 +1,11 @@
 import {apiRequest, refreshAccessToken} from "@/lib/api";
 import {useAuthStore} from "@/store/auth";
+import {useZoneStore} from "@/store/zone";
+import {useCategoryStore} from "@/store/category";
 
 export const authLogout = async () => {
-    const {logout} = useAuthStore.getState();
-
     await apiRequest.delete("/auth/token").catch(() => null);
-    logout()
+    sessionStorage.clear()
     window.location.replace("/login")
 }
 

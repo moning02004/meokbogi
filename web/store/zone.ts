@@ -9,6 +9,8 @@ interface ZoneState {
 
     selectedZone: ZoneType | null
     setSelectedZone: (selectedZone: ZoneType) => void
+
+    clear: () => void
 }
 
 export const useZoneStore = create<ZoneState>()(
@@ -18,6 +20,11 @@ export const useZoneStore = create<ZoneState>()(
             setZones: (zones) => set({zones}),
             selectedZone: null,
             setSelectedZone: (selectedZone) => set({selectedZone}),
+
+            clear: () => {
+                set({zones: [], selectedZone: null});
+                useZoneStore.persist.clearStorage();
+            }
         }),
         {
             name: 'zones',

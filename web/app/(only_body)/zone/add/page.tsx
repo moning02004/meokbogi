@@ -21,7 +21,7 @@ export default function Page() {
             .then((response: { results: ZoneType[] }) => {
                 if (response.results) {
                     setZones(response.results.sort((a, b) =>
-                        b.id - a.id
+                        a.id - b.id
                     ))
                     setSelectedZone(response.results[0])
                 }

@@ -15,7 +15,8 @@ class ZoneViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Zone.objects.filter(user_id=self.request.user.id).annotate(
-            latest_ordered_at=Coalesce(Max("category__restaurant__review_set__ordered_at"), None)
+            latest_ordered_at=Coalesce(Max("category__restaurant__review_set__ordered_at"),
+                                       datetime.strptime("2000-01-01", "%Y-%m-%d").date())
         ).order_by("-latest_ordered_at", "id")
 
 
