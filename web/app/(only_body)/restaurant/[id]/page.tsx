@@ -50,6 +50,39 @@ const DateChipButton = forwardRef<HTMLButtonElement, { value?: string; onClick?:
 )
 DateChipButton.displayName = "DateChipButton"
 
+// 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
+// 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
+function ReviewContent({content}: { content: string }) {
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [isOverflowing, setIsOverflowing] = useState(false)
+
+    const measureRef = useCallback((element: HTMLDivElement | null) => {
+        if (!element) return
+        setIsOverflowing(element.scrollHeight > element.clientHeight + 1)
+    }, [])
+
+    return (
+        <>
+            <div
+                ref={measureRef}
+                className={`text-[13px] text-[#8A8172] mt-0.5 leading-snug whitespace-pre-wrap ${
+                    isExpanded ? "" : "line-clamp-2"
+                }`}
+            >
+                {content}
+            </div>
+            {isOverflowing && (
+                <button
+                    onClick={() => setIsExpanded((prev) => !prev)}
+                    className="text-[12px] font-bold text-[#B7AF9F] mt-0.5 cursor-pointer sm:hover:text-[#24564A] transition-colors"
+                >
+                    {isExpanded ? "접기" : "더보기"}
+                </button>
+            )}
+        </>
+    )
+}
+
 export default function Page() {
     const {id: restaurantId} = useParams<{ id: string }>()
     const {token} = useAuthStore.getState()
@@ -363,14 +396,12 @@ export default function Page() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <input
+                        <textarea
                             value={reviewContent}
                             onChange={(e) => setReviewContent(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.nativeEvent.isComposing) registerReview()
-                            }}
                             placeholder="한줄평 (선택)"
-                            className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none"
+                            rows={2}
                         />
                         <button
                             onClick={registerReview}
@@ -472,8 +503,7 @@ export default function Page() {
                                                         {review.menu?.trim() || "메뉴 미기재"}
                                                     </div>
                                                 </div>
-                                                <div
-                                                    className="text-[13px] text-[#8A8172] mt-0.5 leading-snug">{review.content || "내용 없음"}</div>
+                                                <ReviewContent content={review.content || "내용 없음"}/>
                                             </div>
                                             <div
                                                 className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0">
