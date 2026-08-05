@@ -20,6 +20,8 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
 
     def validate(self, attrs):
         attrs["refresh"] = self.context["request"].COOKIES.get(settings.REFRESH_COOKIE_NAME)
+        if attrs["refresh"] is None:
+            raise serializers.ValidationError({"refresh": "refresh 토큰이 없습니다."})
 
         data = super().validate(attrs)
         token = RefreshToken(attrs["refresh"])

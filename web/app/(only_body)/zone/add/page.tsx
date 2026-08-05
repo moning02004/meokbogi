@@ -20,7 +20,7 @@ export default function Page() {
         apiRequest[ZONE_API.list.method]<{ results: ZoneType[] }>(ZONE_API.list.endpoint)
             .then((response: { results: ZoneType[] }) => {
                 if (response.results) {
-                    setZones(reponse.results.sort((a, b) =>
+                    setZones(response.results.sort((a, b) =>
                         b.id - a.id
                     ))
                     setSelectedZone(response.results[0])
