@@ -1,7 +1,4 @@
 import {apiRequest, refreshAccessToken} from "@/lib/api";
-import {useAuthStore} from "@/store/auth";
-import {useZoneStore} from "@/store/zone";
-import {useCategoryStore} from "@/store/category";
 
 export const authLogout = async () => {
     await apiRequest.delete("/auth/token").catch(() => null);
