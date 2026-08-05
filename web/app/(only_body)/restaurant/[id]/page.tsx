@@ -180,6 +180,7 @@ export default function Page() {
     }
 
     const deleteRestaurant = () => {
+        if (!confirm("음식점을 삭제하시겠습니까?")) return
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: Number(restaurantId)}))
             .then(() => {

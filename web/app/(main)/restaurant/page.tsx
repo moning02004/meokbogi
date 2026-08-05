@@ -88,6 +88,8 @@ export default function Page() {
         router.push(RESTAURANT_PAGE.detail(_id))
     }
     const deleteRestaurant = (_id: number) => {
+        if (!confirm("음식점을 삭제하시겠습니까?")) return
+
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: _id})).then(() => {
             setRestaurants(() => restaurants.filter(x => x.id != _id))
