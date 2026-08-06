@@ -18,6 +18,7 @@ HOST_NAME="${MEOKBOGI_HOST:-}"
 WEB_PORT="${MEOKBOGI_WEB_PORT:-}"
 API_PORT="${MEOKBOGI_API_PORT:-}"
 SCHEME="${MEOKBOGI_SCHEME:-}"
+NETWORK_NAME="${MEOKBOGI_NETWORK:-}"
 ADMIN_USER="${MEOKBOGI_ADMIN_USER:-}"
 ADMIN_PASSWORD="${MEOKBOGI_ADMIN_PASSWORD:-}"
 ADMIN_NAME="${MEOKBOGI_ADMIN_NAME:-}"
@@ -56,6 +57,8 @@ usage() {
   --web-port <포트>          웹 포트                              (기본: 3003)
   --api-port <포트>          API 포트                             (기본: 3004)
   --scheme <http|https>      접속 스킴                            (기본: http)
+  --network <이름>           도커 네트워크 이름                   (기본: meokbogi-net)
+                             이미 있는 네트워크면 새로 만들지 않고 그 네트워크에 연결
   --dir <경로>               설치 디렉터리                        (기본: ./meokbogi)
   --admin-user <아이디>      관리자 아이디                        (기본: admin)
   --admin-password <비밀번호> 관리자 비밀번호                     (기본: 자동 생성)
@@ -66,7 +69,7 @@ usage() {
 
 환경변수로도 지정할 수 있습니다:
   MEOKBOGI_HOST, MEOKBOGI_WEB_PORT, MEOKBOGI_API_PORT, MEOKBOGI_SCHEME,
-  MEOKBOGI_DIR, MEOKBOGI_ADMIN_USER, MEOKBOGI_ADMIN_PASSWORD,
+  MEOKBOGI_NETWORK, MEOKBOGI_DIR, MEOKBOGI_ADMIN_USER, MEOKBOGI_ADMIN_PASSWORD,
   MEOKBOGI_ADMIN_NAME, MEOKBOGI_YES, MEOKBOGI_NO_START, MEOKBOGI_BRANCH
 EOF
 }
@@ -77,6 +80,7 @@ while [ $# -gt 0 ]; do
         --web-port) WEB_PORT="${2:?--web-port 값이 필요합니다}"; shift 2 ;;
         --api-port) API_PORT="${2:?--api-port 값이 필요합니다}"; shift 2 ;;
         --scheme) SCHEME="${2:?--scheme 값이 필요합니다}"; shift 2 ;;
+        --network) NETWORK_NAME="${2:?--network 값이 필요합니다}"; shift 2 ;;
         --dir) INSTALL_DIR="${2:?--dir 값이 필요합니다}"; shift 2 ;;
         --admin-user) ADMIN_USER="${2:?--admin-user 값이 필요합니다}"; shift 2 ;;
         --admin-password) ADMIN_PASSWORD="${2:?--admin-password 값이 필요합니다}"; shift 2 ;;
@@ -218,6 +222,7 @@ collect_settings() {
         WEB_PORT="${WEB_PORT:-$(env_value "$env_file" WEB_PORT)}"
         API_PORT="${API_PORT:-$(env_value "$env_file" API_PORT)}"
         SCHEME="${SCHEME:-$(env_value "$env_file" APP_SCHEME)}"
+        NETWORK_NAME="${NETWORK_NAME:-$(env_value "$env_file" NETWORK_NAME)}"
     fi
 
     ask HOST_NAME "접속에 사용할 호스트명 또는 IP" "localhost"
@@ -233,6 +238,7 @@ collect_settings() {
 
     ask WEB_PORT  "웹 포트" "3003"
     ask API_PORT  "API 포트" "3004"
+    ask NETWORK_NAME "도커 네트워크 이름" "meokbogi-net"
     SCHEME="${SCHEME:-http}"
     ask ADMIN_USER "관리자 아이디" "admin"
     ask_secret ADMIN_PASSWORD "관리자 비밀번호"
@@ -247,6 +253,17 @@ collect_settings() {
     esac
     [ "$WEB_PORT" != "$API_PORT" ] || die "웹 포트와 API 포트가 같습니다."
     [ ${#ADMIN_PASSWORD} -ge 8 ] || die "관리자 비밀번호는 8자 이상이어야 합니다."
+    case "$NETWORK_NAME" in
+        ""|*[!A-Za-z0-9._-]*) die "네트워크 이름에는 영문·숫자·'.'·'_'·'-' 만 쓸 수 있습니다 (입력: $NETWORK_NAME)" ;;
+    esac
+
+    # 이미 있는 네트워크면 external 로 붙인다. 다른 스택이 쓰는 네트워크를
+    # compose 가 자기 것으로 알고 지우거나 다시 만들지 않게 하기 위함.
+    if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+        NETWORK_EXTERNAL="true"
+    else
+        NETWORK_EXTERNAL="false"
+    fi
 
     WEB_ORIGIN="${SCHEME}://${HOST_NAME}:${WEB_PORT}"
     API_ORIGIN="${SCHEME}://${HOST_NAME}:${API_PORT}"
@@ -273,6 +290,34 @@ collect_settings() {
     info "웹            $WEB_ORIGIN"
     info "API           $API_ORIGIN"
     info "관리자        $ADMIN_USER"
+    if [ "$NETWORK_EXTERNAL" = "true" ]; then
+        info "네트워크      $NETWORK_NAME (이미 있는 네트워크에 연결)"
+    else
+        info "네트워크      $NETWORK_NAME (새로 생성)"
+    fi
+
+    check_ports
+}
+
+port_owner() {  # port_owner <포트> — 그 호스트 포트를 이미 게시한 컨테이너 이름
+    docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null \
+        | awk -v p=":$1->" 'index($0, p) { print $1; exit }'
+}
+
+check_ports() {
+    # 이 디렉터리의 스택이 이미 떠 있는 상태(재실행)라면 자기 포트를 잡고 있는 게 정상이므로 건너뛴다.
+    if [ -f "$INSTALL_DIR/docker-compose.yaml" ]; then
+        local running=""
+        running="$( cd "$INSTALL_DIR" && $COMPOSE ps -q 2>/dev/null || true )"
+        [ -z "$running" ] || return 0
+    fi
+
+    local web_owner="" api_owner=""
+    web_owner="$(port_owner "$WEB_PORT")"
+    api_owner="$(port_owner "$API_PORT")"
+
+    [ -z "$web_owner" ] || warn "웹 포트 $WEB_PORT 은 컨테이너 '$web_owner' 가 이미 쓰고 있습니다 → --web-port 로 바꿔주세요."
+    [ -z "$api_owner" ] || warn "API 포트 $API_PORT 은 컨테이너 '$api_owner' 가 이미 쓰고 있습니다 → --api-port 로 바꿔주세요."
 }
 
 # ---------------------------------------------------------------- 파일 생성
@@ -319,6 +364,8 @@ DB_USER=meokbogi
 DB_PASSWORD=${DB_PASSWORD}
 DB_HOST=postgres
 DB_PORT=5432
+
+NETWORK_NAME=${NETWORK_NAME}
 EOF
     umask 022
 
@@ -369,6 +416,18 @@ services:
 volumes:
   postgres_data:
 EOF
+
+    # 모든 서비스가 자동으로 붙는 default 네트워크의 실제 이름을 지정한다.
+    # 이미 존재하는 네트워크면 external 로 선언해 compose 가 관리(재생성·삭제)하지 않게 한다.
+    cat >> "$INSTALL_DIR/docker-compose.yaml" <<EOF
+
+networks:
+  default:
+    name: \${NETWORK_NAME}
+EOF
+    if [ "$NETWORK_EXTERNAL" = "true" ]; then
+        printf '    external: true\n' >> "$INSTALL_DIR/docker-compose.yaml"
+    fi
 
     info ".env                  (권한 600, 시크릿 포함)"
     info "docker-compose.yaml"
@@ -433,7 +492,8 @@ summary() {
     printf '  관리자 페이지 %s/admin/\n' "$API_ORIGIN"
     printf '\n  아이디       %s\n' "$ADMIN_USER"
     printf '  비밀번호     %s\n' "$ADMIN_PASSWORD"
-    printf '\n%s  설치 경로: %s%s\n' "$C_DIM" "$INSTALL_DIR" "$C_OFF"
+    printf '\n%s  네트워크:  %s%s\n' "$C_DIM" "$NETWORK_NAME" "$C_OFF"
+    printf '%s  설치 경로: %s%s\n' "$C_DIM" "$INSTALL_DIR" "$C_OFF"
     printf '%s  관리:      cd %s && docker compose {ps,logs -f,down}%s\n\n' "$C_DIM" "$INSTALL_DIR" "$C_OFF"
     warn "비밀번호를 안전한 곳에 옮겨 적은 뒤, 로그인해서 첫 장소(Zone)를 만들어보세요."
 }
