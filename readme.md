@@ -102,6 +102,7 @@ curl -fsSL .../install.sh | bash -s -- --host 192.168.0.10 --admin-user moning -
 | `--api-port` | `MEOKBOGI_API_PORT` | `3004` | API 포트 |
 | `--scheme` | `MEOKBOGI_SCHEME` | `http` | `https`면 refresh 쿠키를 `SameSite=None; Secure`로 자동 전환 |
 | `--network` | `MEOKBOGI_NETWORK` | `meokbogi-net` | 도커 네트워크 이름. 이미 있는 네트워크면 새로 만들지 않고 그 네트워크에 연결 |
+| `--project` | `MEOKBOGI_PROJECT` | `meokbogi` | compose 프로젝트 이름 = 컨테이너·볼륨 이름의 접두사. 설치 디렉터리 이름과 무관하게 고정되므로 다른 스택과 볼륨이 섞이지 않음 |
 | `--dir` | `MEOKBOGI_DIR` | `./meokbogi` | 설치 디렉터리 |
 | `--admin-user` | `MEOKBOGI_ADMIN_USER` | `admin` | 관리자 아이디 |
 | `--admin-password` | `MEOKBOGI_ADMIN_PASSWORD` | 자동 생성 | 8자 이상. 컨테이너 환경변수로 전달되어 셸 히스토리에 남지 않음 |
@@ -128,7 +129,8 @@ curl -fsSL .../install.sh | bash -s -- --host 192.168.0.10 --admin-user moning -
 | `docker compose down -v` | 중지 + **DB 볼륨까지 삭제** |
 | `docker compose up -d --build` | `.env` 수정 후 재적용 |
 
-- **다른 스택과 충돌 회피** — 이미 도커가 돌고 있는 환경 기준. 웹·API 포트가 다른 컨테이너에 잡혀 있으면 **그 컨테이너 이름과 함께 경고** → `--web-port` / `--api-port`로 변경. 네트워크는 `--network`로 지정하고, 이미 있는 네트워크면 `external`로 연결해 compose가 재생성·삭제하지 않음. 컨테이너 이름도 고정하지 않아 설치 디렉터리별로 분리됨.
+- **다른 스택과 충돌 회피** — 이미 도커가 돌고 있는 환경 기준. 웹·API 포트가 다른 컨테이너에 잡혀 있으면 **그 컨테이너 이름과 함께 경고** → `--web-port` / `--api-port`로 변경. 네트워크는 `--network`로 지정하고, 이미 있는 네트워크면 `external`로 연결해 compose가 재생성·삭제하지 않음. 프로젝트 이름(`--project`)이 고정이라 **볼륨도 디렉터리 이름에 휩쓸리지 않고 분리**됨.
+- **DB 계정 자동 정합** — postgres 볼륨이 이미 다른 계정으로 초기화돼 있으면 `POSTGRES_USER`/`POSTGRES_PASSWORD`는 무시되어 `password authentication failed for user ...` 로 죽음. 기동 직후 컨테이너 내부 소켓으로 접속해 앱 계정·DB를 만들거나 비밀번호를 `.env`와 맞춤. 접속 가능한 계정을 못 찾으면 `.env` 수정 또는 `down -v` 안내를 출력.
 - **재실행 안전** — 같은 디렉터리에서 다시 실행하면 기존 시크릿 키와 DB를 유지한 채 재빌드 (관리자 비밀번호만 입력값으로 갱신). 소스 갱신은 `git pull` 후 재실행.
 - **직접 만든 설정 보존** — 스크립트가 만들지 않은 `.env` / `docker-compose.yaml`은 덮어쓰지 않고 `.bak.<시각>`으로 백업.
 - **API 주소는 빌드 시점 고정** — 웹 번들에 박히는 구조. 호스트·포트 변경 시 `.env` 수정 후 `--build`로 재빌드 필요.

@@ -19,6 +19,7 @@ WEB_PORT="${MEOKBOGI_WEB_PORT:-}"
 API_PORT="${MEOKBOGI_API_PORT:-}"
 SCHEME="${MEOKBOGI_SCHEME:-}"
 NETWORK_NAME="${MEOKBOGI_NETWORK:-}"
+PROJECT_NAME="${MEOKBOGI_PROJECT:-}"
 ADMIN_USER="${MEOKBOGI_ADMIN_USER:-}"
 ADMIN_PASSWORD="${MEOKBOGI_ADMIN_PASSWORD:-}"
 ADMIN_NAME="${MEOKBOGI_ADMIN_NAME:-}"
@@ -59,6 +60,8 @@ usage() {
   --scheme <http|https>      접속 스킴                            (기본: http)
   --network <이름>           도커 네트워크 이름                   (기본: meokbogi-net)
                              이미 있는 네트워크면 새로 만들지 않고 그 네트워크에 연결
+  --project <이름>           compose 프로젝트 이름                (기본: meokbogi)
+                             컨테이너·볼륨 이름의 접두사. 다른 스택과 볼륨을 섞지 않으려면 고유하게
   --dir <경로>               설치 디렉터리                        (기본: ./meokbogi)
   --admin-user <아이디>      관리자 아이디                        (기본: admin)
   --admin-password <비밀번호> 관리자 비밀번호                     (기본: 자동 생성)
@@ -69,7 +72,7 @@ usage() {
 
 환경변수로도 지정할 수 있습니다:
   MEOKBOGI_HOST, MEOKBOGI_WEB_PORT, MEOKBOGI_API_PORT, MEOKBOGI_SCHEME,
-  MEOKBOGI_NETWORK, MEOKBOGI_DIR, MEOKBOGI_ADMIN_USER, MEOKBOGI_ADMIN_PASSWORD,
+  MEOKBOGI_NETWORK, MEOKBOGI_PROJECT, MEOKBOGI_DIR, MEOKBOGI_ADMIN_USER, MEOKBOGI_ADMIN_PASSWORD,
   MEOKBOGI_ADMIN_NAME, MEOKBOGI_YES, MEOKBOGI_NO_START, MEOKBOGI_BRANCH
 EOF
 }
@@ -81,6 +84,7 @@ while [ $# -gt 0 ]; do
         --api-port) API_PORT="${2:?--api-port 값이 필요합니다}"; shift 2 ;;
         --scheme) SCHEME="${2:?--scheme 값이 필요합니다}"; shift 2 ;;
         --network) NETWORK_NAME="${2:?--network 값이 필요합니다}"; shift 2 ;;
+        --project) PROJECT_NAME="${2:?--project 값이 필요합니다}"; shift 2 ;;
         --dir) INSTALL_DIR="${2:?--dir 값이 필요합니다}"; shift 2 ;;
         --admin-user) ADMIN_USER="${2:?--admin-user 값이 필요합니다}"; shift 2 ;;
         --admin-password) ADMIN_PASSWORD="${2:?--admin-password 값이 필요합니다}"; shift 2 ;;
@@ -223,6 +227,7 @@ collect_settings() {
         API_PORT="${API_PORT:-$(env_value "$env_file" API_PORT)}"
         SCHEME="${SCHEME:-$(env_value "$env_file" APP_SCHEME)}"
         NETWORK_NAME="${NETWORK_NAME:-$(env_value "$env_file" NETWORK_NAME)}"
+        PROJECT_NAME="${PROJECT_NAME:-$(env_value "$env_file" COMPOSE_PROJECT_NAME)}"
     fi
 
     ask HOST_NAME "접속에 사용할 호스트명 또는 IP" "localhost"
@@ -239,6 +244,7 @@ collect_settings() {
     ask WEB_PORT  "웹 포트" "3003"
     ask API_PORT  "API 포트" "3004"
     ask NETWORK_NAME "도커 네트워크 이름" "meokbogi-net"
+    PROJECT_NAME="${PROJECT_NAME:-meokbogi}"
     SCHEME="${SCHEME:-http}"
     ask ADMIN_USER "관리자 아이디" "admin"
     ask_secret ADMIN_PASSWORD "관리자 비밀번호"
@@ -255,6 +261,9 @@ collect_settings() {
     [ ${#ADMIN_PASSWORD} -ge 8 ] || die "관리자 비밀번호는 8자 이상이어야 합니다."
     case "$NETWORK_NAME" in
         ""|*[!A-Za-z0-9._-]*) die "네트워크 이름에는 영문·숫자·'.'·'_'·'-' 만 쓸 수 있습니다 (입력: $NETWORK_NAME)" ;;
+    esac
+    case "$PROJECT_NAME" in
+        ""|*[!a-z0-9_-]*) die "프로젝트 이름에는 소문자·숫자·'_'·'-' 만 쓸 수 있습니다 (입력: $PROJECT_NAME)" ;;
     esac
 
     # 이미 있는 네트워크면 external 로 붙인다. 다른 스택이 쓰는 네트워크를
@@ -280,6 +289,12 @@ collect_settings() {
     [ -n "$DJANGO_SECRET_KEY" ] || DJANGO_SECRET_KEY="$(random_string 50)"
     [ -n "$DB_PASSWORD" ] || DB_PASSWORD="$(random_string 24)"
 
+    # 기존 postgres 볼륨에 맞추려고 .env 를 손으로 고쳤을 수 있으므로 그 값을 존중한다.
+    DB_NAME="$(env_value "$env_file" DB_NAME)"
+    DB_USER="$(env_value "$env_file" DB_USER)"
+    DB_NAME="${DB_NAME:-meokbogi}"
+    DB_USER="${DB_USER:-meokbogi}"
+
     # 사이트가 다르면(=HTTPS 크로스 사이트) refresh 쿠키에 SameSite=None; Secure 가 필요하다.
     if [ "$SCHEME" = "https" ]; then
         COOKIE_SAMESITE="None"; COOKIE_SECURE="true"
@@ -295,6 +310,8 @@ collect_settings() {
     else
         info "네트워크      $NETWORK_NAME (새로 생성)"
     fi
+
+    info "프로젝트      $PROJECT_NAME (컨테이너·볼륨 접두사)"
 
     check_ports
 }
@@ -359,13 +376,17 @@ CORS_ALLOWED_ORIGINS=${WEB_ORIGIN}
 REFRESH_COOKIE_SAMESITE=${COOKIE_SAMESITE}
 REFRESH_COOKIE_SECURE=${COOKIE_SECURE}
 
-DB_NAME=meokbogi
-DB_USER=meokbogi
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
 DB_HOST=postgres
 DB_PORT=5432
 
 NETWORK_NAME=${NETWORK_NAME}
+
+# 컨테이너·볼륨·네트워크 이름의 접두사. 같은 디렉터리에서 돌아가는 다른 스택과
+# 볼륨이 섞이지 않도록 디렉터리 이름 대신 이 값을 쓴다.
+COMPOSE_PROJECT_NAME=${PROJECT_NAME}
 EOF
     umask 022
 
@@ -429,16 +450,89 @@ EOF
         printf '    external: true\n' >> "$INSTALL_DIR/docker-compose.yaml"
     fi
 
+    # 키가 빠진 줄이 하나라도 있으면 compose 가 'setenv: invalid argument' 로만 죽어
+    # 원인을 찾기 어렵다. 여기서 미리 걸러낸다.
+    local bad=""
+    bad="$(awk 'NF && $0 !~ /^[[:space:]]*#/ && $0 !~ /^[A-Za-z_][A-Za-z0-9_]*=/ { print NR": "$0 }' \
+        "$INSTALL_DIR/.env")"
+    [ -z "$bad" ] || die ".env 형식이 잘못되었습니다 → $bad"
+
     info ".env                  (권한 600, 시크릿 포함)"
     info "docker-compose.yaml"
 }
 
 # ---------------------------------------------------------------- 기동
 
+compose_psql() {  # compose_psql <psql 인자...>
+    ( cd "$INSTALL_DIR" && $COMPOSE exec -T postgres psql -v ON_ERROR_STOP=1 "$@" )
+}
+
+# POSTGRES_USER / POSTGRES_PASSWORD 는 데이터 디렉터리가 빈 첫 기동에만 쓰인다.
+# 볼륨이 이미 다른 계정으로 초기화돼 있으면 앱 계정이 아예 없어서
+#   FATAL: password authentication failed for user "..."
+# 로 죽는다. 그래서 기동 후에 앱 계정과 DB를 직접 맞춰준다.
+# (컨테이너 안 유닉스 소켓은 pg_hba 가 trust 라서 비밀번호 없이 접속할 수 있다.)
+ensure_db_role() {
+    step "DB 계정 확인"
+
+    local attempt=0
+    until ( cd "$INSTALL_DIR" && $COMPOSE exec -T postgres pg_isready -q ) >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        [ "$attempt" -lt 10 ] || break
+        dim "DB 기동을 기다리는 중... ($attempt/10)"
+        sleep 3
+    done
+
+    local superuser=""
+    local candidate=""
+    for candidate in "$DB_USER" postgres admin; do
+        if compose_psql -U "$candidate" -d postgres -tAc 'select 1' >/dev/null 2>&1; then
+            superuser="$candidate"
+            break
+        fi
+    done
+
+    if [ -z "$superuser" ]; then
+        warn "DB에 접속할 수 있는 계정을 찾지 못했습니다. 이 볼륨이 다른 계정으로 초기화된 경우일 수 있습니다."
+        warn "  1) .env 의 DB_USER / DB_PASSWORD 를 기존 계정에 맞추고 다시 실행"
+        warn "  2) 또는 데이터를 버리고 새로 시작: cd $INSTALL_DIR && $COMPOSE down -v"
+        return 0
+    fi
+
+    # SQL 문자열 리터럴용으로 작은따옴표만 이스케이프한다.
+    local pw="${DB_PASSWORD//\'/\'\'}"
+
+    if [ "$(compose_psql -U "$superuser" -d postgres -tAc \
+            "select 1 from pg_roles where rolname = '$DB_USER'" 2>/dev/null)" = "1" ]; then
+        compose_psql -U "$superuser" -d postgres -c \
+            "alter role \"$DB_USER\" with login password '$pw'" >/dev/null
+        info "앱 계정 비밀번호를 .env 와 맞췄습니다: $DB_USER"
+    else
+        compose_psql -U "$superuser" -d postgres -c \
+            "create role \"$DB_USER\" with login createdb password '$pw'" >/dev/null
+        info "앱 계정을 새로 만들었습니다: $DB_USER"
+    fi
+
+    if [ "$(compose_psql -U "$superuser" -d postgres -tAc \
+            "select 1 from pg_database where datname = '$DB_NAME'" 2>/dev/null)" = "1" ]; then
+        compose_psql -U "$superuser" -d postgres -c \
+            "grant all on database \"$DB_NAME\" to \"$DB_USER\"" >/dev/null
+        compose_psql -U "$superuser" -d "$DB_NAME" -c \
+            "grant all on schema public to \"$DB_USER\"" >/dev/null
+        info "기존 데이터베이스를 사용합니다: $DB_NAME"
+    else
+        compose_psql -U "$superuser" -d postgres -c \
+            "create database \"$DB_NAME\" owner \"$DB_USER\"" >/dev/null
+        info "데이터베이스를 새로 만들었습니다: $DB_NAME"
+    fi
+}
+
 start_services() {
     step "이미지 빌드 및 실행 (처음에는 몇 분 걸립니다)"
     ( cd "$INSTALL_DIR" && $COMPOSE up -d --build --remove-orphans ) \
         || die "컨테이너를 실행하지 못했습니다. '$COMPOSE logs' 로 원인을 확인해주세요."
+
+    ensure_db_role
 
     step "데이터베이스 마이그레이션"
     local attempt=0
