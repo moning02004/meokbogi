@@ -56,8 +56,7 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                          review_point=Sum("review_set__point"),
                          latest_ordered_at=Max("review_set__ordered_at"),
                          ordered_count=Count("review_set__ordered_at", distinct=True),
-
-                     ).filter(latest_ordered_at__isnull=False).order_by(
+                     ).filter(latest_ordered_at__isnull=False, ordered_count__gte=2, review_avg__gte=0.6).order_by(
                          "-review_avg").distinct(),
                      to_attr='delicious_restaurants'),
 

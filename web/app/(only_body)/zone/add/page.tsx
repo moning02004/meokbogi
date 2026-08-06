@@ -8,25 +8,13 @@ import {FaArrowLeft} from "react-icons/fa";
 import {apiRequest} from "@/lib/api";
 import {ZONE_API} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
-import {ZoneType} from "@/types/zone";
+import {authLogout} from "@/lib/auth";
 
 export default function Page() {
     const router = useRouter()
     const {token} = useAuthStore.getState()
     const [zoneName, setZoneName] = useState<string>("")
-    const {setZones, setSelectedZone} = useZoneStore.getState();
-
-    useEffect(() => {
-        apiRequest[ZONE_API.list.method]<{ results: ZoneType[] }>(ZONE_API.list.endpoint)
-            .then((response: { results: ZoneType[] }) => {
-                if (response.results) {
-                    setZones(response.results.sort((a, b) =>
-                        a.id - b.id
-                    ))
-                    setSelectedZone(response.results[0])
-                }
-            })
-    }, []);
+    const zones = useZoneStore(state => state.zones)
 
     useEffect(() => {
         if (!token) window.location.href = "/login"
@@ -49,9 +37,11 @@ export default function Page() {
         <Suspense fallback={<LoadingPage/>}>
             <div className="h-[100%] flex flex-col">
                 <div className="flex items-center gap-3 px-4 py-4 bg-white border-b border-[#E7E0CF]">
-                    <button onClick={() => router.back()} className="text-[#211D17] cursor-pointer">
-                        <FaArrowLeft size={16}/>
-                    </button>
+                    {zones.length != 0 &&
+                        <button onClick={() => router.back()} className="text-[#211D17] cursor-pointer">
+                            <FaArrowLeft size={16}/>
+                        </button>
+                    }
                     <div className="text-[15px] font-bold text-[#211D17]">새 장소 추가</div>
                 </div>
 
@@ -89,6 +79,14 @@ export default function Page() {
                     >
                         존 만들기
                     </button>
+
+                    {zones.length == 0 &&
+                        <button
+                            onClick={() => authLogout()}
+                            className="w-full py-3.5 rounded-xl bg-[#EFF4F1] text-[#24564A] font-bold text-[15px] cursor-pointer mt-2 transition-colors sm:hover:bg-[#D9E6E0]"
+                        >
+                            로그인으로
+                        </button>}
                 </div>
             </div>
         </Suspense>

@@ -61,7 +61,6 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = RestaurantReview.objects.filter(restaurant_id=self.kwargs["restaurant_pk"])
         menu = self.request.query_params.get("menu")
-        print(menu)
         if menu is not None:
             queryset = queryset.filter(menu=menu)
         return queryset

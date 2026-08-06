@@ -4,7 +4,7 @@ import {Suspense, useEffect, useState} from "react"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {apiRequest} from "@/lib/api";
-import {RESTAURANT_PAGE, ZONE_API} from "@/constants/routeUrl";
+import {RESTAURANT_PAGE, ZONE_API, ZONE_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {ZoneType} from "@/types/zone";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
@@ -33,11 +33,13 @@ export default function Page() {
     useEffect(() => {
         apiRequest[ZONE_API.list.method]<{ results: ZoneType[] }>(ZONE_API.list.endpoint)
             .then((response: { results: ZoneType[] }) => {
-                if (response.results) {
+                if (response.results.length > 0) {
                     setZones(response.results)
                     if (!selectedZone) {
                         setSelectedZone(response.results[0])
                     }
+                } else {
+                    window.location.replace(ZONE_PAGE.add)
                 }
             })
     }, []);
@@ -76,7 +78,7 @@ export default function Page() {
 
                 {/* ---- 계기판 스타일 통계 카드 ---- */}
                 <div
-                    className="rounded-[22px] bg-[#17372F] px-5 pt-5 pb-4 mb-3 text-[#EFF4F1] relative overflow-hidden">
+                    className="rounded-[22px] bg-[#17372F] px-5 pt-5 pb-4 mb-3 text-[#EFF4F1] relative">
                     <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#B9CFC8] mb-4">
                         <BsForkKnife size={13}/>
                         {selectedZone.name} 기록
@@ -126,11 +128,14 @@ export default function Page() {
                 </div>
 
                 {/* ---- 리스트 ---- */}
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2.5 overflow-y-auto h-[100%] pb-4">
                     {activeTab === "delicious" ? (
 
                         !deliciousRestaurants.length ? (
-                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 음식점이 없습니다.</p>
+                                <p className="text-sm text-[#8A8172] py-4">
+                                    아직 믿고 먹는 음식점이 없습니다. <br/>
+                                    최소 방문 3회 이상, 최고 만족도를 받은 음식점이 믿고 먹는 음식점으로 선정됩니다.
+                                </p>
                             ) :
                             deliciousRestaurants.map((restaurant) => {
                                 const reviewTextBox = getReviewTextBox(restaurant.review_avg)

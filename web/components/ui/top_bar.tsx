@@ -1,7 +1,7 @@
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {FaAngleDown} from "react-icons/fa";
 import {useRouter} from "next/navigation";
-import {ZONE_URL} from "@/constants/routeUrl";
+import {ZONE_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {ZoneType} from "@/types/zone";
 import {useCategoryStore} from "@/store/category";
@@ -19,7 +19,7 @@ export const Topbar = () => {
     }
 
     const gotoAddZone = () => {
-        router.push(ZONE_URL.add)
+        router.push(ZONE_PAGE.add)
     }
 
     return (
@@ -40,7 +40,7 @@ export const Topbar = () => {
                     </button>
                 }
                 items={
-                    zones.map((x) => ({
+                    (zones ?? []).map((x) => ({
                         label: x.name,
                         onClick: () => changeZone(x),
                     }))

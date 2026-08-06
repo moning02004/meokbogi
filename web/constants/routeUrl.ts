@@ -1,4 +1,4 @@
-export const ZONE_URL = {
+export const ZONE_PAGE = {
     add: "/zone/add"
 }
 
