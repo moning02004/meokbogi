@@ -244,7 +244,7 @@ collect_settings() {
     ask WEB_PORT  "웹 포트" "3003"
     ask API_PORT  "API 포트" "3004"
     ask NETWORK_NAME "도커 네트워크 이름" "meokbogi-net"
-    PROJECT_NAME="${PROJECT_NAME:-meokbogi}"
+    ask PROJECT_NAME "compose 프로젝트 이름 (컨테이너·볼륨 접두사)" "meokbogi"
     SCHEME="${SCHEME:-http}"
     ask ADMIN_USER "관리자 아이디" "admin"
     ask_secret ADMIN_PASSWORD "관리자 비밀번호"
@@ -294,6 +294,9 @@ collect_settings() {
     DB_USER="$(env_value "$env_file" DB_USER)"
     DB_NAME="${DB_NAME:-meokbogi}"
     DB_USER="${DB_USER:-meokbogi}"
+    case "$DB_NAME$DB_USER" in
+        *[!A-Za-z0-9_]*) die ".env 의 DB_NAME / DB_USER 에는 영문·숫자·'_' 만 쓸 수 있습니다 (DB_NAME=$DB_NAME, DB_USER=$DB_USER)" ;;
+    esac
 
     # 사이트가 다르면(=HTTPS 크로스 사이트) refresh 쿠키에 SameSite=None; Secure 가 필요하다.
     if [ "$SCHEME" = "https" ]; then
@@ -520,11 +523,58 @@ ensure_db_role() {
         compose_psql -U "$superuser" -d "$DB_NAME" -c \
             "grant all on schema public to \"$DB_USER\"" >/dev/null
         info "기존 데이터베이스를 사용합니다: $DB_NAME"
+        align_object_owner "$superuser"
     else
         compose_psql -U "$superuser" -d postgres -c \
             "create database \"$DB_NAME\" owner \"$DB_USER\"" >/dev/null
         info "데이터베이스를 새로 만들었습니다: $DB_NAME"
     fi
+}
+
+# 이미 다른 계정이 만들어 둔 테이블이 있으면 권한만으로는 부족하다.
+#   - SELECT/INSERT 는 GRANT 로 되지만  → permission denied for table django_migrations
+#   - ALTER TABLE 은 소유자만 가능하다  → migrate 가 중간에 깨진다
+# 그래서 public 스키마의 객체 소유자를 앱 계정으로 옮긴다. 데이터는 그대로다.
+# (기존 소유자가 슈퍼유저면 소유권을 넘겨도 계속 접근할 수 있어 다른 스택이 깨지지 않는다.)
+align_object_owner() {  # align_object_owner <슈퍼유저>
+    local superuser="$1" owned_by_others=""
+    owned_by_others="$(compose_psql -U "$superuser" -d "$DB_NAME" -tAc "
+        select count(*) from pg_class c
+        join pg_namespace ns on ns.oid = c.relnamespace
+        where ns.nspname = 'public'
+          and c.relkind in ('r','p','S','v','m')
+          and pg_get_userbyid(c.relowner) <> '$DB_USER'" 2>/dev/null || echo 0)"
+    owned_by_others="${owned_by_others:-0}"
+
+    if [ "$owned_by_others" -gt 0 ] 2>/dev/null; then
+        compose_psql -U "$superuser" -d "$DB_NAME" -c "
+            do \$do\$
+            declare obj record;
+            begin
+                for obj in
+                    select c.relkind, c.relname from pg_class c
+                    join pg_namespace ns on ns.oid = c.relnamespace
+                    where ns.nspname = 'public'
+                      and c.relkind in ('r','p','S','v','m')
+                      and pg_get_userbyid(c.relowner) <> '$DB_USER'
+                loop
+                    execute format('alter %s public.%I owner to %I',
+                        case obj.relkind
+                            when 'S' then 'sequence'
+                            when 'v' then 'view'
+                            when 'm' then 'materialized view'
+                            else 'table'
+                        end, obj.relname, '$DB_USER');
+                end loop;
+            end
+            \$do\$;" >/dev/null
+        info "기존 객체 ${owned_by_others}개의 소유자를 $DB_USER 로 옮겼습니다 (데이터는 그대로)"
+    fi
+
+    compose_psql -U "$superuser" -d "$DB_NAME" -c \
+        "grant all on all tables in schema public to \"$DB_USER\"" >/dev/null
+    compose_psql -U "$superuser" -d "$DB_NAME" -c \
+        "grant all on all sequences in schema public to \"$DB_USER\"" >/dev/null
 }
 
 start_services() {
