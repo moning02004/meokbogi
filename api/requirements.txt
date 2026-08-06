@@ -1,11 +1,13 @@
-django
-django-rest-framework
-djangorestframework-simplejwt
+# Django 6.1에서 django.utils.cache.cc_delim_re 가 제거되어 DRF 3.17.x 가 import에 실패한다.
+# DRF가 6.1을 지원할 때까지 6.0 계열로 고정한다.
+django>=6.0,<6.1
+djangorestframework>=3.17,<4
+djangorestframework-simplejwt>=5.5,<6
 
-django-cors-headers
+django-cors-headers>=4.9,<5
 gunicorn>=21.2.0
 uvicorn[standard]>=0.27.1
-psycopg2-binary
+psycopg2-binary>=2.9,<3
 
 whitenoise>=6.6.0
 django-debug-toolbar
