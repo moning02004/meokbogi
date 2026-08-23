@@ -1,13 +1,15 @@
 "use client"
 
-import {useEffect, useState} from "react"
+import {useSyncExternalStore} from "react"
+
+// navigator는 서버에 없으므로 SSR 스냅샷은 false를 주고 클라이언트에서만 실제 값을 읽는다.
+// useEffect + setState로 하면 하이드레이션 직후 한 번 더 렌더링된다.
+const subscribe = () => () => {}
+const getIsIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+const getIsIOSOnServer = () => false
 
 export function InstallAppSection() {
-    const [isIOS, setIsIOS] = useState(false)
-
-    useEffect(() => {
-        setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent))
-    }, [])
+    const isIOS = useSyncExternalStore(subscribe, getIsIOS, getIsIOSOnServer)
 
     return (
         <div className="mx-5 mb-8 bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-5 py-5">

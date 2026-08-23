@@ -16,14 +16,13 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Quick-start development settings - unsuitable for production
+# 이 파일은 개발·테스트용 기본값이다. 운영 설정은 settings/product.py 를 쓴다.
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-skj!(nz)c)c+4b9#yfmt2uin8o%%7hrx-z%!n$smuokm2x9qxh'
+# 운영에서는 반드시 환경변수로 주입한다. product.py 는 값이 없으면 부팅에 실패한다.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-dev-only-do-not-deploy")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
 ALLOWED_HOSTS = ["localhost"]
 
