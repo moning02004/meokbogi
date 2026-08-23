@@ -78,7 +78,8 @@ class CategoryListAPIView(ListCreateAPIView):
     serializer_class = CategoryListSerializer
 
     def get_queryset(self):
-        return Category.objects.filter(zone_id=self.kwargs["zone_pk"])
+        return Category.objects.filter(zone__user_id=self.request.user.id,
+                                       zone_id=self.kwargs["zone_pk"])
 
     def perform_create(self, serializer):
         serializer.save(zone_id=self.kwargs["zone_pk"])

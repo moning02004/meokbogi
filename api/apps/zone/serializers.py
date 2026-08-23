@@ -21,8 +21,10 @@ class ZoneListSerializer(serializers.ModelSerializer):
         validated_data["user_id"] = self.context["request"].user.id
         instance = super().create(validated_data)
 
-        category_keywords = ["치킨", "피자", "파스타", "족발/보쌈", "회", "찜/탕", "중식", "분식", "돈까스", "일식", "동남아", "카레",
-                             "햄버거"]
+        category_keywords = [
+            "한식", "일식", "중식", "동남아", "인도", "양식",
+            "치킨", "피자", "햄버거", "족발/보쌈", "회", "찜/탕", "분식", "돈까스",
+            ]
         bulk_creates = list()
         for keyword in category_keywords:
             bulk_creates.append(Category(zone=instance, keyword=keyword))

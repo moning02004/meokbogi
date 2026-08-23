@@ -1,3 +1,4 @@
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum, Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
@@ -21,7 +22,8 @@ class AllRestaurantsListAPIView(ListAPIView):
     serializer_class = RestaurantListSerializer
 
     def get_queryset(self):
-        queryset = Restaurant.objects.filter(category__zone_id=self.kwargs["zone_pk"])
+        queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
+                                             category__zone_id=self.kwargs["zone_pk"])
         category_id = self.request.query_params.get("category")
         if category_id:
             queryset = queryset.filter(category_id=category_id)
@@ -32,7 +34,8 @@ class RestaurantListViewSet(viewsets.ModelViewSet):
     serializer_class = RestaurantListSerializer
 
     def get_queryset(self):
-        queryset = Restaurant.objects.filter(category__zone_id=self.kwargs["zone_pk"],
+        queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
+                                             category__zone_id=self.kwargs["zone_pk"],
                                              category_id=self.kwargs["category_pk"])
         return annotate_restaurants(queryset)
 
@@ -59,7 +62,8 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
     serializer_class = RestaurantReviewSerializer
 
     def get_queryset(self):
-        queryset = RestaurantReview.objects.filter(restaurant_id=self.kwargs["restaurant_pk"])
+        queryset = RestaurantReview.objects.filter(restaurant__category__zone__user_id=self.request.user.id,
+                                                   restaurant_id=self.kwargs["restaurant_pk"])
         menu = self.request.query_params.get("menu")
         if menu is not None:
             queryset = queryset.filter(menu=menu)
@@ -68,5 +72,7 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
 
 class RestaurantReviewDeleteAPIView(DestroyAPIView):
     def get_object(self):
-        return get_object_or_404(RestaurantReview, restaurant_id=self.kwargs["restaurant_pk"],
-                                  pk=self.kwargs["review_pk"])
+        return get_object_or_404(RestaurantReview,
+                                 restaurant__category__zone__user_id=self.request.user.id,
+                                 restaurant_id=self.kwargs["restaurant_pk"],
+                                 pk=self.kwargs["review_pk"])
