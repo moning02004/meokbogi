@@ -22,8 +22,10 @@ class ZoneViewSet(viewsets.ModelViewSet):
 
 
 class ZoneDeleteAPIView(DestroyAPIView):
+    lookup_url_kwarg = "zone_pk"
+
     def get_queryset(self):
-        return Zone.objects.filter(user=self.request.user)
+        return Zone.objects.filter(user_id=self.request.user.id)
 
 
 class ZoneDashboardAPIView(RetrieveAPIView):
