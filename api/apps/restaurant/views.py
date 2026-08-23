@@ -1,4 +1,3 @@
-from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum, Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
@@ -6,6 +5,7 @@ from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
 
 from apps.restaurant.models import Restaurant, RestaurantReview
 from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
+from apps.zone.models import Category
 
 
 def annotate_restaurants(queryset):
@@ -39,10 +39,13 @@ class RestaurantListViewSet(viewsets.ModelViewSet):
                                              category_id=self.kwargs["category_pk"])
         return annotate_restaurants(queryset)
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["category_id"] = self.kwargs["category_pk"]
-        return context
+    def perform_create(self, serializer):
+        # get_queryset은 조회에만 적용되므로 생성 시에는 카테고리 소유 여부를 따로 확인해야 한다
+        category = get_object_or_404(Category,
+                                     pk=self.kwargs["category_pk"],
+                                     zone_id=self.kwargs["zone_pk"],
+                                     zone__user_id=self.request.user.id)
+        serializer.save(category=category)
 
 
 class RestaurantInfoViewSet(viewsets.ModelViewSet):
@@ -68,6 +71,13 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
         if menu is not None:
             queryset = queryset.filter(menu=menu)
         return queryset
+
+    def perform_create(self, serializer):
+        # get_queryset은 조회에만 적용되므로 생성 시에는 음식점 소유 여부를 따로 확인해야 한다
+        restaurant = get_object_or_404(Restaurant,
+                                       pk=self.kwargs["restaurant_pk"],
+                                       category__zone__user_id=self.request.user.id)
+        serializer.save(user=self.request.user, restaurant=restaurant)
 
 
 class RestaurantReviewDeleteAPIView(DestroyAPIView):

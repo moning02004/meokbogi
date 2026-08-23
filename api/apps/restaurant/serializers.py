@@ -19,11 +19,6 @@ class RestaurantReviewSerializer(serializers.ModelSerializer):
         fields = ["id", "ordered_at", "menu", "content", "point"]
         read_only_fields = ["id"]
 
-    def create(self, validated_data):
-        validated_data["user"] = self.context["request"].user
-        validated_data["restaurant_id"] = self.context["view"].kwargs["restaurant_pk"]
-        return super().create(validated_data)
-
 
 class RestaurantListSerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=False, allow_blank=True, default="")
@@ -38,10 +33,6 @@ class RestaurantListSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description", "address", "category_name",
                   "latest_ordered_at", "review_avg", "review_count", "ordered_count"]
         read_only_fields = ["id"]
-
-    def create(self, validated_data):
-        validated_data["category_id"] = self.context["category_id"]
-        return super().create(validated_data)
 
 
 class RestaurantInfoSerializer(serializers.ModelSerializer):

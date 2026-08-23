@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField, Avg
 from django.db.models.functions import Coalesce, Concat
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.generics import DestroyAPIView, ListCreateAPIView, RetrieveAPIView
 
@@ -82,4 +83,6 @@ class CategoryListAPIView(ListCreateAPIView):
                                        zone_id=self.kwargs["zone_pk"])
 
     def perform_create(self, serializer):
-        serializer.save(zone_id=self.kwargs["zone_pk"])
+        # get_queryset은 조회에만 적용되므로 생성 시에는 zone 소유 여부를 따로 확인해야 한다
+        zone = get_object_or_404(Zone, pk=self.kwargs["zone_pk"], user_id=self.request.user.id)
+        serializer.save(zone=zone)
