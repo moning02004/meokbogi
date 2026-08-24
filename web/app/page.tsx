@@ -7,7 +7,7 @@ import {useAuthStore} from "@/store/auth";
 
 export default function Page() {
     const router = useRouter()
-    const token = useAuthStore(state => state.token)
+    const {token} = useAuthStore.getState()
 
     useEffect(() => {
         if (token) {

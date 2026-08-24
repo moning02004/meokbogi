@@ -28,6 +28,25 @@ export const ZONE_API = {
         method: "get",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/dashboard`
     },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+export const CATEGORY_API = {
+    list: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category`
+    },
+    add: {
+        method: "post",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category`
+    },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const RESTAURANT_PAGE = {

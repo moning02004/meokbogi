@@ -22,6 +22,8 @@ urlpatterns = [
     path("zones/<int:zone_pk>", zone_views.ZoneDeleteAPIView.as_view(), name="zone-delete"),
     path("zones/<int:zone_pk>/dashboard", zone_views.ZoneDashboardAPIView.as_view(), name="zone-dashboard"),
     path("zones/<int:zone_pk>/category", zone_views.CategoryListAPIView.as_view(), name="category-list"),
+    path("zones/<int:zone_pk>/category/<int:category_pk>", zone_views.CategoryDeleteAPIView.as_view(),
+         name="category-delete"),
 
     # restaurants
     path("zones/<int:zone_pk>/restaurants", restaurant_views.AllRestaurantsListAPIView.as_view(),

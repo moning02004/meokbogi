@@ -60,13 +60,55 @@ class CategoryTestCase(TestCase):
 
         response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 1)
+        self.assertEqual(len(response.json()), 1)
 
     def test_create_category(self):
         response = self.client.post(reverse("category-list", kwargs={"zone_pk": self.zone.pk}),
                                     data={"keyword": "피자"})
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Category.objects.filter(zone=self.zone, keyword="피자").exists())
+        # 갓 만든 카테고리도 restaurant_count가 내려와야 한다 (annotate가 없는 경로)
+        self.assertEqual(response.json()["restaurant_count"], 0)
+
+    def test_list_includes_restaurant_count(self):
+        chicken = Category.objects.create(zone=self.zone, keyword="치킨")
+        Category.objects.create(zone=self.zone, keyword="피자")
+        Restaurant.objects.create(category=chicken, name="맛집1")
+        Restaurant.objects.create(category=chicken, name="맛집2")
+
+        response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
+        self.assertEqual(response.status_code, 200)
+
+        counts = {row["keyword"]: row["restaurant_count"] for row in response.json()}
+        self.assertEqual(counts, {"치킨": 2, "피자": 0})
+
+    def test_delete_empty_category(self):
+        category = Category.objects.create(zone=self.zone, keyword="치킨")
+
+        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
+                                                                        "category_pk": category.pk}))
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Category.objects.filter(pk=category.pk).exists())
+
+    def test_cannot_delete_category_with_restaurants(self):
+        category = Category.objects.create(zone=self.zone, keyword="치킨")
+        Restaurant.objects.create(category=category, name="맛집")
+
+        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
+                                                                        "category_pk": category.pk}))
+        self.assertEqual(response.status_code, 400)
+        # CASCADE라서 막지 않으면 음식점까지 함께 지워진다
+        self.assertTrue(Category.objects.filter(pk=category.pk).exists())
+        self.assertEqual(Restaurant.objects.count(), 1)
+
+    def test_cannot_delete_category_of_another_zone(self):
+        other_zone = Zone.objects.create(user=self.user, name="다른 존")
+        category = Category.objects.create(zone=other_zone, keyword="치킨")
+
+        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
+                                                                        "category_pk": category.pk}))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Category.objects.filter(pk=category.pk).exists())
 
 
 class ZoneAuthorizationTestCase(TestCase):
@@ -87,7 +129,7 @@ class ZoneAuthorizationTestCase(TestCase):
     def test_cannot_list_other_users_categories(self):
         response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 0)
+        self.assertEqual(response.json(), [])
 
     def test_cannot_create_category_in_other_users_zone(self):
         # get_queryset은 조회에만 적용되므로 생성 경로에 대한 검증이 따로 필요하다
@@ -95,6 +137,12 @@ class ZoneAuthorizationTestCase(TestCase):
                                     data={"keyword": "해킹"})
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Category.objects.filter(zone=self.zone).count(), 1)
+
+    def test_cannot_delete_other_users_category(self):
+        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
+                                                                        "category_pk": self.category.pk}))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Category.objects.filter(pk=self.category.pk).exists())
 
     def test_cannot_delete_other_users_zone(self):
         response = self.client.delete(reverse("zone-delete", kwargs={"zone_pk": self.zone.pk}))

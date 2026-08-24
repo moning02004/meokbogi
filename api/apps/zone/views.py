@@ -4,11 +4,12 @@ from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField, Avg
 from django.db.models.functions import Coalesce, Concat
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import DestroyAPIView, ListCreateAPIView, RetrieveAPIView
 
 from apps.restaurant.models import Restaurant
 from apps.zone.models import Zone, Category
-from apps.zone.serializers import ZoneListSerializer, CategoryListSerializer, ZoneDashboardSerializer
+from apps.zone.serializers import (CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer)
 
 
 class ZoneViewSet(viewsets.ModelViewSet):
@@ -78,13 +79,31 @@ class ZoneDashboardAPIView(RetrieveAPIView):
 
 
 class CategoryListAPIView(ListCreateAPIView):
-    serializer_class = CategoryListSerializer
+    serializer_class = CategoryManageSerializer
+    # zone당 카테고리는 많아야 수십 개이고 화면에서 전체 목록으로 쓰므로 끊지 않는다
+    pagination_class = None
 
     def get_queryset(self):
-        return Category.objects.filter(zone__user_id=self.request.user.id,
-                                       zone_id=self.kwargs["zone_pk"])
+        return Category.objects.filter(
+            zone__user_id=self.request.user.id,
+            zone_id=self.kwargs["zone_pk"],
+        ).annotate(restaurant_count=Count("restaurant")).order_by("id")
 
     def perform_create(self, serializer):
         # get_queryset은 조회에만 적용되므로 생성 시에는 zone 소유 여부를 따로 확인해야 한다
         zone = get_object_or_404(Zone, pk=self.kwargs["zone_pk"], user_id=self.request.user.id)
         serializer.save(zone=zone)
+
+
+class CategoryDeleteAPIView(DestroyAPIView):
+    lookup_url_kwarg = "category_pk"
+
+    def get_queryset(self):
+        return Category.objects.filter(zone__user_id=self.request.user.id,
+                                       zone_id=self.kwargs["zone_pk"])
+
+    def perform_destroy(self, instance):
+        # Restaurant.category는 CASCADE라서 그냥 지우면 음식점과 리뷰까지 함께 사라진다
+        if instance.restaurant_set.exists():
+            raise ValidationError({"detail": "음식점이 등록된 카테고리는 삭제할 수 없습니다."})
+        instance.delete()

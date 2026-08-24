@@ -8,6 +8,7 @@ import {apiRequest} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
 import {Modal} from "@/components/ui/modal";
+import {ZoneManager} from "@/components/settings/zone_manager";
 
 interface UserType {
     username: string;
@@ -159,26 +160,37 @@ export default function Page() {
                             <div className="flex-1 text-center">
                                 <div
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
-                                    {user.zone_count}
+                                    {String(user.zone_count).padStart(2, "0")}
                                 </div>
                                 <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">존</p>
                             </div>
                             <div className="flex-1 text-center">
                                 <div
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
-                                    {user.restaurant_count}
+                                    {String(user.restaurant_count).padStart(2, "0")}
                                 </div>
                                 <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">등록한 음식점</p>
                             </div>
                             <div className="flex-1 text-center">
                                 <div
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
-                                    {user.review_count}
+                                    {String(user.review_count).padStart(2, "0")}
                                 </div>
                                 <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">작성한 리뷰</p>
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* ---- 존 관리 ---- */}
+                <div className="px-5 pt-5">
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">존 관리</div>
+                    <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
+                        <ZoneManager/>
+                    </div>
+                    <p className="text-[11.5px] text-[#B7AF9F] mt-2 leading-relaxed">
+                        존을 선택하면 카테고리를 추가하거나 지울 수 있어요.
+                    </p>
                 </div>
 
                 {/* ---- 설정 ---- */}

@@ -10,6 +10,21 @@ class CategoryListSerializer(serializers.ModelSerializer):
         fields = ["id", "keyword"]
 
 
+class CategoryManageSerializer(serializers.ModelSerializer):
+    """카테고리 관리 화면용. 음식점이 몇 개 묶여 있는지 함께 보여준다."""
+
+    restaurant_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["id", "keyword", "restaurant_count"]
+
+    def get_restaurant_count(self, instance):
+        # 목록에서는 annotate된 값을 쓰고, 생성 직후처럼 annotate가 없으면 직접 센다
+        count = getattr(instance, "restaurant_count", None)
+        return instance.restaurant_set.count() if count is None else count
+
+
 class ZoneListSerializer(serializers.ModelSerializer):
     category = CategoryListSerializer(source="category_set", many=True, read_only=True)
 
