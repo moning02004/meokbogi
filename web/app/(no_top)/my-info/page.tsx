@@ -194,7 +194,7 @@ export default function Page() {
                 </div>
 
                 {/* ---- 설정 ---- */}
-                <div className="px-5 pt-5">
+                <div className="px-5 py-5">
                     <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">설정</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
                         <Modal
