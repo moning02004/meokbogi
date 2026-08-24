@@ -9,12 +9,16 @@ import {apiRequest} from "@/lib/api";
 import {ZONE_API} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {authLogout} from "@/lib/auth";
+import {ZoneType} from "@/types/zone";
+import {useCategoryStore} from "@/store/category";
 
 export default function Page() {
     const router = useRouter()
     const {token} = useAuthStore.getState()
     const [zoneName, setZoneName] = useState<string>("")
     const zones = useZoneStore(state => state.zones)
+    const setSelectedZone = useZoneStore((state) => state.setSelectedZone)
+    const setCategories = useCategoryStore(state => state.setCategories)
 
     useEffect(() => {
         if (!token) window.location.href = "/login"
@@ -23,12 +27,14 @@ export default function Page() {
     const registerZone = () => {
         if (!zoneName.trim()) return
 
-        apiRequest[ZONE_API.add.method]<{ id: number }>(ZONE_API.add.endpoint, {
+        apiRequest[ZONE_API.add.method]<ZoneType>(ZONE_API.add.endpoint, {
                 body: JSON.stringify(
                     {name: zoneName}
                 )
             }
-        ).then(() => {
+        ).then((zone: ZoneType) => {
+            setSelectedZone(zone)
+            setCategories(zone.category)
             router.replace("/home")
         })
     }
