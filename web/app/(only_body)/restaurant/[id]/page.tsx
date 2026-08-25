@@ -29,7 +29,7 @@ const SENTIMENTS = {
         color: "#C23B1E",
         bg: "bg-[#EBB9A2]",
         text: "text-[#C23B1E]",
-        label: "별로"
+        label: "실망"
     },
 } as const
 
