@@ -2,7 +2,7 @@
 
 import {useCallback, useEffect, useRef, useState} from "react"
 import toast from "react-hot-toast"
-import {LuPlus, LuSearch, LuX} from "react-icons/lu"
+import {LuPencil, LuPlus, LuSearch, LuX} from "react-icons/lu"
 
 import {CATEGORY_API} from "@/constants/routeUrl"
 import {apiRequest, errorMessage} from "@/lib/api"
@@ -47,6 +47,10 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
     const [keyword, setKeyword] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // 이름 바꾸기 (한 번에 한 줄만)
+    const [editingId, setEditingId] = useState<number | null>(null)
+    const [editValue, setEditValue] = useState("")
+
     // 부모가 인라인 함수를 넘겨도 목록을 다시 읽지 않도록 ref로 받아둔다
     const notify = useRef(onCategoriesChange)
     useEffect(() => {
@@ -87,6 +91,35 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
             return loadCategories(true)
         }).catch((error) => {
             toast.error(errorMessage(error, "카테고리 추가에 실패했어요."))
+        }).finally(() => setIsSubmitting(false))
+    }
+
+    const editTrimmed = editValue.trim()
+    const editDuplicate = editTrimmed !== "" && (categories?.some(
+        (category) => category.id !== editingId && normalize(category.keyword) === normalize(editTrimmed)
+    ) ?? false)
+
+    const startEditing = (category: ManagedCategoryType) => {
+        setEditingId(category.id)
+        setEditValue(category.keyword)
+    }
+
+    const renameCategory = (category: ManagedCategoryType) => {
+        if (isSubmitting || !editTrimmed || editDuplicate) return
+        if (editTrimmed === category.keyword) {
+            setEditingId(null)
+            return
+        }
+
+        setIsSubmitting(true)
+        const update = CATEGORY_API.update
+        apiRequest[update.method](update.endpoint({zone: zoneId, category: category.id}), {
+            body: JSON.stringify({keyword: editTrimmed})
+        }).then(() => {
+            setEditingId(null)
+            return loadCategories(true)
+        }).catch((error) => {
+            toast.error(errorMessage(error, "이름을 바꾸지 못했어요."))
         }).finally(() => setIsSubmitting(false))
     }
 
@@ -175,6 +208,43 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
                     <ul className="flex flex-col divide-y divide-[#F0EBDD] border border-[#E7E0CF] rounded-xl overflow-hidden">
                         {matched.map((category) => {
                             const isLocked = category.restaurant_count > 0
+                            if (editingId === category.id) return (
+                                <li key={category.id} className="flex flex-col gap-1 px-3.5 py-2 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            id={`category-name-${category.id}`}
+                                            aria-label={`${category.keyword} 새 이름`}
+                                            value={editValue}
+                                            onChange={(event) => setEditValue(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter" && !event.nativeEvent.isComposing) renameCategory(category)
+                                                if (event.key === "Escape") setEditingId(null)
+                                            }}
+                                            maxLength={100}
+                                            autoFocus
+                                            className="flex-1 min-w-0 text-[13.5px] font-semibold text-[#211D17] border border-[#24564A] rounded-md px-2.5 py-1.5 outline-none"
+                                        />
+                                        <button
+                                            onClick={() => renameCategory(category)}
+                                            disabled={!editTrimmed || editDuplicate || isSubmitting}
+                                            className="shrink-0 text-[12px] font-bold text-white bg-[#24564A] rounded-md px-2.5 py-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            저장
+                                        </button>
+                                        <button
+                                            onClick={() => setEditingId(null)}
+                                            className="shrink-0 text-[12px] font-bold text-[#8A8172] px-1.5 py-1.5 cursor-pointer"
+                                        >
+                                            취소
+                                        </button>
+                                    </div>
+                                    {editDuplicate && (
+                                        <p className="text-[11.5px] font-semibold text-[#C23B1E]">
+                                            &lsquo;{editTrimmed}&rsquo;은(는) 이미 있는 카테고리예요.
+                                        </p>
+                                    )}
+                                </li>
+                            )
                             return (
                                 <li key={category.id} className="flex items-center gap-2 px-3.5 py-2.5 bg-white">
                                     <span className="flex-1 min-w-0 text-[13.5px] font-semibold text-[#211D17] truncate">
@@ -187,6 +257,14 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
                                     >
                                         음식점 {category.restaurant_count}
                                     </span>
+                                    <button
+                                        onClick={() => startEditing(category)}
+                                        disabled={isSubmitting}
+                                        aria-label={`${category.keyword} 이름 바꾸기`}
+                                        className="shrink-0 p-1.5 rounded-lg text-[#8A8172] cursor-pointer sm:hover:bg-[#F1EFE8] transition-colors disabled:opacity-40"
+                                    >
+                                        <LuPencil size={14}/>
+                                    </button>
                                     <button
                                         onClick={() => deleteCategory(category)}
                                         disabled={isLocked || isSubmitting}
@@ -204,7 +282,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
             </div>
 
             <p className="text-[11.5px] text-[#B7AF9F] mt-2.5 leading-relaxed">
-                음식점이 등록된 카테고리는 삭제할 수 없어요. 음식점을 다른 카테고리로 옮기거나 삭제한 뒤에 지워주세요.
+                음식점이 등록된 카테고리는 삭제할 수 없어요. 이름은 연필 버튼으로 언제든 바꿀 수 있어요.
             </p>
         </div>
     )

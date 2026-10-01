@@ -6,6 +6,8 @@ import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
 import {ApiError, apiRequest, errorMessage} from "@/lib/api";
+import {parseLocalDate} from "@/lib/date";
+import {normalizeMenu} from "@/lib/menu";
 import NotFound from "next/dist/client/components/builtin/not-found";
 import {MdSentimentNeutral, MdSentimentSatisfiedAlt, MdSentimentVeryDissatisfied} from "react-icons/md";
 import {MenuSummaryType, RestaurantReviewType, RestaurantType} from "@/types/restaurant";
@@ -155,11 +157,6 @@ export default function Page() {
     const [hasMoreReviews, setHasMoreReviews] = useState(false)
     const [isReviewLoading, setIsReviewLoading] = useState(false)
 
-    // "YYYY-MM-DD"를 new Date()에 그대로 넣으면 UTC 자정으로 해석돼 UTC보다 느린 시간대에서 하루 밀린다
-    const parseLocalDate = (value: string) => {
-        const [year, month, day] = value.split("-").map(Number)
-        return new Date(year, month - 1, day)
-    }
     const orderedAtDate = orderedAt ? parseLocalDate(orderedAt) : null
 
     const formatDate = (date: Date) => {
@@ -272,11 +269,16 @@ export default function Page() {
             .catch((error) => toast.error(errorMessage(error, "삭제에 실패했어요.")))
     }
 
-    // 입력한 텍스트로 시작하는 기존 메뉴 (없으면 새 메뉴로 기록됨)
+    // 입력한 텍스트가 들어간 기존 메뉴 (없으면 새 메뉴로 기록됨). 공백·대소문자는 무시하고 찾는다.
     const keyword = reviewMenu.trim()
+    const menuKey = normalizeMenu(keyword)
     const menuSuggestions = keyword
-        ? menuSummaries.filter((summary) => summary.menu && summary.menu.includes(keyword))
+        ? menuSummaries.filter((summary) => summary.menu && normalizeMenu(summary.menu).includes(menuKey))
         : menuSummaries.filter((summary) => summary.menu)
+    // 띄어쓰기만 다른 기존 메뉴가 있으면 서버가 그 표기로 합쳐서 저장한다. 미리 알려준다.
+    const mergeTarget = keyword
+        ? menuSummaries.find((summary) => summary.menu && summary.menu !== keyword && normalizeMenu(summary.menu) === menuKey)
+        : undefined
 
     const selectMenuSuggestion = (menu: string) => {
         setReviewMenu(menu)
@@ -530,6 +532,11 @@ export default function Page() {
                         </div>
                         <SentimentPicker value={reviewPoint} onChange={setReviewPoint}/>
                     </div>
+                    {mergeTarget && (
+                        <p className="-mt-1.5 mb-3 text-[11.5px] font-semibold text-[#24564A]">
+                            &lsquo;{mergeTarget.menu}&rsquo;(으)로 합쳐서 기록돼요.
+                        </p>
+                    )}
 
                     <div className="flex items-center gap-2">
                         <textarea

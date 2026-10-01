@@ -8,6 +8,7 @@ export interface DashboardResponseType {
     category: Array<CategoryType>;
     delicious_restaurants: Array<DeliciousRestaurant>;
     recent_restaurants: Array<RecentRegisteredRestaurant>;
+    forgotten_restaurants: Array<RecentRegisteredRestaurant>;
     restaurant_count: number;
     review_count: number;
     monthly_visited_count: number;
@@ -43,4 +44,19 @@ export const fetchZoneRestaurants = async (
     const restaurantList = RESTAURANT_API.list
     return await apiRequest[restaurantList.method]<PaginatedResponse<RestaurantListItemType>>
     (`${restaurantList.endpoint({zone: zoneId})}?${params.toString()}`)
+}
+
+// 한 카테고리에서 음식점 하나를 뽑는다. 오래 안 간 곳·만족도 높은 곳일수록 잘 뽑힌다 (서버가 가중치 계산)
+export const pickRestaurant = async (
+    zoneId: number,
+    {categoryId, includeDisappointing = false}: { categoryId?: number | null; includeDisappointing?: boolean } = {}
+) => {
+    const params = new URLSearchParams()
+    if (categoryId) params.set("category", String(categoryId))
+    if (includeDisappointing) params.set("exclude_disappointing", "0")
+
+    const pick = RESTAURANT_API.pick
+    return await apiRequest[pick.method]<{ restaurant: RestaurantListItemType | null }>(
+        `${pick.endpoint({zone: zoneId})}?${params.toString()}`
+    )
 }

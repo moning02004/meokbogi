@@ -7,6 +7,7 @@ import {errorMessage} from "@/lib/api";
 import {syncZones} from "@/lib/zone";
 import {RESTAURANT_PAGE, ZONE_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
+import {daysSince} from "@/lib/date";
 import toast from "react-hot-toast";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
 import {DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
@@ -14,7 +15,6 @@ import {BsForkKnife} from "react-icons/bs";
 import {useCategoryStore} from "@/store/category";
 import {useRouter} from "next/navigation";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
-
 
 export default function Page() {
     const router = useRouter()
@@ -30,7 +30,8 @@ export default function Page() {
     const [monthlyVisitedCount, setMonthlyVisitedCount] = useState(0)
     const [deliciousRestaurants, setDeliciousRestaurants] = useState<DeliciousRestaurant[]>([])
     const [recentRegisteredRestaurants, setRecentRegisteredRestaurants] = useState<RecentRegisteredRestaurant[]>([])
-    const [activeTab, setActiveTab] = useState<"delicious" | "recent">("delicious")
+    const [forgottenRestaurants, setForgottenRestaurants] = useState<RecentRegisteredRestaurant[]>([])
+    const [activeTab, setActiveTab] = useState<"delicious" | "recent" | "forgotten">("delicious")
 
     // 홈에 올 때마다 존 목록을 새로 맞춘다. 다른 기기에서 지운 존이 선택돼 있으면 첫 번째 존으로 바뀐다.
     useEffect(() => {
@@ -49,6 +50,7 @@ export default function Page() {
                 setCategories(res.category)
                 setDeliciousRestaurants(res.delicious_restaurants)
                 setRecentRegisteredRestaurants(res.recent_restaurants)
+                setForgottenRestaurants(res.forgotten_restaurants ?? [])
                 setRestaurantCount(res.restaurant_count)
                 setReviewCount(res.review_count)
                 setMonthlyVisitedCount(res.monthly_visited_count)
@@ -70,6 +72,7 @@ export default function Page() {
     const RESTAURANT_TABS = [
         {key: "delicious" as const, label: "믿고 먹는 음식점"},
         {key: "recent" as const, label: "최근 먹었던 음식점"},
+        {key: "forgotten" as const, label: "오랜만에 가볼 곳"},
     ]
 
     if (!selectedZone) return <LoadingPage/>
@@ -112,12 +115,12 @@ export default function Page() {
                 </div>
 
                 {/* ---- 필터 pill ---- */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 overflow-x-auto shrink-0 -mx-4 px-4 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                     {RESTAURANT_TABS.map((tab) => (
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`px-4 py-2 rounded-full text-[13.5px] font-semibold border cursor-pointer transition-colors ${
+                            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-full text-[13.5px] font-semibold border cursor-pointer transition-colors ${
                                 activeTab === tab.key
                                     ? "bg-[#24564A] text-white border-[#24564A]"
                                     : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
@@ -153,30 +156,36 @@ export default function Page() {
                                     </div>
                                 )
                             })
-                    ) : (
-                        !recentRegisteredRestaurants.length ? (
-                                <p className="text-sm text-[#8A8172] py-4 text-center">아직 등록된 음식점이 없습니다.</p>
-                            ) :
-                            recentRegisteredRestaurants.map((restaurant) => (
-                                <div key={restaurant.id}
-                                     className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
-                                     onClick={() => gotoRestaurant(restaurant.id)}
-                                >
-                                    <div>
-                                        <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                        <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${restaurant.category_name} 음식점`}</p>
-                                        <div className="flex flex-row mt-1">
-                                            <div
-                                                className="text-[12.5px] text-[#8A8172]">방문 {restaurant.ordered_count} 회
-                                            </div>
-                                            <span className="inline-block mx-2 text-[#8A8172]">·</span>
-                                            <div className="text-[12.5px] text-[#8A8172]">최근
-                                                방문 {restaurant.latest_ordered_at}</div>
-                                        </div>
+                    ) : (() => {
+                        const rows = activeTab === "recent" ? recentRegisteredRestaurants : forgottenRestaurants
+                        if (!rows.length) return (
+                            <p className="text-sm text-[#8A8172] py-4 text-center leading-relaxed">
+                                {activeTab === "recent"
+                                    ? "아직 등록된 음식점이 없습니다."
+                                    : <>만족했지만 두 달 넘게 안 간 곳이 여기에 나와요.<br/>지금은 해당하는 곳이 없어요.</>}
+                            </p>
+                        )
+                        return rows.map((restaurant) => (
+                            <div key={restaurant.id}
+                                 className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                                 onClick={() => gotoRestaurant(restaurant.id)}
+                            >
+                                <div>
+                                    <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
+                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${restaurant.category_name} 음식점`}</p>
+                                    <div className="flex flex-row mt-1 text-[12.5px] text-[#8A8172]">
+                                        <span>방문 {restaurant.ordered_count} 회</span>
+                                        <span className="inline-block mx-2">·</span>
+                                        <span>
+                                            {activeTab === "forgotten"
+                                                ? `마지막 방문 ${daysSince(restaurant.latest_ordered_at)}일 전`
+                                                : `최근 방문 ${restaurant.latest_ordered_at}`}
+                                        </span>
                                     </div>
                                 </div>
-                            ))
-                    )}
+                            </div>
+                        ))
+                    })()}
                 </div>
             </div>
         </Suspense>

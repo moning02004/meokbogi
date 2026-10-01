@@ -51,6 +51,20 @@ export function ZoneManager() {
         }
     }
 
+    const renameZone = (zone: ZoneType, name: string) => {
+        const update = ZONE_API.update
+        return apiRequest[update.method]<ZoneType>(update.endpoint({zone: zone.id}), {
+            body: JSON.stringify({name})
+        }).then((updated) => {
+            // 모달 제목과 목록, 상단바가 바로 새 이름을 보여주도록 맞춘다
+            setSelected((prev) => prev && prev.id === zone.id ? {...prev, name: updated.name} : prev)
+            toast.success("장소 이름을 바꿨어요.")
+            return loadZones()
+        }).then(() => undefined).catch((error) => {
+            toast.error(errorMessage(error, "이름을 바꾸지 못했어요."))
+        })
+    }
+
     const deleteZone = (zone: ZoneType) => {
         const remove = ZONE_API.delete
         return apiRequest[remove.method](remove.endpoint({zone: zone.id}))
@@ -124,6 +138,7 @@ export function ZoneManager() {
                         key={`${selected.id}:${openSeq}`}
                         zone={selected}
                         onCategoriesMutated={() => setIsDirty(true)}
+                        onRename={renameZone}
                         onDelete={deleteZone}
                     />
                 )}
@@ -135,11 +150,22 @@ export function ZoneManager() {
 interface ZoneDetailProps {
     zone: ZoneType
     onCategoriesMutated: () => void
+    onRename: (zone: ZoneType, name: string) => Promise<void>
     onDelete: (zone: ZoneType) => Promise<void>
 }
 
-function ZoneDetail({zone, onCategoriesMutated, onDelete}: ZoneDetailProps) {
+function ZoneDetail({zone, onCategoriesMutated, onRename, onDelete}: ZoneDetailProps) {
     const [categories, setCategories] = useState<ManagedCategoryType[] | null>(null)
+    const [nameInput, setNameInput] = useState(zone.name)
+    const [isRenaming, setIsRenaming] = useState(false)
+    const trimmedName = nameInput.trim()
+    const canRename = trimmedName !== "" && trimmedName !== zone.name && !isRenaming
+
+    const rename = () => {
+        if (!canRename) return
+        setIsRenaming(true)
+        onRename(zone, trimmedName).finally(() => setIsRenaming(false))
+    }
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
@@ -149,6 +175,32 @@ function ZoneDetail({zone, onCategoriesMutated, onDelete}: ZoneDetailProps) {
     return (
         <div className="flex flex-col gap-5">
             <section>
+                <label htmlFor="zone-name"
+                       className="block text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
+                    장소 이름
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        id="zone-name"
+                        value={nameInput}
+                        onChange={(event) => setNameInput(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" && !event.nativeEvent.isComposing) rename()
+                        }}
+                        maxLength={100}
+                        className="flex-1 min-w-0 text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
+                    />
+                    <button
+                        onClick={rename}
+                        disabled={!canRename}
+                        className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-lg px-3.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:hover:bg-[#1c443a] transition-colors"
+                    >
+                        {isRenaming ? "저장 중…" : "저장"}
+                    </button>
+                </div>
+            </section>
+
+            <section className="border-t border-[#F0EBDD] pt-4">
                 <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
                     카테고리
                 </div>

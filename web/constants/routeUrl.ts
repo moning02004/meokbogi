@@ -28,6 +28,10 @@ export const ZONE_API = {
         method: "get",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/dashboard`
     },
+    update: {
+        method: "patch",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}`
+    },
     delete: {
         method: "delete",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}`
@@ -42,6 +46,10 @@ export const CATEGORY_API = {
     add: {
         method: "post",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category`
+    },
+    update: {
+        method: "patch",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}`
     },
     delete: {
         method: "delete",
@@ -62,6 +70,10 @@ export const RESTAURANT_API = {
     retrieve: {
         method: "get",
         endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}`
+    },
+    pick: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/restaurants/pick`
     },
     add: {
         method: "post",
