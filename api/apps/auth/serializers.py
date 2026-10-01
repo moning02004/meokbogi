@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import UntypedToken
 
 
 class ObtainTokenSerializer(TokenObtainPairSerializer):
@@ -23,9 +23,9 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
         if attrs["refresh"] is None:
             raise serializers.ValidationError({"refresh": "refresh 토큰이 없습니다."})
 
+        # super().validate()가 회전하면서 이전 refresh 토큰을 블랙리스트에 넣어 다시 파싱하면 실패한다. 새 access 토큰에서 읽는다.
         data = super().validate(attrs)
-        token = RefreshToken(attrs["refresh"])
-        data["user_id"] = int(token["user_id"])
+        data["user_id"] = int(UntypedToken(data["access"])["user_id"])
         return data
 
 

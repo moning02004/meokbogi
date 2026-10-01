@@ -215,3 +215,27 @@ class ChangePasswordMessageTestCase(TestCase):
                                      content_type="application/json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("짧습니다", " ".join(response.json()["non_field_errors"]))
+
+
+class RefreshTokenBlacklistTestCase(TestCase):
+    def setUp(self):
+        cache.clear()
+        User.objects.create_user(username="owner", password="pw-correct-123")
+        self.client.post(reverse("obtain-token"), data={"username": "owner", "password": "pw-correct-123"})
+        self.cookie = self.client.cookies[settings.REFRESH_COOKIE_NAME].value
+
+    def _refresh_with(self, value):
+        self.client.cookies[settings.REFRESH_COOKIE_NAME] = value
+        return self.client.post(reverse("refresh-token"))
+
+    def test_logout_invalidates_refresh_token(self):
+        self.client.delete(reverse("logout"))
+        self.assertEqual(self._refresh_with(self.cookie).status_code, 401)
+
+    def test_rotated_token_cannot_be_reused(self):
+        self.assertEqual(self._refresh_with(self.cookie).status_code, 200)
+        self.assertEqual(self._refresh_with(self.cookie).status_code, 401)
+
+    def test_logout_with_broken_cookie_still_succeeds(self):
+        self.client.cookies[settings.REFRESH_COOKIE_NAME] = "not-a-token"
+        self.assertEqual(self.client.delete(reverse("logout")).status_code, 204)

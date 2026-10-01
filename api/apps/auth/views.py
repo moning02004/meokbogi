@@ -8,7 +8,9 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.auth.serializers import (ChangePasswordSerializer, ObtainTokenSerializer, RefreshTokenSerializer,
@@ -53,6 +55,14 @@ class LogoutAPIView(APIView):
     permission_classes = [AllowAny]
 
     def delete(self, request: Request, *args, **kwargs) -> Response:
+        # 쿠키만 지우면 그 값을 따로 가지고 있는 쪽은 계속 토큰을 재발급받을 수 있다
+        refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+            except TokenError:
+                pass  # 이미 만료·무효화된 토큰이면 할 일이 없다
+
         response = Response(status=204)
         # 설정과 같은 속성으로 지워야 브라우저가 같은 쿠키로 인식한다
         response.delete_cookie(settings.REFRESH_COOKIE_NAME, samesite=settings.REFRESH_COOKIE_SAMESITE)

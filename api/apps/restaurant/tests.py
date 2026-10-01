@@ -398,3 +398,94 @@ class RestaurantQueryTestCase(TestCase):
 
         url = reverse("review-create", kwargs={"restaurant_pk": restaurant.pk})
         self.assertEqual([row["id"] for row in self.client.get(url).json()["results"]], [newer.id, older.id])
+
+
+class ReviewEditTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        zone = Zone.objects.create(user=self.user, name="우리집")
+        self.restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+                                                    name="교촌치킨")
+        self.review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+                                                      ordered_at="2026-01-01", menu="후라이드", point=0)
+        self.url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk,
+                                                    "review_pk": self.review.pk})
+
+    def _patch(self, body):
+        return self.client.patch(self.url, data=body, content_type="application/json")
+
+    def test_owner_can_edit(self):
+        self.client.login(username="owner", password="123")
+        response = self._patch({"menu": "간장", "content": "다시 보니 맛있음", "point": 1})
+        self.assertEqual(response.status_code, 200)
+
+        self.review.refresh_from_db()
+        self.assertEqual((self.review.menu, self.review.point), ("간장", 1))
+
+    def test_edit_validates_point(self):
+        self.client.login(username="owner", password="123")
+        self.assertEqual(self._patch({"point": 5}).status_code, 400)
+
+    def test_other_user_cannot_edit(self):
+        User.objects.create_user(username="attacker", password="123")
+        self.client.login(username="attacker", password="123")
+
+        self.assertEqual(self._patch({"content": "바뀜"}).status_code, 404)
+        self.review.refresh_from_db()
+        self.assertEqual(self.review.content, "")
+
+
+class RestaurantSortTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.client.login(username="owner", password="123")
+
+        def make(name, visits):
+            restaurant = Restaurant.objects.create(category=category, name=name)
+            for day, point in visits:
+                RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+
+        make("가 별로", [("2026-09-01", -1)])
+        make("나 단골", [("2026-01-01", 1), ("2026-02-01", 0), ("2026-03-01", 1)])
+        make("다 최고", [("2026-05-01", 1)])
+        make("라 미방문", [])
+
+    def _names(self, sort):
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        return [row["name"] for row in self.client.get(url, {"sort": sort}).json()["results"]]
+
+    def test_recent_is_default(self):
+        self.assertEqual(self._names(""), ["가 별로", "다 최고", "나 단골", "라 미방문"])
+
+    def test_rating(self):
+        self.assertEqual(self._names("rating"), ["다 최고", "나 단골", "가 별로", "라 미방문"])
+
+    def test_visits(self):
+        self.assertEqual(self._names("visits"), ["나 단골", "가 별로", "다 최고", "라 미방문"])
+
+    def test_name(self):
+        self.assertEqual(self._names("name"), ["가 별로", "나 단골", "다 최고", "라 미방문"])
+
+    def test_unknown_sort_falls_back_to_recent(self):
+        self.assertEqual(self._names("drop table"), self._names("recent"))
+
+
+class MenuLastPointTestCase(TestCase):
+    def test_menu_summary_has_latest_point(self):
+        user = User.objects.create_user(username="owner", password="123")
+        zone = Zone.objects.create(user=user, name="우리집")
+        restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+                                               name="교촌치킨")
+        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-01-01", menu="양념",
+                                        point=1)
+        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-03-01", menu="양념",
+                                        point=-1)
+        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-02-01", menu="양념",
+                                        point=0)
+
+        self.client.login(username="owner", password="123")
+        response = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": restaurant.pk}))
+        summary = response.json()["menu_summaries"][0]
+        self.assertEqual((summary["last_point"], summary["last_ordered_at"]), (-1, "2026-03-01"))

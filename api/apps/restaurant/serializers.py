@@ -60,4 +60,12 @@ class RestaurantInfoSerializer(serializers.ModelSerializer):
             review_avg=Cast(Sum("point"), FloatField()) / Count("id"),
             review_count=Count("id"),
         ).values("menu", "review_avg", "review_count").order_by("-review_count", "menu")
-        return queryset
+
+        # 메뉴별 가장 최근 리뷰의 만족도. 상세 조회는 review_set을 최신순으로 prefetch해 두므로 추가 쿼리가 없다.
+        latest = {}
+        for review in sorted(obj.review_set.all(), key=lambda r: (r.ordered_at, r.id), reverse=True):
+            latest.setdefault(review.menu, review)
+        return [
+            {**row, "last_point": latest[row["menu"]].point, "last_ordered_at": latest[row["menu"]].ordered_at}
+            for row in queryset
+        ]

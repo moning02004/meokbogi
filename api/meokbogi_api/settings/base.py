@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     "rest_framework",
+    # 로그아웃·토큰 회전 시 이전 refresh 토큰을 무효화한다 (만료된 기록은 flushexpiredtokens로 정리)
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",  # CORS 처리 시 필요 (프론트엔드 분리 시 권장)
 
     "apps.zone",
@@ -183,7 +185,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=15),
-    "ROTATE_REFRESH_TOKENS": True
+    "ROTATE_REFRESH_TOKENS": True,
+    # 회전된 refresh 토큰은 바로 쓸 수 없게 한다. 그렇지 않으면 유출된 예전 쿠키가 15일간 유효하다.
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # ------------------------------------------------------------------------------

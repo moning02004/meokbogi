@@ -1,11 +1,24 @@
 from django.db.models import Avg, Count, F, Max, Prefetch, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
-from rest_framework.generics import ListAPIView, DestroyAPIView
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
 
 from apps.restaurant.models import Restaurant, RestaurantReview
 from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
 from apps.zone.models import Category
+
+
+# 목록 정렬 (?sort=). 방문·리뷰가 없는 음식점은 어느 정렬에서든 뒤로 보낸다.
+RESTAURANT_SORTS = {
+    "recent": (F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "rating": (F("review_avg").desc(nulls_last=True), F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "visits": ("-ordered_count", F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "name": ("name", "id"),
+}
+
+
+def sort_restaurants(queryset, sort):
+    return queryset.order_by(*RESTAURANT_SORTS.get(sort, RESTAURANT_SORTS["recent"]))
 
 
 def annotate_restaurants(queryset):
@@ -30,7 +43,7 @@ class AllRestaurantsListAPIView(ListAPIView):
         # 숫자가 아닌 값이 오면 filter()가 ValueError로 500을 내므로 무시한다
         if category_id and category_id.isdigit():
             queryset = queryset.filter(category_id=category_id)
-        return annotate_restaurants(queryset).order_by(F("latest_ordered_at").desc(nulls_last=True), "-id")
+        return sort_restaurants(annotate_restaurants(queryset), self.request.query_params.get("sort"))
 
 
 class RestaurantListViewSet(viewsets.ModelViewSet):
@@ -40,7 +53,7 @@ class RestaurantListViewSet(viewsets.ModelViewSet):
         queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
                                              category__zone_id=self.kwargs["zone_pk"],
                                              category_id=self.kwargs["category_pk"])
-        return annotate_restaurants(queryset).order_by(F("latest_ordered_at").desc(nulls_last=True), "-id")
+        return sort_restaurants(annotate_restaurants(queryset), "recent")
 
     def perform_create(self, serializer):
         # get_queryset은 조회에만 적용되므로 생성 시에는 카테고리 소유 여부를 따로 확인해야 한다
@@ -58,7 +71,7 @@ class RestaurantInfoViewSet(viewsets.ModelViewSet):
         queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id)
         queryset = queryset.prefetch_related(
             Prefetch("review_set",
-                     queryset=RestaurantReview.objects.all().order_by("-ordered_at"))
+                     queryset=RestaurantReview.objects.all().order_by("-ordered_at", "-id"))
         )
         queryset = annotate_restaurants(queryset)
         # 남의 음식점이거나 없는 id면 500이 아니라 404
@@ -84,7 +97,10 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user, restaurant=restaurant)
 
 
-class RestaurantReviewDeleteAPIView(DestroyAPIView):
+class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
+    # 이름은 예전 그대로 두지만 수정(PATCH)도 받는다
+    serializer_class = RestaurantReviewSerializer
+
     def get_object(self):
         return get_object_or_404(RestaurantReview,
                                  restaurant__category__zone__user_id=self.request.user.id,
