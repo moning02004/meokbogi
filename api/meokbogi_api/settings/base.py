@@ -218,6 +218,8 @@ REFRESH_COOKIE_SECURE = os.environ.get("REFRESH_COOKIE_SECURE", "false").lower()
 # ------------------------------------------------------------------------------
 # 웹 푸시
 # ------------------------------------------------------------------------------
+# 외부 스케줄러(n8n)가 POST /push/send 를 부를 때 쓰는 토큰은 환경변수 PUSH_API_TOKEN 에서 읽는다.
+# 비어 있으면 /push/send 는 503으로 막힌다. install.sh 가 .env 에 만들어 둔다.
 # 서명 키(VAPID_PRIVATE_KEY)는 비워 두면 처음 쓸 때 만들어 DB에 저장한다.
 # sub 값은 비워 두면 PUBLIC_WEB_ORIGIN(https일 때)을 쓴다. 애플은 mailto: 나 https: 만 받는다.
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "")

@@ -1,13 +1,19 @@
+import os
 import secrets
 
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import APIException, AuthenticationFailed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.push.models import PushApiKey, PushSubscription
-from apps.push.sender import get_vapid, send_to_user
+from apps.push.models import PushSubscription
+from apps.push.sender import get_vapid, send_to_all, send_to_user
 from apps.push.serializers import SendSerializer, SubscriptionSerializer, UnsubscribeSerializer
+
+
+class ServiceUnavailable(APIException):
+    status_code = 503
+    default_code = "push_not_configured"
 
 
 class PushConfigAPIView(APIView):
@@ -48,45 +54,34 @@ class PushTestAPIView(APIView):
         return Response(send_to_user(request.user, "먹보기 알림 시험", "알림이 잘 오고 있어요."))
 
 
-class PushApiKeyAPIView(APIView):
-    """외부 스케줄러(n8n)용 개인 키 보기(GET)·새로 만들기(POST)."""
-
-    def get(self, request, *args, **kwargs):
-        api_key, _ = PushApiKey.objects.get_or_create(user=request.user)
-        return Response({"key": api_key.key})
-
-    def post(self, request, *args, **kwargs):
-        api_key, created = PushApiKey.objects.get_or_create(user=request.user)
-        if not created:
-            api_key.rotate()
-        return Response({"key": api_key.key})
-
-
 class PushSendAPIView(APIView):
-    """n8n 같은 외부 스케줄러가 부르는 알림 보내기.
+    """n8n 같은 외부 스케줄러가 부르는 알림 보내기. 알림을 켠 모든 사용자의 기기로 보낸다.
 
         POST /push/send
-        Authorization: Bearer <내정보에서 복사한 키>
+        Authorization: Bearer <서버 환경변수 PUSH_API_TOKEN>
         {"title": "점심 뭐 드셨어요?", "content": "먹은 메뉴를 남겨 두세요"}
 
-    키 주인의 모든 기기로 보낸다. 로그인 토큰(JWT)으로 해석하지 않도록 기본 인증을 끈다.
+    로그인 토큰(JWT)으로 해석하지 않도록 기본 인증을 끈다.
     """
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def get_authenticate_header(self, request):
-        # 인증 클래스가 없으면 DRF가 인증 실패를 403으로 바꾼다. 키가 틀린 건 401이 맞다.
+        # 인증 클래스가 없으면 DRF가 인증 실패를 403으로 바꾼다. 토큰이 틀린 건 401이 맞다.
         return 'Bearer realm="meokbogi-push"'
 
     def post(self, request, *args, **kwargs):
+        expected = os.environ.get("PUSH_API_TOKEN", "")
+        if not expected:
+            # 토큰 없이 열어 두면 누구나 알림을 보낼 수 있으므로 설정 전에는 막는다
+            raise ServiceUnavailable("서버에 PUSH_API_TOKEN 환경변수가 설정되지 않았어요.")
+
         header = request.headers.get("Authorization", "")
-        key = header[len("Bearer "):].strip() if header.startswith("Bearer ") else ""
-        api_key = PushApiKey.objects.select_related("user").filter(key=key).first() if key else None
-        # 키 비교를 타이밍으로 추측하지 못하게 한 번 더 상수 시간 비교
-        if api_key is None or not secrets.compare_digest(api_key.key, key) or not api_key.user.is_active:
-            raise AuthenticationFailed("알림 키가 올바르지 않아요. 내정보 → 알림에서 키를 다시 복사해주세요.")
+        token = header[len("Bearer "):].strip() if header.startswith("Bearer ") else ""
+        if not token or not secrets.compare_digest(token.encode(), expected.encode()):
+            raise AuthenticationFailed("알림 토큰이 올바르지 않아요. 서버의 PUSH_API_TOKEN 값을 확인해주세요.")
 
         serializer = SendSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        return Response(send_to_user(api_key.user, data["title"], data["content"], data["url"]))
+        return Response(send_to_all(data["title"], data["content"], data["url"]))

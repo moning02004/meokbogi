@@ -21,7 +21,6 @@ urlpatterns = [
     path("push/config", push_views.PushConfigAPIView.as_view(), name="push-config"),
     path("push/subscriptions", push_views.PushSubscriptionAPIView.as_view(), name="push-subscriptions"),
     path("push/test", push_views.PushTestAPIView.as_view(), name="push-test"),
-    path("push/api-key", push_views.PushApiKeyAPIView.as_view(), name="push-api-key"),
     path("push/send", push_views.PushSendAPIView.as_view(), name="push-send"),
 
     # zone

@@ -11,7 +11,7 @@ from django.test import TestCase
 from django.urls import reverse
 from pywebpush import WebPushException
 
-from apps.push.models import PushApiKey, PushSubscription, VapidKey
+from apps.push.models import PushSubscription, VapidKey
 from apps.push.sender import get_vapid, send_to_user
 
 
@@ -191,25 +191,19 @@ class SenderTestCase(PushTestBase):
         self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["title"], "먹보기 알림 시험")
 
 
-class ApiKeyAndSendTestCase(PushTestBase):
+TOKEN = "test-push-token-1234"
+
+
+@mock.patch.dict(os.environ, {"PUSH_API_TOKEN": TOKEN})
+class SendWithServerTokenTestCase(PushTestBase):
     def setUp(self):
         super().setUp()
-        self.subscribe()
-        self.key = self.client.get(reverse("push-api-key")).json()["key"]
+        self.subscribe("https://push.example.com/owner")
         self.anonymous = self.client_class()
 
-    def _send(self, body, key=None, client=None):
-        headers = {"HTTP_AUTHORIZATION": f"Bearer {key if key is not None else self.key}"}
-        return (client or self.anonymous).post(reverse("push-send"), data=body, content_type="application/json",
-                                               **headers)
-
-    def test_key_is_stable_until_rotated(self):
-        self.assertTrue(self.key.startswith("mkb_"))
-        self.assertEqual(self.client.get(reverse("push-api-key")).json()["key"], self.key)
-
-        rotated = self.client.post(reverse("push-api-key")).json()["key"]
-        self.assertNotEqual(rotated, self.key)
-        self.assertEqual(self._send({"title": "제목"}).status_code, 401)  # 예전 키는 더 못 쓴다
+    def _send(self, body, token=TOKEN):
+        headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"} if token is not None else {}
+        return self.anonymous.post(reverse("push-send"), data=body, content_type="application/json", **headers)
 
     def test_send_with_title_and_content_only(self):
         with mock.patch("apps.push.sender.webpush") as webpush:
@@ -219,20 +213,39 @@ class ApiKeyAndSendTestCase(PushTestBase):
         payload = json.loads(webpush.call_args.kwargs["data"])
         self.assertEqual(payload, {"title": "점심 뭐 드셨어요?", "body": "먹은 메뉴를 남겨 두세요", "url": "/home"})
 
-    def test_send_without_login_session_or_jwt(self):
-        # n8n은 로그인하지 않는다. 키만 있으면 된다.
+    def test_sends_to_every_users_devices(self):
+        # 가족이 각자 계정으로 써도 한 번 부르면 모두 받는다
+        family = User.objects.create_user(username="family", password="123")
+        self.subscribe("https://push.example.com/family-phone", user=family)
+        self.subscribe("https://push.example.com/family-tablet", user=family)
+        left = User.objects.create_user(username="left", password="123", is_active=False)
+        self.subscribe("https://push.example.com/left", user=left)
+
+        with mock.patch("apps.push.sender.webpush") as webpush:
+            response = self._send({"title": "저녁 뭐 드셨어요?"})
+        self.assertEqual(response.json()["sent"], 3)
+        self.assertEqual(sorted(c.args[0]["endpoint"] for c in webpush.call_args_list), [
+            "https://push.example.com/family-phone",
+            "https://push.example.com/family-tablet",
+            "https://push.example.com/owner",
+        ])
+
+    def test_no_login_needed(self):
         with mock.patch("apps.push.sender.webpush"):
             self.assertEqual(self._send({"title": "제목"}).status_code, 200)
 
-    def test_wrong_or_missing_key(self):
-        self.assertEqual(self._send({"title": "제목"}, key="mkb_wrong").status_code, 401)
-        response = self.anonymous.post(reverse("push-send"), data={"title": "제목"}, content_type="application/json")
-        self.assertEqual(response.status_code, 401)
+    def test_wrong_or_missing_token(self):
+        self.assertEqual(self._send({"title": "제목"}, token="wrong").status_code, 401)
+        self.assertEqual(self._send({"title": "제목"}, token=None).status_code, 401)
+        # 로그인 토큰(JWT)으로는 보낼 수 없다
+        jwt = self.client.post(reverse("obtain-token"), data={"username": "owner", "password": "123"}).json()
+        self.assertEqual(self._send({"title": "제목"}, token=jwt["access_token"]).status_code, 401)
 
-    def test_inactive_user_key_is_rejected(self):
-        self.user.is_active = False
-        self.user.save()
-        self.assertEqual(self._send({"title": "제목"}).status_code, 401)
+    def test_blocked_until_token_is_configured(self):
+        with mock.patch.dict(os.environ, {"PUSH_API_TOKEN": ""}):
+            response = self._send({"title": "제목"}, token="")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("PUSH_API_TOKEN", response.json()["detail"])
 
     def test_validates_body(self):
         self.assertEqual(self._send({"content": "제목 없음"}).status_code, 400)
@@ -248,9 +261,4 @@ class ApiKeyAndSendTestCase(PushTestBase):
 
     def test_reports_zero_when_no_devices(self):
         PushSubscription.objects.all().delete()
-        response = self._send({"title": "제목"})
-        self.assertEqual(response.json()["sent"], 0)
-
-    def test_api_key_requires_login(self):
-        self.assertEqual(self.anonymous.get(reverse("push-api-key")).status_code, 401)
-        self.assertFalse(PushApiKey.objects.exclude(user=self.user).exists())
+        self.assertEqual(self._send({"title": "제목"}).json()["sent"], 0)

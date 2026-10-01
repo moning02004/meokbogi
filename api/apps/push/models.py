@@ -1,5 +1,3 @@
-import secrets
-
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -26,18 +24,3 @@ class VapidKey(models.Model):
     private_pem = models.TextField()
     public_key = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
-
-
-def _new_api_key():
-    return f"mkb_{secrets.token_urlsafe(32)}"
-
-
-class PushApiKey(models.Model):
-    """n8n 같은 외부 스케줄러가 POST /push/send 를 부를 때 쓰는 개인 키. 이 키의 주인 기기로만 보낸다."""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="push_api_key")
-    key = models.CharField(max_length=64, unique=True, default=_new_api_key)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def rotate(self):
-        self.key = _new_api_key()
-        self.save(update_fields=["key"])

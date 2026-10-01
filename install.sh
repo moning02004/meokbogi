@@ -288,6 +288,9 @@ collect_settings() {
     DB_PASSWORD="$(env_value "$env_file" DB_PASSWORD)"
     [ -n "$DJANGO_SECRET_KEY" ] || DJANGO_SECRET_KEY="$(random_string 50)"
     [ -n "$DB_PASSWORD" ] || DB_PASSWORD="$(random_string 24)"
+    # 외부 스케줄러(n8n 등)가 POST /push/send 로 알림을 보낼 때 쓰는 토큰
+    PUSH_API_TOKEN="$(env_value "$env_file" PUSH_API_TOKEN)"
+    [ -n "$PUSH_API_TOKEN" ] || PUSH_API_TOKEN="$(random_string 40)"
 
     # 기존 postgres 볼륨에 맞추려고 .env 를 손으로 고쳤을 수 있으므로 그 값을 존중한다.
     DB_NAME="$(env_value "$env_file" DB_NAME)"
@@ -378,6 +381,9 @@ DJANGO_ALLOWED_HOSTS=${ALLOWED_HOSTS}
 CORS_ALLOWED_ORIGINS=${WEB_ORIGIN}
 REFRESH_COOKIE_SAMESITE=${COOKIE_SAMESITE}
 REFRESH_COOKIE_SECURE=${COOKIE_SECURE}
+
+# 알림 보내기 API(POST /push/send)의 토큰. 헤더 Authorization: Bearer <이 값>
+PUSH_API_TOKEN=${PUSH_API_TOKEN}
 
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
@@ -636,6 +642,8 @@ summary() {
     printf '  관리자 페이지 %s/admin/\n' "$API_ORIGIN"
     printf '\n  아이디       %s\n' "$ADMIN_USER"
     printf '  비밀번호     %s\n' "$ADMIN_PASSWORD"
+    printf '\n  알림 보내기  POST %s/push/send\n' "$API_ORIGIN"
+    printf '  알림 토큰    %s  %s(.env 의 PUSH_API_TOKEN)%s\n' "$PUSH_API_TOKEN" "$C_DIM" "$C_OFF"
     printf '\n%s  네트워크:  %s%s\n' "$C_DIM" "$NETWORK_NAME" "$C_OFF"
     printf '%s  설치 경로: %s%s\n' "$C_DIM" "$INSTALL_DIR" "$C_OFF"
     printf '%s  관리:      cd %s && docker compose {ps,logs -f,down}%s\n\n' "$C_DIM" "$INSTALL_DIR" "$C_OFF"

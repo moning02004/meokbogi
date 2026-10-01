@@ -1,7 +1,7 @@
 import {BrowserContext, expect, test} from "@playwright/test";
 import {createECDH, randomBytes} from "node:crypto";
 import {Api, createUser, loginUi} from "./helpers";
-import {API_HOST} from "./env";
+import {API_HOST, PUSH_API_TOKEN} from "./env";
 
 const b64url = (buffer: Buffer) => buffer.toString("base64url")
 
@@ -34,7 +34,7 @@ async function stubPushManager(context: BrowserContext) {
 }
 
 test.describe("알림", () => {
-    test("이 기기에서 알림을 켜고, 자동 알림 키로 n8n처럼 보낸다", async ({page, context, request}) => {
+    test("이 기기에서 알림을 켜고, 서버 토큰으로 n8n처럼 보낸다", async ({page, context, request}) => {
         await stubPushManager(context)
         const user = createUser()
         await (await Api.login(request, user)).createZone("우리집")
@@ -55,12 +55,9 @@ test.describe("알림", () => {
         await page.getByRole("button", {name: "시험 알림 보내기"}).click()
         await expect(page.getByText("알림 서비스에 보내지 못했어요", {exact: false})).toBeVisible()
 
-        // 화면에서 키를 보고, 로그인 없이 그 키로 보낸다 (n8n이 하는 일)
-        await page.getByRole("button", {name: "보기"}).click()
-        const key = (await page.getByLabel("자동 알림 키").innerText()).trim()
-        expect(key).toMatch(/^mkb_/)
+        // n8n이 하는 일: 로그인 없이 서버 토큰으로 보낸다
         const sent = await request.post(`${API_HOST}/push/send`, {
-            headers: {Authorization: `Bearer ${key}`},
+            headers: {Authorization: `Bearer ${PUSH_API_TOKEN}`},
             data: {title: "점심 뭐 드셨어요?", content: "먹은 메뉴를 남겨 두세요"},
         })
         expect(sent.status()).toBe(200)
@@ -72,26 +69,9 @@ test.describe("알림", () => {
         await expect(page.getByText("알림 받는 기기 0대")).toBeVisible()
     })
 
-    test("새 키를 만들면 예전 키로는 보낼 수 없다", async ({page, request}) => {
-        const user = createUser()
-        await (await Api.login(request, user)).createZone("우리집")
-        await loginUi(page, user)
-        await expect(page.getByText("우리집 기록")).toBeVisible()
-        await page.getByRole("button", {name: "내정보"}).click()
-
-        await page.getByRole("button", {name: "보기"}).click()
-        const keyBox = page.getByLabel("자동 알림 키")
-        await expect(keyBox).toHaveText(/^mkb_/)
-        const oldKey = (await keyBox.innerText()).trim()
-
-        await page.getByRole("button", {name: "새 키 만들기"}).click()
-        await expect(page.getByText("지금 키는 바로 못 쓰게 돼요", {exact: false})).toBeVisible()
-        await page.getByRole("button", {name: "새 키 만들기"}).click()
-        await expect(page.getByText("새 키를 만들었어요", {exact: false})).toBeVisible()
-        await expect(keyBox).not.toHaveText(oldKey)
-
+    test("토큰이 틀리면 보낼 수 없다", async ({request}) => {
         const response = await request.post(`${API_HOST}/push/send`, {
-            headers: {Authorization: `Bearer ${oldKey}`}, data: {title: "제목"},
+            headers: {Authorization: "Bearer wrong-token"}, data: {title: "제목"},
         })
         expect(response.status()).toBe(401)
     })

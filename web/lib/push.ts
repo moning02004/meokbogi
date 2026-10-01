@@ -81,9 +81,3 @@ export async function disablePush() {
 
 export const sendTestPush = () =>
     apiRequest[PUSH_API.test.method]<{ sent: number; removed: number; failed: number }>(PUSH_API.test.endpoint)
-
-export const fetchPushApiKey = () =>
-    apiRequest[PUSH_API.apiKey.method]<{ key: string }>(PUSH_API.apiKey.endpoint)
-
-export const rotatePushApiKey = () =>
-    apiRequest[PUSH_API.rotateApiKey.method]<{ key: string }>(PUSH_API.rotateApiKey.endpoint)

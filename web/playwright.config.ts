@@ -1,11 +1,11 @@
 import {defineConfig, devices} from "@playwright/test";
-import {API_DIR, API_HOST, API_PORT, PYTHON, WEB_PORT} from "./e2e/env";
+import {API_DIR, API_HOST, API_PORT, PUSH_API_TOKEN, PYTHON, WEB_PORT} from "./e2e/env";
 
 // 실제 Django API(E2E 전용 SQLite)와 Next 프로덕션 빌드를 띄워 놓고 브라우저로 돈다.
 //   npm run e2e                 빌드부터
 //   E2E_SKIP_BUILD=1 npm run e2e  이미 빌드했으면 건너뛰기
 
-const apiEnv = {DJANGO_SETTINGS_MODULE: "meokbogi_api.settings.e2e"}
+const apiEnv = {DJANGO_SETTINGS_MODULE: "meokbogi_api.settings.e2e", PUSH_API_TOKEN}
 const build = process.env.E2E_SKIP_BUILD ? "" : "npm run build && "
 
 export default defineConfig({

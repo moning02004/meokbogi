@@ -53,12 +53,22 @@ def vapid_subject():
 
 
 def send_to_user(user, title, content, url="/home"):
-    """사용자의 모든 기기로 보낸다. 더는 없는 구독(404·410)은 지운다."""
+    """한 사용자의 모든 기기로 보낸다 (시험 알림)."""
+    return _send(PushSubscription.objects.filter(user=user), title, content, url)
+
+
+def send_to_all(title, content, url="/home"):
+    """알림을 켠 모든 사용자의 모든 기기로 보낸다 (외부 스케줄러 알림)."""
+    return _send(PushSubscription.objects.filter(user__is_active=True), title, content, url)
+
+
+def _send(subscriptions, title, content, url):
+    """더는 없는 구독(404·410)은 지운다. 기기 하나의 실패가 나머지 전송을 막지 않는다."""
     vapid, _ = get_vapid()
     payload = json.dumps({"title": title, "body": content, "url": url}, ensure_ascii=False)
     result = {"sent": 0, "removed": 0, "failed": 0}
 
-    for subscription in PushSubscription.objects.filter(user=user):
+    for subscription in subscriptions:
         try:
             webpush(subscription.as_subscription_info(), data=payload, vapid_private_key=vapid,
                     vapid_claims={"sub": vapid_subject()}, ttl=TTL_SECONDS, timeout=10)
