@@ -1,16 +1,18 @@
+import {CategoryType} from "@/types/zone";
+
 export interface DeliciousRestaurant {
     id: number;
     name: string;
     ordered_count: number;
     review_avg: number;
-    category_name: string;
+    categories: CategoryType[];
 }
 
 export interface RecentRegisteredRestaurant {
     id: number;
     name: string;
     description: string;
-    category_name: string;
+    categories: CategoryType[];
     ordered_count: number;
     latest_ordered_at: string;
 }
@@ -28,7 +30,7 @@ export interface RestaurantType {
     name: string;
     description: string;
     address: string;
-    category_name: string;
+    categories: CategoryType[];
     latest_ordered_at: string | null;
     ordered_count: number;
     review_avg: number | null;
@@ -38,13 +40,13 @@ export interface RestaurantType {
 }
 
 // GET /zones/{zone}/restaurants (목록) 응답 하나의 모양. 상세(RestaurantType)와 필드명이 다르다
-// (category vs category_name, review_set 없음 등) 라서 따로 둔다.
+// (review_set 없음 등) 라서 따로 둔다.
 export interface RestaurantListItemType {
     id: number;
     name: string;
     description: string;
     address: string;
-    category_name: string;
+    categories: CategoryType[];
     latest_ordered_at: string | null;
     ordered_count: number;
     review_avg: number | null;

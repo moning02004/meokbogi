@@ -77,7 +77,7 @@ export const RESTAURANT_API = {
     },
     add: {
         method: "post",
-        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}/restaurants`
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/restaurants`
     },
     update: {
         method: "patch",

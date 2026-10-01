@@ -76,8 +76,8 @@ class UserInfoAPIView(RetrieveUpdateAPIView):
         queryset = User.objects.all()
         queryset = queryset.annotate(
             zone_count=Count("zone", distinct=True),
-            restaurant_count=Count("zone__category__restaurant", distinct=True),
-            review_count=Count("zone__category__restaurant__review_set", distinct=True),
+            restaurant_count=Count("zone__restaurant", distinct=True),
+            review_count=Count("zone__restaurant__review_set", distinct=True),
         )
         return queryset.get(id=self.request.user.id)
 

@@ -10,8 +10,7 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("우리집 기록")).toBeVisible()
 
         await page.getByRole("button", {name: "음식점등록"}).click()
-        await page.getByPlaceholder("카테고리를 선택해주세요").click()
-        await page.getByRole("button", {name: "치킨", exact: true}).click()
+        await page.getByRole("group", {name: /카테고리/}).getByRole("button", {name: "치킨", exact: true}).click()
         await page.getByPlaceholder("예: 미뜨레피자").fill("교촌치킨")
         await page.getByRole("button", {name: "등록", exact: true}).click()
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
@@ -227,5 +226,33 @@ test.describe("음식점과 리뷰", () => {
         const saved = (await api.reviews(restaurant.id)).results.find((review) => review.menu === "반반콤보")
         const pad = (n: number) => String(n).padStart(2, "0")
         expect(saved).toMatchObject({ordered_at: `${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}-15`})
+    })
+
+    test("카테고리를 여러 개 붙이면 각 카테고리에서 모두 보인다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        await api.createZone("우리집")
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.getByRole("button", {name: "음식점등록"}).click()
+        const chips = page.getByRole("group", {name: /카테고리/})
+        await chips.getByRole("button", {name: "분식", exact: true}).click()
+        await chips.getByRole("button", {name: "돈까스", exact: true}).click()
+        await expect(chips.getByRole("button", {name: "분식", exact: true})).toHaveAttribute("aria-pressed", "true")
+        await page.getByPlaceholder("예: 미뜨레피자").fill("김밥천국")
+        await page.getByRole("button", {name: "등록", exact: true}).click()
+
+        await expect(page).toHaveURL(/\/restaurant\/\d+$/)
+        await expect(page.getByText("분식 · 돈까스", {exact: false})).toBeVisible()
+
+        await page.goto("/restaurant")
+        for (const keyword of ["분식", "돈까스"]) {
+            await page.getByRole("button", {name: keyword, exact: true}).click()
+            await expect(page.getByText("김밥천국")).toBeVisible()
+            await expect(page.getByText("총 1곳")).toBeVisible()
+        }
+        await page.getByRole("button", {name: "한식", exact: true}).click()
+        await expect(page.getByText("총 0곳")).toBeVisible()
     })
 })

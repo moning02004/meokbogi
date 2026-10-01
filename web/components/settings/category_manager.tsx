@@ -207,7 +207,8 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
                 ) : (
                     <ul className="flex flex-col divide-y divide-[#F0EBDD] border border-[#E7E0CF] rounded-xl overflow-hidden">
                         {matched.map((category) => {
-                            const isLocked = category.restaurant_count > 0
+                            // 카테고리는 태그라 지워도 음식점은 남는다. 이것만 붙은 음식점이 있을 때만 막는다.
+                            const isLocked = category.exclusive_restaurant_count > 0
                             if (editingId === category.id) return (
                                 <li key={category.id} className="flex flex-col gap-1 px-3.5 py-2 bg-white">
                                     <div className="flex items-center gap-2">
@@ -252,7 +253,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
                                     </span>
                                     <span
                                         className={`shrink-0 text-[11.5px] font-bold rounded-full px-2 py-0.5 ${
-                                            isLocked ? "bg-[#E4EEEA] text-[#24564A]" : "bg-[#F1EFE8] text-[#B7AF9F]"
+                                            category.restaurant_count > 0 ? "bg-[#E4EEEA] text-[#24564A]" : "bg-[#F1EFE8] text-[#B7AF9F]"
                                         }`}
                                     >
                                         음식점 {category.restaurant_count}
@@ -268,7 +269,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
                                     <button
                                         onClick={() => deleteCategory(category)}
                                         disabled={isLocked || isSubmitting}
-                                        title={isLocked ? "등록된 음식점이 있어 삭제할 수 없어요" : "삭제"}
+                                        title={isLocked ? `이 카테고리만 붙은 음식점 ${category.exclusive_restaurant_count}곳이 있어 지울 수 없어요` : "삭제"}
                                         aria-label={`${category.keyword} 삭제`}
                                         className="shrink-0 p-1.5 rounded-lg text-[#C23B1E] cursor-pointer sm:hover:bg-[#FDEBE1] transition-colors disabled:text-[#D6D2CC] disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                     >
@@ -282,7 +283,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
             </div>
 
             <p className="text-[11.5px] text-[#B7AF9F] mt-2.5 leading-relaxed">
-                음식점이 등록된 카테고리는 삭제할 수 없어요. 이름은 연필 버튼으로 언제든 바꿀 수 있어요.
+                카테고리를 지워도 음식점은 남아요. 다만 그 카테고리만 붙은 음식점이 있으면, 다른 카테고리를 먼저 붙여야 지울 수 있어요.
             </p>
         </div>
     )

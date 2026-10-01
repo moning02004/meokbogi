@@ -14,15 +14,22 @@ class CategoryManageSerializer(serializers.ModelSerializer):
     """카테고리 관리 화면용. 음식점이 몇 개 묶여 있는지 함께 보여준다."""
 
     restaurant_count = serializers.SerializerMethodField()
+    exclusive_restaurant_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "keyword", "restaurant_count"]
+        fields = ["id", "keyword", "restaurant_count", "exclusive_restaurant_count"]
 
+    # 목록에서는 annotate된 값을 쓰고, 생성·수정 직후처럼 annotate가 없으면 직접 센다
     def get_restaurant_count(self, instance):
-        # 목록에서는 annotate된 값을 쓰고, 생성 직후처럼 annotate가 없으면 직접 센다
         count = getattr(instance, "restaurant_count", None)
-        return instance.restaurant_set.count() if count is None else count
+        return instance.restaurants.count() if count is None else count
+
+    def get_exclusive_restaurant_count(self, instance):
+        count = getattr(instance, "exclusive_restaurant_count", None)
+        if count is not None:
+            return count
+        return sum(1 for restaurant in instance.restaurants.all() if restaurant.categories.count() == 1)
 
 
 class ZoneListSerializer(serializers.ModelSerializer):
@@ -67,27 +74,12 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
         validated_data["user_id"] = self.context["request"].user.id
         return super().create(validated_data)
 
+    # 목록은 뷰(ZoneDashboardAPIView)가 계산해 붙여 둔다
     def get_delicious_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.delicious_restaurants)
-
-        restaurants.sort(key=lambda r: r.review_avg, reverse=True)
-        return RestaurantListSerializer(restaurants[:5], many=True).data
+        return RestaurantListSerializer(value.delicious_restaurants, many=True).data
 
     def get_recent_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.recently_ordered_restaurants)
-
-        restaurants.sort(key=lambda r: r.latest_ordered_at, reverse=True)
-        return RestaurantListSerializer(restaurants[:3], many=True).data
+        return RestaurantListSerializer(value.recently_ordered_restaurants, many=True).data
 
     def get_forgotten_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.forgotten_restaurants)
-
-        # 가장 오래 안 간 곳부터
-        restaurants.sort(key=lambda r: (r.latest_ordered_at, -r.review_avg))
-        return RestaurantListSerializer(restaurants[:5], many=True).data
+        return RestaurantListSerializer(value.forgotten_restaurants, many=True).data

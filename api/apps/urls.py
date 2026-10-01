@@ -39,8 +39,6 @@ urlpatterns = [
          name="all-restaurants"),
     path("zones/<int:zone_pk>/restaurants/pick", restaurant_views.RestaurantPickAPIView.as_view(),
          name="restaurant-pick"),
-    path("zones/<int:zone_pk>/category/<int:category_pk>/restaurants",
-         restaurant_views.RestaurantListViewSet.as_view({"get": "list", "post": "create"}), name="restaurants"),
     path("restaurants/<int:restaurant_pk>",
          restaurant_views.RestaurantInfoViewSet.as_view({
              "get": "retrieve",

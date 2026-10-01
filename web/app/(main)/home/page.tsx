@@ -10,7 +10,7 @@ import {useZoneStore} from "@/store/zone";
 import {daysSince} from "@/lib/date";
 import toast from "react-hot-toast";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
-import {DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
+import {categoryLabel, DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
 import {BsForkKnife} from "react-icons/bs";
 import {useCategoryStore} from "@/store/category";
 import {useRouter} from "next/navigation";
@@ -150,7 +150,7 @@ export default function Page() {
                                          className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors">
                                         <div>
                                             <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5">{`${restaurant.category_name} 음식점`}</p>
+                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5">{`${categoryLabel(restaurant.categories)} 음식점`}</p>
                                         </div>
                                         {reviewTextBox}
                                     </div>
@@ -172,7 +172,7 @@ export default function Page() {
                             >
                                 <div>
                                     <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${restaurant.category_name} 음식점`}</p>
+                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
                                     <div className="flex flex-row mt-1 text-[12.5px] text-[#8A8172]">
                                         <span>방문 {restaurant.ordered_count} 회</span>
                                         <span className="inline-block mx-2">·</span>

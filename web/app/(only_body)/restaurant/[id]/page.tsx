@@ -1,5 +1,7 @@
 "use client"
 
+import {categoryLabel} from "@/lib/restaurant";
+
 import {Suspense, useCallback, useEffect, useState} from "react"
 import {useParams, useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
@@ -17,7 +19,7 @@ import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {Modal} from "@/components/ui/modal";
 import {useCategoryStore} from "@/store/category";
-import {CategoryType} from "@/types/zone";
+import {CategoryChips} from "@/components/restaurant/category_chips";
 import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
 import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
 
@@ -67,7 +69,7 @@ export default function Page() {
 
     // 음식점 수정
     const [isEditingRestaurant, setIsEditingRestaurant] = useState(false)
-    const [editCategory, setEditCategory] = useState<CategoryType | null>(null)
+    const [editCategoryIds, setEditCategoryIds] = useState<number[]>([])
     const [editName, setEditName] = useState("")
     const [editDescription, setEditDescription] = useState("")
     const [editAddress, setEditAddress] = useState("")
@@ -146,7 +148,7 @@ export default function Page() {
     // 현재 값으로 폼을 채운 뒤 수정 모달을 연다
     const editRestaurant = () => {
         if (!restaurant) return
-        setEditCategory(categories.find((category) => category.keyword === restaurant.category_name) ?? null)
+        setEditCategoryIds(restaurant.categories.map((category) => category.id))
         setEditName(restaurant.name)
         setEditDescription(restaurant.description ?? "")
         setEditAddress(restaurant.address ?? "")
@@ -154,8 +156,8 @@ export default function Page() {
     }
 
     const saveRestaurant = () => {
-        if (!editName.trim() || !editCategory) {
-            toast.error("음식점 이름과 카테고리를 선택해주세요.")
+        if (!editName.trim() || editCategoryIds.length === 0) {
+            toast.error("음식점 이름과 카테고리를 하나 이상 골라주세요.")
             return;
         }
 
@@ -164,7 +166,7 @@ export default function Page() {
             restaurant: Number(restaurantId)
         }), {
             body: JSON.stringify({
-                category: editCategory.id,
+                category_ids: editCategoryIds,
                 name: editName.trim(),
                 description: editDescription,
                 address: editAddress,
@@ -313,7 +315,7 @@ export default function Page() {
                         </div>
                     </div>
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
-                        {restaurant.category_name} · {restaurant.address || "주소 미등록"}
+                        {categoryLabel(restaurant.categories)} · {restaurant.address || "주소 미등록"}
                     </div>
                     <div
                         className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed bg-white px-3 py-1 rounded border border-[#E7E0CF]">{restaurant.description || "소개 없음"}</div>
@@ -502,25 +504,11 @@ export default function Page() {
                 >
                     <div className="flex flex-col gap-3">
                         <div>
-                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                대표 카테고리 <span className="text-[#D2571E]">*</span>
-                            </label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {categories.map((category: CategoryType) => (
-                                    <button
-                                        key={category.id}
-                                        type="button"
-                                        onClick={() => setEditCategory(category)}
-                                        className={`px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
-                                            editCategory?.id === category.id
-                                                ? "bg-[#24564A] text-white border-[#24564A]"
-                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
-                                        }`}
-                                    >
-                                        {category.keyword}
-                                    </button>
-                                ))}
+                            <div id="edit-categories-label" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                카테고리 <span className="text-[#D2571E]">*</span>
                             </div>
+                            <CategoryChips categories={categories} selected={editCategoryIds}
+                                           onChange={setEditCategoryIds} labelledBy="edit-categories-label"/>
                         </div>
 
                         <div>

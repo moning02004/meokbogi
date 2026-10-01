@@ -1,6 +1,9 @@
 import {apiRequest} from "@/lib/api";
 import {RESTAURANT_API, ZONE_API} from "@/constants/routeUrl";
 import {CategoryType} from "@/types/zone";
+
+// "치킨 · 분식" 처럼 음식점의 카테고리를 한 줄로
+export const categoryLabel = (categories: CategoryType[]) => categories.map((category) => category.keyword).join(" · ")
 import {DeliciousRestaurant, RecentRegisteredRestaurant, RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
 
 

@@ -9,7 +9,7 @@ import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {useCategoryStore} from "@/store/category";
 import {RecentRegisteredRestaurant, RestaurantListItemType} from "@/types/restaurant";
 import {apiRequest, errorMessage} from "@/lib/api";
-import {PaginatedResponse, pickRestaurant} from "@/lib/restaurant";
+import {categoryLabel, PaginatedResponse, pickRestaurant} from "@/lib/restaurant";
 import {useZoneStore} from "@/store/zone";
 import {daysSince} from "@/lib/date";
 import {FiArrowUpRight} from "react-icons/fi";
@@ -256,7 +256,7 @@ export default function Page() {
                                     >
                                         <div>
                                             <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${restaurant.category_name} 음식점`}</p>
+                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
                                             <div className="flex flex-row mt-1">
                                                 <div
                                                     className="text-[12px] text-[#B7AF9F] font-medium">방문 {restaurant.ordered_count} 회

@@ -1,9 +1,7 @@
 from datetime import date, datetime
-from importlib import import_module
 from types import SimpleNamespace
 from unittest import mock
 
-from django.apps import apps as django_apps
 import json
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,8 +10,9 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from apps.restaurant.menus import canonical_menu, normalize_menu
+from apps.restaurant.menus import get_or_create_menu, normalize_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.testing import make_restaurant, make_review
 from apps.restaurant.picking import pick_restaurant, pick_weight
 from apps.zone.models import Zone, Category
 
@@ -37,22 +36,22 @@ class RestaurantTestCase(TestCase):
         category2 = Category.objects.create(keyword="test2", zone=zone)
 
         self.client.login(username="test", password="123")
-        url = reverse("restaurants", kwargs={"zone_pk": zone.pk, "category_pk": category1.pk})
+        url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
         body = {
             "name": "test",
             "description": "test",
             "address": "test",
+            "category_ids": [category1.pk],
         }
-        response = self.client.post(url, data=body)
+        response = self.client.post(url, data=body, content_type="application/json")
         self.assertEqual(response.status_code, 201)
+        self.assertEqual([c["keyword"] for c in response.json()["categories"]], ["test1"])
 
-        url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
-        url = reverse("restaurants", kwargs={"zone_pk": zone.pk, "category_pk": category2.pk})
-        response = self.client.get(url)
+        response = self.client.get(url, {"category": category2.pk})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -62,13 +61,14 @@ class RestaurantTestCase(TestCase):
         category1 = Category.objects.create(keyword="test1", zone=zone)
 
         self.client.login(username="test", password="123")
-        url = reverse("restaurants", kwargs={"zone_pk": zone.pk, "category_pk": category1.pk})
+        url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
         body = {
             "name": "test",
             "description": "test",
             "address": "test",
+            "category_ids": [category1.pk],
         }
-        response = self.client.post(url, data=body)
+        response = self.client.post(url, data=body, content_type="application/json")
         self.assertEqual(response.status_code, 201)
         restaurant_id = response.json()["id"]
 
@@ -107,17 +107,17 @@ class RestaurantTestCase(TestCase):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
         category = Category.objects.create(keyword="test", zone=zone)
-        restaurant = Restaurant.objects.create(category=category, name="restaurant")
+        restaurant = make_restaurant(category=category, name="restaurant")
 
         # 김치찌개: point 1, 0, 0 -> 평균 1/3 (정수 나눗셈이면 0으로 잘림)
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, menu="김치찌개",
+        make_review(restaurant=restaurant, user=user, menu="김치찌개",
                                         ordered_at=datetime.now().date(), content="good", point=1)
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, menu="김치찌개",
+        make_review(restaurant=restaurant, user=user, menu="김치찌개",
                                         ordered_at=datetime.now().date(), content="soso", point=0)
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, menu="김치찌개",
+        make_review(restaurant=restaurant, user=user, menu="김치찌개",
                                         ordered_at=datetime.now().date(), content="bad", point=0)
         # 된장찌개: point 1 -> 평균 1
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, menu="된장찌개",
+        make_review(restaurant=restaurant, user=user, menu="된장찌개",
                                         ordered_at=datetime.now().date(), content="good", point=1)
 
         self.client.login(username="test", password="123")
@@ -147,8 +147,8 @@ class RestaurantAuthorizationTestCase(TestCase):
 
         self.zone = Zone.objects.create(user=self.victim, name="남의 존")
         self.category = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.restaurant = Restaurant.objects.create(category=self.category, name="비밀맛집")
-        self.review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.victim,
+        self.restaurant = make_restaurant(category=self.category, name="비밀맛집")
+        self.review = make_review(restaurant=self.restaurant, user=self.victim,
                                                       ordered_at="2026-01-01", point=1)
 
         self.client.login(username="attacker", password="123")
@@ -158,15 +158,25 @@ class RestaurantAuthorizationTestCase(TestCase):
         self.assertEqual(self.client.get(url).json()["count"], 0)
 
     def test_cannot_list_other_users_restaurants_by_category(self):
-        url = reverse("restaurants", kwargs={"zone_pk": self.zone.pk, "category_pk": self.category.pk})
-        self.assertEqual(self.client.get(url).json()["count"], 0)
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        self.assertEqual(self.client.get(url, {"category": self.category.pk}).json()["count"], 0)
 
-    def test_cannot_create_restaurant_in_other_users_category(self):
+    def test_cannot_create_restaurant_in_other_users_zone(self):
         # get_queryset은 조회에만 적용되므로 생성 경로에 대한 검증이 따로 필요하다
-        url = reverse("restaurants", kwargs={"zone_pk": self.zone.pk, "category_pk": self.category.pk})
-        response = self.client.post(url, data={"name": "침입맛집"})
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        response = self.client.post(url, data={"name": "침입맛집", "category_ids": [self.category.pk]},
+                                    content_type="application/json")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Restaurant.objects.count(), 1)
+
+    def test_cannot_tag_my_restaurant_with_other_users_category(self):
+        attacker = User.objects.get(username="attacker")
+        my_zone = Zone.objects.create(user=attacker, name="내 장소")
+        url = reverse("all-restaurants", kwargs={"zone_pk": my_zone.pk})
+        response = self.client.post(url, data={"name": "침입맛집", "category_ids": [self.category.pk]},
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(self.category.restaurants.exclude(pk=self.restaurant.pk).exists())
 
     def test_cannot_read_other_users_reviews(self):
         url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
@@ -209,13 +219,13 @@ class RestaurantListBehaviorTestCase(TestCase):
         self.client.login(username="owner", password="123")
 
     def _review(self, restaurant, ordered_at, menu="후라이드", point=1):
-        return RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=ordered_at,
+        return make_review(restaurant=restaurant, user=self.user, ordered_at=ordered_at,
                                                menu=menu, point=point)
 
     def test_restaurants_ordered_by_latest_visit_with_unvisited_last(self):
-        old = Restaurant.objects.create(category=self.category, name="오래전")
-        recent = Restaurant.objects.create(category=self.category, name="최근")
-        unvisited = Restaurant.objects.create(category=self.category, name="미방문")
+        old = make_restaurant(category=self.category, name="오래전")
+        recent = make_restaurant(category=self.category, name="최근")
+        unvisited = make_restaurant(category=self.category, name="미방문")
         self._review(old, "2026-01-01")
         self._review(recent, "2026-09-01")
 
@@ -224,15 +234,15 @@ class RestaurantListBehaviorTestCase(TestCase):
         self.assertEqual(names, [recent.name, old.name, unvisited.name])
 
     def test_search_by_name(self):
-        Restaurant.objects.create(category=self.category, name="교촌치킨")
-        Restaurant.objects.create(category=self.category, name="미뜨레피자")
+        make_restaurant(category=self.category, name="교촌치킨")
+        make_restaurant(category=self.category, name="미뜨레피자")
 
         url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
         response = self.client.get(url, {"search": "교촌"})
         self.assertEqual([row["name"] for row in response.json()["results"]], ["교촌치킨"])
 
     def test_non_numeric_category_filter_is_ignored(self):
-        Restaurant.objects.create(category=self.category, name="교촌치킨")
+        make_restaurant(category=self.category, name="교촌치킨")
 
         url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
         response = self.client.get(url, {"category": "abc"})
@@ -244,7 +254,7 @@ class RestaurantListBehaviorTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_reviews_ordered_by_ordered_at_desc(self):
-        restaurant = Restaurant.objects.create(category=self.category, name="교촌치킨")
+        restaurant = make_restaurant(category=self.category, name="교촌치킨")
         first = self._review(restaurant, "2026-01-01")
         third = self._review(restaurant, "2026-03-01")
         second = self._review(restaurant, "2026-02-01")
@@ -254,7 +264,7 @@ class RestaurantListBehaviorTestCase(TestCase):
         self.assertEqual(ids, [third.id, second.id, first.id])
 
     def test_menu_summaries_ordered_by_review_count(self):
-        restaurant = Restaurant.objects.create(category=self.category, name="교촌치킨")
+        restaurant = make_restaurant(category=self.category, name="교촌치킨")
         self._review(restaurant, "2026-01-01", menu="양념")
         self._review(restaurant, "2026-01-02", menu="간장")
         self._review(restaurant, "2026-01-03", menu="간장")
@@ -270,9 +280,9 @@ class RestaurantWriteTestCase(TestCase):
         self.zone = Zone.objects.create(user=self.user, name="우리집")
         self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
         self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
-        self.restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        self.restaurant = make_restaurant(category=self.chicken, name="교촌치킨")
         self.client.login(username="owner", password="123")
-        self.create_url = reverse("restaurants", kwargs={"zone_pk": self.zone.pk, "category_pk": self.chicken.pk})
+        self.create_url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
         self.info_url = reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
         self.review_url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
 
@@ -284,30 +294,56 @@ class RestaurantWriteTestCase(TestCase):
         url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
         self.assertEqual(self.client.get(url).status_code, 401)
 
+    def _create(self, body):
+        return self.client.post(self.create_url, data=body, content_type="application/json")
+
     def test_create_requires_name(self):
-        self.assertEqual(self.client.post(self.create_url, data={"description": "메모"}).status_code, 400)
+        self.assertEqual(self._create({"description": "메모", "category_ids": [self.chicken.pk]}).status_code, 400)
 
     def test_create_rejects_too_long_name(self):
-        response = self.client.post(self.create_url, data={"name": "가" * 101})
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self._create({"name": "가" * 101, "category_ids": [self.chicken.pk]}).status_code, 400)
+
+    def test_create_requires_at_least_one_category(self):
+        self.assertEqual(self._create({"name": "김밥천국"}).status_code, 400)
+        self.assertEqual(self._create({"name": "김밥천국", "category_ids": []}).status_code, 400)
+
+    def test_create_with_several_categories(self):
+        # 분식과 돈까스를 다 파는 김밥집
+        response = self._create({"name": "김밥천국", "category_ids": [self.chicken.pk, self.pizza.pk]})
+        self.assertEqual(response.status_code, 201)
+        restaurant = Restaurant.objects.get(pk=response.json()["id"])
+        self.assertEqual(restaurant.zone, self.zone)
+        self.assertEqual(sorted(restaurant.categories.values_list("keyword", flat=True)), ["치킨", "피자"])
+
+        # 두 카테고리 어느 쪽으로 걸러도 나온다
+        for category in (self.chicken, self.pizza):
+            names = [r["name"] for r in self.client.get(self.create_url, {"category": category.pk}).json()["results"]]
+            self.assertIn("김밥천국", names)
 
     def test_move_to_another_category_in_my_zone(self):
-        response = self._patch(self.info_url, {"category": self.pizza.pk})
+        response = self._patch(self.info_url, {"category_ids": [self.pizza.pk]})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["category_name"], "피자")
+        self.assertEqual([c["keyword"] for c in response.json()["categories"]], ["피자"])
+
+    def test_patch_without_categories_keeps_them(self):
+        response = self._patch(self.info_url, {"name": "교촌치킨 역점"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([c["keyword"] for c in response.json()["categories"]], ["치킨"])
+
+    def test_cannot_remove_every_category(self):
+        self.assertEqual(self._patch(self.info_url, {"category_ids": []}).status_code, 400)
 
     def test_cannot_move_into_other_users_category(self):
         other = User.objects.create_user(username="other", password="123")
         other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
                                                  keyword="치킨")
 
-        response = self._patch(self.info_url, {"category": other_category.pk})
+        response = self._patch(self.info_url, {"category_ids": [other_category.pk]})
         self.assertEqual(response.status_code, 400)
-        self.restaurant.refresh_from_db()
-        self.assertEqual(self.restaurant.category_id, self.chicken.pk)
+        self.assertEqual(list(self.restaurant.categories.all()), [self.chicken])
 
     def test_delete_removes_reviews(self):
-        RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01")
+        make_review(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01")
 
         self.assertEqual(self.client.delete(self.info_url).status_code, 204)
         self.assertFalse(RestaurantReview.objects.exists())
@@ -334,8 +370,8 @@ class RestaurantWriteTestCase(TestCase):
 
     def test_delete_review_of_another_restaurant_is_404(self):
         # 리뷰 id가 맞아도 URL의 음식점과 다르면 지우지 않는다
-        other_restaurant = Restaurant.objects.create(category=self.chicken, name="BBQ")
-        review = RestaurantReview.objects.create(restaurant=other_restaurant, user=self.user,
+        other_restaurant = make_restaurant(category=self.chicken, name="BBQ")
+        review = make_review(restaurant=other_restaurant, user=self.user,
                                                  ordered_at="2026-01-01")
         url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
 
@@ -354,7 +390,8 @@ class RestaurantQueryTestCase(TestCase):
 
     def test_pages_do_not_overlap(self):
         # 정렬 키가 같은(방문 기록 없는) 음식점이 많아도 페이지 사이에 겹침·누락이 없어야 한다
-        Restaurant.objects.bulk_create([Restaurant(category=self.chicken, name=f"가게{i}") for i in range(25)])
+        for i in range(25):
+            make_restaurant(category=self.chicken, name=f"가게{i}")
 
         first = self.client.get(self.list_url, {"page": 1}).json()
         second = self.client.get(self.list_url, {"page": 2}).json()
@@ -363,8 +400,8 @@ class RestaurantQueryTestCase(TestCase):
         self.assertEqual(len(set(ids)), 25)
 
     def test_category_filter(self):
-        Restaurant.objects.create(category=self.chicken, name="교촌치킨")
-        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
+        make_restaurant(category=self.chicken, name="교촌치킨")
+        make_restaurant(category=self.pizza, name="미뜨레피자")
 
         response = self.client.get(self.list_url, {"category": self.pizza.pk})
         self.assertEqual([row["name"] for row in response.json()["results"]], ["미뜨레피자"])
@@ -373,16 +410,16 @@ class RestaurantQueryTestCase(TestCase):
         other = User.objects.create_user(username="other", password="123")
         other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
                                                  keyword="치킨")
-        Restaurant.objects.create(category=other_category, name="교촌치킨")
+        make_restaurant(category=other_category, name="교촌치킨")
 
         response = self.client.get(self.list_url, {"search": "교촌"})
         self.assertEqual(response.json()["count"], 0)
 
     def test_visit_count_counts_distinct_days(self):
         # 한 번 주문에서 메뉴 두 개를 기록해도 방문은 1회다
-        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        restaurant = make_restaurant(category=self.chicken, name="교촌치킨")
         for menu, day in (("후라이드", "2026-01-01"), ("양념", "2026-01-01"), ("간장", "2026-01-05")):
-            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, menu=menu,
+            make_review(restaurant=restaurant, user=self.user, ordered_at=day, menu=menu,
                                             point=1)
 
         row = self.client.get(self.list_url).json()["results"][0]
@@ -392,9 +429,9 @@ class RestaurantQueryTestCase(TestCase):
 
     def test_review_menu_filter_includes_blank_menu(self):
         # 화면의 "메뉴 미기재" 필터는 menu= (빈 값)으로 요청한다
-        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01", menu="")
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-02", menu="양념")
+        restaurant = make_restaurant(category=self.chicken, name="교촌치킨")
+        make_review(restaurant=restaurant, user=self.user, ordered_at="2026-01-01", menu="")
+        make_review(restaurant=restaurant, user=self.user, ordered_at="2026-01-02", menu="양념")
 
         url = reverse("review-create", kwargs={"restaurant_pk": restaurant.pk})
         self.assertEqual(self.client.get(url, {"menu": ""}).json()["count"], 1)
@@ -402,9 +439,9 @@ class RestaurantQueryTestCase(TestCase):
         self.assertEqual(self.client.get(url).json()["count"], 2)
 
     def test_reviews_on_same_day_newest_first(self):
-        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
-        older = RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
-        newer = RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+        restaurant = make_restaurant(category=self.chicken, name="교촌치킨")
+        older = make_review(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+        newer = make_review(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
 
         url = reverse("review-create", kwargs={"restaurant_pk": restaurant.pk})
         self.assertEqual([row["id"] for row in self.client.get(url).json()["results"]], [newer.id, older.id])
@@ -414,9 +451,9 @@ class ReviewEditTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=self.user, name="우리집")
-        self.restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+        self.restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"),
                                                     name="교촌치킨")
-        self.review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+        self.review = make_review(restaurant=self.restaurant, user=self.user,
                                                       ordered_at="2026-01-01", menu="후라이드", point=0)
         self.url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk,
                                                     "review_pk": self.review.pk})
@@ -430,7 +467,7 @@ class ReviewEditTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
         self.review.refresh_from_db()
-        self.assertEqual((self.review.menu, self.review.point), ("간장", 1))
+        self.assertEqual((self.review.menu_name, self.review.point), ("간장", 1))
 
     def test_edit_validates_point(self):
         self.client.login(username="owner", password="123")
@@ -453,9 +490,9 @@ class RestaurantSortTestCase(TestCase):
         self.client.login(username="owner", password="123")
 
         def make(name, visits):
-            restaurant = Restaurant.objects.create(category=category, name=name)
+            restaurant = make_restaurant(category=category, name=name)
             for day, point in visits:
-                RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+                make_review(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
 
         make("가 별로", [("2026-09-01", -1)])
         make("나 단골", [("2026-01-01", 1), ("2026-02-01", 0), ("2026-03-01", 1)])
@@ -486,13 +523,13 @@ class MenuLastPointTestCase(TestCase):
     def test_menu_summary_has_latest_point(self):
         user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=user, name="우리집")
-        restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+        restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"),
                                                name="교촌치킨")
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-01-01", menu="양념",
+        make_review(restaurant=restaurant, user=user, ordered_at="2026-01-01", menu="양념",
                                         point=1)
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-03-01", menu="양념",
+        make_review(restaurant=restaurant, user=user, ordered_at="2026-03-01", menu="양념",
                                         point=-1)
-        RestaurantReview.objects.create(restaurant=restaurant, user=user, ordered_at="2026-02-01", menu="양념",
+        make_review(restaurant=restaurant, user=user, ordered_at="2026-02-01", menu="양념",
                                         point=0)
 
         self.client.login(username="owner", password="123")
@@ -543,8 +580,8 @@ class RestaurantPickAPITestCase(TestCase):
         self.url = reverse("restaurant-pick", kwargs={"zone_pk": self.zone.pk})
 
     def test_picks_within_category(self):
-        Restaurant.objects.create(category=self.chicken, name="교촌치킨")
-        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
+        make_restaurant(category=self.chicken, name="교촌치킨")
+        make_restaurant(category=self.pizza, name="미뜨레피자")
 
         for _ in range(5):
             response = self.client.get(self.url, {"category": self.pizza.pk})
@@ -556,8 +593,8 @@ class RestaurantPickAPITestCase(TestCase):
         self.assertIsNone(response.json()["restaurant"])
 
     def test_skips_disappointing_unless_asked(self):
-        bad = Restaurant.objects.create(category=self.chicken, name="별로")
-        RestaurantReview.objects.create(restaurant=bad, user=self.user, ordered_at="2026-01-01", point=-1)
+        bad = make_restaurant(category=self.chicken, name="별로")
+        make_review(restaurant=bad, user=self.user, ordered_at="2026-01-01", point=-1)
 
         self.assertIsNone(self.client.get(self.url, {"category": self.chicken.pk}).json()["restaurant"])
         response = self.client.get(self.url, {"category": self.chicken.pk, "exclude_disappointing": "0"})
@@ -566,7 +603,7 @@ class RestaurantPickAPITestCase(TestCase):
     def test_never_picks_other_users_restaurant(self):
         other = User.objects.create_user(username="other", password="123")
         other_zone = Zone.objects.create(user=other, name="남의 집")
-        Restaurant.objects.create(category=Category.objects.create(zone=other_zone, keyword="치킨"), name="남의 가게")
+        make_restaurant(category=Category.objects.create(zone=other_zone, keyword="치킨"), name="남의 가게")
 
         url = reverse("restaurant-pick", kwargs={"zone_pk": other_zone.pk})
         self.assertIsNone(self.client.get(url).json()["restaurant"])
@@ -576,14 +613,13 @@ class MenuSpellingTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=self.user, name="우리집")
-        self.restaurant = Restaurant.objects.create(
-            category=Category.objects.create(zone=zone, keyword="치킨"), name="교촌치킨")
+        self.restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"), name="교촌치킨")
         self.client.login(username="owner", password="123")
         self.url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
 
     def _post(self, menu):
         response = self.client.post(self.url, data={"ordered_at": "2026-01-01", "menu": menu, "point": 1})
-        return RestaurantReview.objects.get(pk=response.json()["id"]).menu
+        return RestaurantReview.objects.get(pk=response.json()["id"]).menu_name
 
     def test_normalize_ignores_spaces_and_case(self):
         self.assertEqual(normalize_menu(" 간장  치킨 "), normalize_menu("간장치킨"))
@@ -601,40 +637,39 @@ class MenuSpellingTestCase(TestCase):
         self.assertEqual(self._post("  반반   치킨 "), "반반 치킨")
 
     def test_spelling_is_not_shared_across_restaurants(self):
-        other = Restaurant.objects.create(category=self.restaurant.category, name="BBQ")
-        RestaurantReview.objects.create(restaurant=other, user=self.user, ordered_at="2026-01-01", menu="간장치킨")
-        self.assertEqual(canonical_menu(self.restaurant, "간장 치킨"), "간장 치킨")
+        other = make_restaurant(category=self.restaurant.categories.first(), name="BBQ")
+        make_review(restaurant=other, user=self.user, ordered_at="2026-01-01", menu="간장치킨")
+        self.assertEqual(get_or_create_menu(self.restaurant, "간장 치킨").name, "간장 치킨")
 
     def test_editing_only_review_keeps_new_spelling(self):
-        review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+        review = make_review(restaurant=self.restaurant, user=self.user,
                                                  ordered_at="2026-01-01", menu="간장치킨")
         url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
         self.client.patch(url, data={"menu": "간장 치킨"}, content_type="application/json")
 
         review.refresh_from_db()
-        self.assertEqual(review.menu, "간장 치킨")
+        self.assertEqual(review.menu_name, "간장 치킨")
 
     def test_editing_into_existing_menu_joins_it(self):
-        RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01",
+        make_review(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01",
                                         menu="간장치킨")
-        review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+        review = make_review(restaurant=self.restaurant, user=self.user,
                                                  ordered_at="2026-01-02", menu="양념")
         url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
         self.client.patch(url, data={"menu": "간장 치킨"}, content_type="application/json")
 
         review.refresh_from_db()
-        self.assertEqual(review.menu, "간장치킨")
+        self.assertEqual(review.menu_name, "간장치킨")
 
-    def test_data_migration_merges_existing_spellings(self):
-        for menu in ("간장치킨", "간장 치킨", "간장  치킨 ", "양념", "  "):
-            RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01",
-                                            menu=menu)
+    def test_menu_is_one_row_per_restaurant(self):
+        self._post("간장치킨")
+        self._post("간장 치킨")
+        self._post("양념")
+        self.assertEqual(sorted(self.restaurant.menus.values_list("name", flat=True)), ["간장치킨", "양념"])
 
-        migration = import_module("apps.restaurant.migrations.0009_merge_menu_spellings")
-        migration.merge_menu_spellings(django_apps, None)
-
-        menus = list(RestaurantReview.objects.order_by("id").values_list("menu", flat=True))
-        self.assertEqual(menus, ["간장치킨", "간장치킨", "간장치킨", "양념", ""])
+    def test_blank_menu_has_no_menu_row(self):
+        self.assertEqual(self._post("  "), "")
+        self.assertFalse(self.restaurant.menus.exists())
 
 
 def _strip_volatile(archive):
@@ -642,9 +677,8 @@ def _strip_volatile(archive):
     archive = json.loads(json.dumps(archive))
     archive.pop("exported_at", None)
     for zone in archive["zones"]:
-        for category in zone["categories"]:
-            for restaurant in category["restaurants"]:
-                restaurant.pop("created_at", None)
+        for restaurant in zone["restaurants"]:
+            restaurant.pop("created_at", None)
     return archive
 
 
@@ -654,11 +688,11 @@ class ArchiveTestCase(TestCase):
         self.zone = Zone.objects.create(user=self.user, name="우리집")
         self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
         self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
-        self.kyochon = Restaurant.objects.create(category=self.chicken, name="교촌치킨", address="역 앞")
-        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
-        RestaurantReview.objects.create(restaurant=self.kyochon, user=self.user, ordered_at="2026-02-01",
+        self.kyochon = make_restaurant(category=self.chicken, name="교촌치킨", address="역 앞")
+        make_restaurant(category=self.pizza, name="미뜨레피자")
+        make_review(restaurant=self.kyochon, user=self.user, ordered_at="2026-02-01",
                                         menu="허니콤보", point=1, content="바삭")
-        RestaurantReview.objects.create(restaurant=self.kyochon, user=self.user, ordered_at="2026-01-01",
+        make_review(restaurant=self.kyochon, user=self.user, ordered_at="2026-01-01",
                                         menu="레드콤보", point=-1)
         self.client.login(username="owner", password="123")
 
@@ -678,10 +712,11 @@ class ArchiveTestCase(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         archive = json.loads(response.content)
 
-        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 1))
+        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 2))
         zone = archive["zones"][0]
-        self.assertEqual([c["keyword"] for c in zone["categories"]], ["치킨", "피자"])
-        kyochon = zone["categories"][0]["restaurants"][0]
+        self.assertEqual(zone["categories"], ["치킨", "피자"])
+        kyochon = zone["restaurants"][0]
+        self.assertEqual(kyochon["categories"], ["치킨"])
         self.assertEqual((kyochon["name"], kyochon["address"]), ("교촌치킨", "역 앞"))
         # 리뷰는 먹은 날 순서
         self.assertEqual([r["menu"] for r in kyochon["reviews"]], ["레드콤보", "허니콤보"])
@@ -765,7 +800,7 @@ class ArchiveTestCase(TestCase):
         self.assertEqual(Category.objects.filter(zone=self.zone, keyword__startswith="치").count(), 1)
         # 메뉴 표기도 기존 것으로 합친다
         self.assertTrue(RestaurantReview.objects.filter(restaurant=self.kyochon, ordered_at="2026-03-01",
-                                                        menu="허니콤보").exists())
+                                                        menu__name="허니콤보").exists())
         # 새로 만든 장소에는 기본 카테고리를 만들지 않는다
         self.assertEqual(Zone.objects.get(user=self.user, name="회사").category_set.count(), 0)
 
