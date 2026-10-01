@@ -1,13 +1,11 @@
 import type {Metadata, Viewport} from "next";
-import {Geist, Geist_Mono} from "next/font/google";
+import {Geist_Mono} from "next/font/google";
 import {Toaster} from "react-hot-toast";
+// 본문 글꼴. 맥의 기본 한글 글꼴(애플 SD 산돌고딕 Neo)과 닮은 부드러운 고딕을 어느 기기에서나 같게 보여준다.
+// 글자 범위별로 잘린 파일이라 화면에 쓰인 글자가 든 조각만 받는다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import {ServiceWorkerRegistrar} from "@/components/service_worker";
-
-const geistSans = Geist({
-    variable: "--font-geist-sans",
-    subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
     variable: "--font-geist-mono",
@@ -38,7 +36,7 @@ export default function RootLayout({
     return (
         <html
             lang="ko"
-            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+            className={`${geistMono.variable} h-full antialiased`}
         >
         <body className="min-h-full flex flex-col">
         {children}
