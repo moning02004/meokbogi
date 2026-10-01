@@ -86,6 +86,10 @@ export const RESTAURANT_REVIEW_API = {
         method: "post",
         endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews`
     },
+    update: {
+        method: "patch",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews/${args.review}`
+    },
     delete: {
         method: "delete",
         endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews/${args.review}`

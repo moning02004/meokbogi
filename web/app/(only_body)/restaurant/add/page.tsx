@@ -108,7 +108,7 @@ export default function Page() {
             <div className="h-[100%] pb-6">
 
                 <div className="flex items-center gap-3 px-4 py-4 bg-white border-b border-[#E7E0CF]">
-                    <button onClick={() => router.back()} className="text-[#211D17] cursor-pointer">
+                    <button onClick={() => router.back()} aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5">
                         <FaArrowLeft size={16}/>
                     </button>
                     <div className="text-[15px] font-bold text-[#211D17]">음식점 추가</div>

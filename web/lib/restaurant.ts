@@ -1,7 +1,7 @@
 import {apiRequest} from "@/lib/api";
 import {RESTAURANT_API, ZONE_API} from "@/constants/routeUrl";
 import {CategoryType} from "@/types/zone";
-import {DeliciousRestaurant, RecentRegisteredRestaurant, RestaurantListItemType} from "@/types/restaurant";
+import {DeliciousRestaurant, RecentRegisteredRestaurant, RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
 
 
 export interface DashboardResponseType {
@@ -28,11 +28,17 @@ export interface PaginatedResponse<T> {
 
 export const fetchZoneRestaurants = async (
     zoneId: number,
-    {categoryId, page = 1, search}: { categoryId?: number | null; page?: number; search?: string } = {}
+    {categoryId, page = 1, search, sort}: {
+        categoryId?: number | null;
+        page?: number;
+        search?: string;
+        sort?: RestaurantSort
+    } = {}
 ) => {
     const params = new URLSearchParams({page: String(page)})
     if (categoryId) params.set("category", String(categoryId))
     if (search) params.set("search", search)
+    if (sort) params.set("sort", sort)
 
     const restaurantList = RESTAURANT_API.list
     return await apiRequest[restaurantList.method]<PaginatedResponse<RestaurantListItemType>>

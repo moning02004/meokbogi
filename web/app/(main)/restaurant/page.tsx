@@ -5,15 +5,22 @@ import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
-import {RestaurantListItemType} from "@/types/restaurant";
+import {RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
 import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {fetchZoneRestaurants} from "@/lib/restaurant";
 import {Skeleton} from "@/components/skeleton";
-import {LuEllipsisVertical} from "react-icons/lu";
+import {LuEllipsisVertical, LuSearch, LuX} from "react-icons/lu";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {apiRequest, errorMessage} from "@/lib/api";
 import toast from "react-hot-toast";
+
+const SORT_OPTIONS: { value: RestaurantSort; label: string }[] = [
+    {value: "recent", label: "최근 방문순"},
+    {value: "rating", label: "만족도순"},
+    {value: "visits", label: "방문 많은순"},
+    {value: "name", label: "이름순"},
+]
 
 export default function Page() {
     const router = useRouter()
@@ -23,6 +30,10 @@ export default function Page() {
     const categories = useCategoryStore(state => state.categories)
 
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
+    const [sort, setSort] = useState<RestaurantSort>("recent")
+    // 입력할 때마다 요청하지 않도록 잠깐 멈췄을 때의 값으로 검색한다
+    const [searchInput, setSearchInput] = useState("")
+    const [search, setSearch] = useState("")
 
     const [restaurants, setRestaurants] = useState<RestaurantListItemType[]>([])
     const [totalCount, setTotalCount] = useState(0)
@@ -38,7 +49,12 @@ export default function Page() {
         setSelectedCategoryId(null)
     }
 
-    const listKey = `${selectedZoneId ?? ""}:${selectedCategoryId ?? "all"}`
+    useEffect(() => {
+        const timer = setTimeout(() => setSearch(searchInput.trim()), 250)
+        return () => clearTimeout(timer)
+    }, [searchInput])
+
+    const listKey = `${selectedZoneId ?? ""}:${selectedCategoryId ?? "all"}:${sort}:${search}`
     const [trackedListKey, setTrackedListKey] = useState(listKey)
     if (listKey !== trackedListKey) {
         setTrackedListKey(listKey)
@@ -59,7 +75,7 @@ export default function Page() {
         // 필터를 빠르게 바꾸면 이전 요청의 응답이 늦게 와서 목록을 덮어쓸 수 있다
         let ignore = false
 
-        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: 1})
+        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: 1, search, sort})
             .then((res) => {
                 if (ignore) return
                 setRestaurants(res.results)
@@ -77,14 +93,14 @@ export default function Page() {
         return () => {
             ignore = true
         }
-    }, [selectedZoneId, selectedCategoryId]);
+    }, [selectedZoneId, selectedCategoryId, search, sort]);
 
     const loadMore = useCallback(() => {
         if (!selectedZoneId || isLoading || isFetchingMore || !hasMore) return
 
         const nextPage = page + 1
         setIsFetchingMore(true)
-        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: nextPage})
+        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: nextPage, search, sort})
             .then((res) => {
                 setRestaurants((prev) => [...prev, ...res.results])
                 setTotalCount(res.count)
@@ -97,7 +113,7 @@ export default function Page() {
                 toast.error(errorMessage(error))
             })
             .finally(() => setIsFetchingMore(false))
-    }, [selectedZoneId, selectedCategoryId, page, isLoading, isFetchingMore, hasMore]);
+    }, [selectedZoneId, selectedCategoryId, search, sort, page, isLoading, isFetchingMore, hasMore]);
 
     useEffect(() => {
         const target = sentinelRef.current
@@ -115,8 +131,6 @@ export default function Page() {
         router.push(RESTAURANT_PAGE.detail(_id))
     }
     const deleteRestaurant = (_id: number) => {
-        if (!confirm("음식점을 삭제하시겠습니까?")) return
-
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: _id})).then(() => {
             setRestaurants((prev) => prev.filter(x => x.id !== _id))
@@ -129,8 +143,33 @@ export default function Page() {
 
     return (
         <div className="flex flex-col min-h-[100%]">
+            <div className="sticky top-0 z-10 bg-white shadow-sm mb-1">
+            <div className="px-4 pt-3">
+                <div className="relative">
+                    <LuSearch size={14}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B7AF9F] pointer-events-none"/>
+                    <input
+                        type="search"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        placeholder="음식점 이름으로 찾기"
+                        aria-label="음식점 이름으로 찾기"
+                        maxLength={100}
+                        className="w-full text-[13.5px] text-[#211D17] bg-[#FBFAF6] border border-[#E7E0CF] rounded-xl pl-8.5 pr-9 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] [&::-webkit-search-cancel-button]:hidden"
+                    />
+                    {searchInput && (
+                        <button
+                            onClick={() => setSearchInput("")}
+                            aria-label="검색어 지우기"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-full text-[#B7AF9F] cursor-pointer sm:hover:bg-[#F1EFE8] transition-colors"
+                        >
+                            <LuX size={13}/>
+                        </button>
+                    )}
+                </div>
+            </div>
             <div
-                className="flex gap-2 overflow-x-auto px-4 py-2 sticky top-0 bg-white shadow-sm mb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                className="flex gap-2 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                     onClick={() => setSelectedCategoryId(null)}
                     className={`shrink-0 px-4 py-1 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
@@ -156,13 +195,29 @@ export default function Page() {
                 ))}
             </div>
 
-            <div className="px-4 my-2 text-[12.5px] font-semibold text-[#8A8172]">총 {totalCount}곳</div>
+            </div>
+
+            <div className="flex items-center justify-between px-4 my-2">
+                <div className="text-[12.5px] font-semibold text-[#8A8172]">총 {totalCount}곳</div>
+                <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as RestaurantSort)}
+                    aria-label="정렬"
+                    className="text-[12.5px] font-semibold text-[#5B5548] bg-transparent py-1 pl-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#24564A] rounded"
+                >
+                    {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                </select>
+            </div>
 
             <div className="flex flex-col px-4 gap-2.5 pb-3">
                 {isLoading ? (
                     Array.from({length: 6}).map((_, i) => <Skeleton key={i}/>)
                 ) : !restaurants.length ? (
-                    <p className="text-[#B7AF9F] text-center py-8 text-sm">아직 등록된 음식점이 없습니다.</p>
+                    <p className="text-[#B7AF9F] text-center py-8 text-sm">
+                        {search ? `'${search}'에 맞는 음식점이 없어요.` : "아직 등록된 음식점이 없습니다."}
+                    </p>
                 ) : (
                     restaurants.map((restaurant) => (
                         <div key={restaurant.id}
@@ -187,7 +242,8 @@ export default function Page() {
                             <ActionDrawer
                                 trigger={
                                     <button
-                                        className="ml-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-1 -m-1">
+                                        aria-label={`${restaurant.name} 메뉴 열기`}
+                                        className="ml-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-3 -m-3">
                                         <LuEllipsisVertical size={16}/>
                                     </button>
                                 }
@@ -195,6 +251,11 @@ export default function Page() {
                                     label: "음식점 삭제",
                                     danger: true,
                                     onClick: () => deleteRestaurant(restaurant.id),
+                                    confirm: {
+                                        title: `'${restaurant.name}'을(를) 삭제할까요?`,
+                                        description: "남긴 리뷰도 모두 함께 사라지고 되돌릴 수 없어요.",
+                                        confirmLabel: "삭제",
+                                    },
                                 }]}
                             />
                         </div>

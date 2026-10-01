@@ -12,14 +12,22 @@ type RequestExtraOptions = {
 // refresh 네트워크 호출은 한 번만 나가도록 진행 중인 요청을 공유한다.
 let refreshPromise: Promise<AuthTokenResponse | null> | null = null;
 
+const postRefresh = () => fetch(`${API_HOST}/auth/refresh-token`, {
+    method: "POST",
+    credentials: "include",
+    headers: {"Content-Type": "application/json"},
+})
+
 export function refreshAccessToken(): Promise<AuthTokenResponse | null> {
     if (!refreshPromise) {
-        refreshPromise = fetch(`${API_HOST}/auth/refresh-token`, {
-            method: "POST",
-            credentials: "include",
-            headers: {"Content-Type": "application/json"},
-        })
+        refreshPromise = postRefresh()
             .then(async (res) => {
+                // 서버는 쓰고 난 refresh 토큰을 바로 무효화한다. 탭 두 개가 같은 쿠키로 동시에 재발급하면
+                // 늦은 쪽이 401을 받는데, 그 사이 먼저 끝난 탭이 새 쿠키를 심어 두었으므로 한 번만 다시 시도한다.
+                if (res.status === 401) {
+                    await new Promise((resolve) => setTimeout(resolve, 600));
+                    res = await postRefresh();
+                }
                 if (!res.ok) return null;
                 const data: AuthTokenResponse = await res.json();
                 useAuthStore.getState().setAuth(data.access_token, data.user_id);

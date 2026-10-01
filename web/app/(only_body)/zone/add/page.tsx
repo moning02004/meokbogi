@@ -51,7 +51,7 @@ export default function Page() {
             <div className="h-[100%] flex flex-col">
                 <div className="flex items-center gap-3 px-4 py-4 bg-white border-b border-[#E7E0CF]">
                     {zones.length != 0 &&
-                        <button onClick={() => router.back()} className="text-[#211D17] cursor-pointer">
+                        <button onClick={() => router.back()} aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5">
                             <FaArrowLeft size={16}/>
                         </button>
                     }

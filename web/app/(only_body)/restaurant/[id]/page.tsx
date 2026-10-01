@@ -50,6 +50,34 @@ const DateChipButton = forwardRef<HTMLButtonElement, { value?: string; onClick?:
 )
 DateChipButton.displayName = "DateChipButton"
 
+// 만족·보통·실망 선택. 기록 폼과 리뷰 수정 시트에서 같이 쓴다.
+// 손가락으로 누르기 쉽도록 한 칸을 40px로 잡는다.
+function SentimentPicker({value, onChange}: { value: SentimentKey; onChange: (value: SentimentKey) => void }) {
+    return (
+        <div role="radiogroup" aria-label="만족도" className="flex bg-[#F6F3EC] rounded-xl p-[3px] gap-[2px] shrink-0">
+            {([1, 0, -1] as SentimentKey[]).map((option) => {
+                const {icon: Icon, label} = SENTIMENTS[option]
+                const active = value === option
+                return (
+                    <button
+                        key={option}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        aria-label={label}
+                        onClick={() => onChange(option)}
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
+                            active ? "bg-[#24564A]" : ""
+                        }`}
+                    >
+                        <Icon size={19} color={active ? "#FFFFFF" : "#B7AF9F"}/>
+                    </button>
+                )
+            })}
+        </div>
+    )
+}
+
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
 function ReviewContent({content}: { content: string }) {
@@ -109,6 +137,14 @@ export default function Page() {
     const [reviewContent, setReviewContent] = useState("")
     const [showMenuSuggestions, setShowMenuSuggestions] = useState(false)
     const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
+    // 리뷰 수정
+    const [editingReview, setEditingReview] = useState<RestaurantReviewType | null>(null)
+    const [editReviewDate, setEditReviewDate] = useState("")
+    const [editReviewMenu, setEditReviewMenu] = useState("")
+    const [editReviewContent, setEditReviewContent] = useState("")
+    const [editReviewPoint, setEditReviewPoint] = useState<SentimentKey>(1)
+    const [isSavingReview, setIsSavingReview] = useState(false)
 
     // 리뷰 목록 (별도 페이지네이션)
     const [activeTab, setActiveTab] = useState<"menu" | "all">("menu")
@@ -220,13 +256,13 @@ export default function Page() {
         }).then(() => {
             setIsEditingRestaurant(false)
             fetchRestaurant()
+            toast.success("음식점 정보를 고쳤어요.")
         }).catch((error) => {
             toast.error(errorMessage(error, "수정에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
     const deleteRestaurant = () => {
-        if (!confirm("음식점을 삭제하시겠습니까?")) return
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: Number(restaurantId)}))
             .then(() => {
@@ -276,16 +312,16 @@ export default function Page() {
             // 요약/카운트가 서버에서 재계산되므로 상세를 다시 불러온다
             fetchRestaurant()
             if (activeTab === "all") fetchReviews(menuFilter, 1, false)
+            toast.success("기록했어요.")
         }).catch((error) => {
             toast.error(errorMessage(error, "기록에 실패했어요. 잠시 후 다시 시도해주세요."))
         }).finally(() => setIsSubmittingReview(false))
     }
 
-    const deleteReview = (reviewId: number) => {
-        // 음식점 삭제와 마찬가지로 되돌릴 수 없으니 한 번 더 묻는다
-        if (!confirm("리뷰를 삭제하시겠습니까?")) return
+    // 리뷰 삭제 요청만 보낸다. 확인은 호출하는 쪽(시트의 확인 단계, 되돌리기 버튼)이 맡는다.
+    const removeReview = (reviewId: number) => {
         const reviewDelete = RESTAURANT_REVIEW_API.delete
-        apiRequest[reviewDelete.method](reviewDelete.endpoint({
+        return apiRequest[reviewDelete.method](reviewDelete.endpoint({
             restaurant: Number(restaurantId),
             review: reviewId
         })).then(() => {
@@ -294,7 +330,86 @@ export default function Page() {
 
             // 메뉴 요약/평균이 서버에서 재계산되므로 상세를 다시 불러온다
             fetchRestaurant()
+        })
+    }
+
+    // "또 먹었어요": 같은 메뉴를 오늘 날짜, 지난번 만족도로 바로 기록한다. 잘못 눌렀으면 토스트에서 되돌린다.
+    const quickLog = ({menu, last_point}: MenuSummaryType) => {
+        if (isSubmittingReview || !menu) return
+        setIsSubmittingReview(true)
+
+        const reviewAdd = RESTAURANT_REVIEW_API.add
+        apiRequest[reviewAdd.method]<RestaurantReviewType>(reviewAdd.endpoint({
+            restaurant: Number(restaurantId)
+        }), {
+            body: JSON.stringify({
+                menu,
+                content: "",
+                ordered_at: formatDate(new Date()),
+                point: last_point,
+            })
+        }).then((created) => {
+            fetchRestaurant()
+            if (activeTab === "all") fetchReviews(menuFilter, 1, false)
+            toast((t) => (
+                <span className="flex items-center gap-3 text-[13.5px]">
+                    <span>&lsquo;{menu}&rsquo; 오늘 먹은 걸로 기록했어요.</span>
+                    <button
+                        onClick={() => {
+                            toast.dismiss(t.id)
+                            removeReview(created.id)
+                                .then(() => toast.success("기록을 되돌렸어요."))
+                                .catch((error) => toast.error(errorMessage(error, "되돌리지 못했어요.")))
+                        }}
+                        className="shrink-0 font-bold text-[#D2571E] cursor-pointer">
+                        되돌리기
+                    </button>
+                </span>
+            ), {duration: 6000})
         }).catch((error) => {
+            toast.error(errorMessage(error, "기록에 실패했어요. 잠시 후 다시 시도해주세요."))
+        }).finally(() => setIsSubmittingReview(false))
+    }
+
+    const startEditingReview = (review: RestaurantReviewType) => {
+        setEditingReview(review)
+        setEditReviewDate(review.ordered_at)
+        setEditReviewMenu(review.menu ?? "")
+        setEditReviewContent(review.content ?? "")
+        setEditReviewPoint(review.point as SentimentKey)
+    }
+
+    const saveReview = () => {
+        if (!editingReview || isSavingReview) return
+        if (!editReviewMenu.trim() || !editReviewDate) {
+            toast.error("메뉴와 날짜를 입력해주세요.")
+            return
+        }
+
+        setIsSavingReview(true)
+        const reviewUpdate = RESTAURANT_REVIEW_API.update
+        apiRequest[reviewUpdate.method]<RestaurantReviewType>(reviewUpdate.endpoint({
+            restaurant: Number(restaurantId),
+            review: editingReview.id,
+        }), {
+            body: JSON.stringify({
+                ordered_at: editReviewDate,
+                menu: editReviewMenu.trim(),
+                content: editReviewContent.trim(),
+                point: editReviewPoint,
+            })
+        }).then((updated) => {
+            setReviews((prev) => prev.map((review) => review.id === updated.id ? updated : review))
+            setEditingReview(null)
+            fetchRestaurant()
+            toast.success("리뷰를 고쳤어요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "리뷰를 고치지 못했어요."))
+        }).finally(() => setIsSavingReview(false))
+    }
+
+    const deleteReview = (reviewId: number) => {
+        removeReview(reviewId).then(() => toast.success("리뷰를 삭제했어요.")).catch((error) => {
             toast.error(errorMessage(error, "삭제에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
@@ -317,7 +432,7 @@ export default function Page() {
             <div className="min-h-[100%] bg-white mb-10">
 
                 <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
-                    <button className="text-[#211D17] cursor-pointer" onClick={() => router.back()}>
+                    <button aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5" onClick={() => router.back()}>
                         <FaArrowLeft size={16}/>
                     </button>
                     <div className="text-[15px] font-bold text-[#211D17]">음식점</div>
@@ -343,6 +458,7 @@ export default function Page() {
                         </div>
                         <div className="ml-auto">
                             <ActionDrawer
+                                triggerLabel="음식점 메뉴 열기"
                                 items={[{
                                     label: "음식점 수정",
                                     onClick: () => editRestaurant(),
@@ -350,6 +466,11 @@ export default function Page() {
                                     label: "음식점 삭제",
                                     danger: true,
                                     onClick: () => deleteRestaurant(),
+                                    confirm: {
+                                        title: `'${restaurant.name}'을(를) 삭제할까요?`,
+                                        description: `리뷰 ${restaurant.review_count}개도 함께 사라지고 되돌릴 수 없어요.`,
+                                        confirmLabel: "삭제",
+                                    },
                                 }]}
                             />
                         </div>
@@ -407,23 +528,7 @@ export default function Page() {
                                 </div>
                             )}
                         </div>
-                        <div className="flex bg-[#F6F3EC] rounded-xl p-[3px] gap-[2px] shrink-0">
-                            {([1, 0, -1] as SentimentKey[]).map((value) => {
-                                const {icon: Icon} = SENTIMENTS[value]
-                                const active = reviewPoint === value
-                                return (
-                                    <button
-                                        key={value}
-                                        onClick={() => setReviewPoint(value)}
-                                        className={`w-[32px] h-[32px] rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
-                                            active ? "bg-[#24564A]" : ""
-                                        }`}
-                                    >
-                                        <Icon size={18} color={active ? "#FFFFFF" : "#B7AF9F"}/>
-                                    </button>
-                                )
-                            })}
-                        </div>
+                        <SentimentPicker value={reviewPoint} onChange={setReviewPoint}/>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -491,23 +596,36 @@ export default function Page() {
                         menuSummaries.length === 0 ? (
                             <p className="text-[13px] text-[#B7AF9F] text-center py-8">아직 기록된 메뉴가 없어요.</p>
                         ) : (
-                            menuSummaries.map(({menu, review_count, review_avg}: MenuSummaryType, index) => {
+                            menuSummaries.map((summary: MenuSummaryType, index) => {
+                                const {menu, review_count, review_avg} = summary
                                 const reviewTextBox = getReviewTextBox(review_avg)
 
                                 return (
-                                    <button
-                                        key={index}
-                                        onClick={() => openMenuReviews(menu)}
-                                        className="w-full flex items-center gap-3 py-3.5 border-b border-[#F0EBDD] last:border-0 cursor-pointer text-left"
-                                    >
-                                        <div
-                                            className="flex-1 min-w-0 font-extrabold text-[#211D17] truncate">{menu || "메뉴 미기재"}
-                                        </div>
-                                        <div>{reviewTextBox}</div>
-                                        <div
-                                            className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
-                                        <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
-                                    </button>
+                                    <div key={index}
+                                         className="flex items-center gap-2 border-b border-[#F0EBDD] last:border-0">
+                                        <button
+                                            onClick={() => openMenuReviews(menu)}
+                                            className="flex-1 min-w-0 flex items-center gap-3 py-3.5 cursor-pointer text-left"
+                                        >
+                                            <div
+                                                className="flex-1 min-w-0 font-extrabold text-[#211D17] truncate">{menu || "메뉴 미기재"}
+                                            </div>
+                                            <div>{reviewTextBox}</div>
+                                            <div
+                                                className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
+                                            <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
+                                        </button>
+                                        {menu && (
+                                            <button
+                                                onClick={() => quickLog(summary)}
+                                                disabled={isSubmittingReview}
+                                                aria-label={`${menu} 오늘 또 먹은 걸로 기록`}
+                                                className="shrink-0 text-[11.5px] font-bold text-[#D2571E] bg-[#FDEBE1] rounded-full px-2.5 py-1.5 cursor-pointer sm:hover:bg-[#FBDCCB] transition-colors disabled:opacity-50"
+                                            >
+                                                또 먹었어요
+                                            </button>
+                                        )}
+                                    </div>
                                 )
                             })
                         )
@@ -542,14 +660,23 @@ export default function Page() {
                                             <ActionDrawer
                                                 trigger={
                                                     <button
-                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-1 -m-1">
+                                                        aria-label="리뷰 메뉴 열기"
+                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-3 -m-3">
                                                         <LuEllipsisVertical size={16}/>
                                                     </button>
                                                 }
                                                 items={[{
+                                                    label: "리뷰 수정",
+                                                    onClick: () => startEditingReview(review),
+                                                }, {
                                                     label: "리뷰 삭제",
                                                     danger: true,
                                                     onClick: () => deleteReview(review.id),
+                                                    confirm: {
+                                                        title: "이 리뷰를 삭제할까요?",
+                                                        description: `${review.ordered_at} · ${review.menu?.trim() || "메뉴 미기재"}`,
+                                                        confirmLabel: "삭제",
+                                                    },
                                                 }]}
                                             />
                                         </div>
@@ -569,6 +696,66 @@ export default function Page() {
                         </>
                     )}
                 </div>
+
+                {/* ---- 리뷰 수정 ---- */}
+                <Modal
+                    title="리뷰 수정"
+                    open={editingReview !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setEditingReview(null)
+                    }}
+                >
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-end gap-2.5">
+                            <div className="flex-1 min-w-0">
+                                <label htmlFor="edit-review-date"
+                                       className="block text-[12px] font-bold text-[#8A8172] mb-1.5">먹은 날</label>
+                                <input
+                                    id="edit-review-date"
+                                    type="date"
+                                    value={editReviewDate}
+                                    max={formatDate(new Date())}
+                                    onChange={(e) => setEditReviewDate(e.target.value)}
+                                    className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2 outline-none focus:border-[#24564A] transition-colors bg-white"
+                                />
+                            </div>
+                            <SentimentPicker value={editReviewPoint} onChange={setEditReviewPoint}/>
+                        </div>
+
+                        <div>
+                            <label htmlFor="edit-review-menu"
+                                   className="block text-[12px] font-bold text-[#8A8172] mb-1.5">메뉴</label>
+                            <input
+                                id="edit-review-menu"
+                                value={editReviewMenu}
+                                onChange={(e) => setEditReviewMenu(e.target.value)}
+                                maxLength={255}
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="edit-review-content"
+                                   className="block text-[12px] font-bold text-[#8A8172] mb-1.5">한줄평</label>
+                            <textarea
+                                id="edit-review-content"
+                                value={editReviewContent}
+                                onChange={(e) => setEditReviewContent(e.target.value)}
+                                maxLength={255}
+                                rows={2}
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors resize-none"
+                            />
+                        </div>
+
+                        <button
+                            onClick={saveReview}
+                            disabled={isSavingReview}
+                            className="w-full text-[13.5px] font-bold text-white bg-[#24564A] rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-[#1c443a] transition-colors disabled:opacity-50"
+                        >
+                            {isSavingReview ? "저장 중…" : "수정하기"}
+                        </button>
+                    </div>
+                </Modal>
 
                 {/* ---- 음식점 수정 ---- */}
                 <Modal
