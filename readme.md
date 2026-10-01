@@ -135,6 +135,40 @@ curl -fsSL .../install.sh | bash -s -- --host 192.168.0.10 --admin-user moning -
 - **직접 만든 설정 보존** — 스크립트가 만들지 않은 `.env` / `docker-compose.yaml`은 덮어쓰지 않고 `.bak.<시각>`으로 백업.
 - **API 주소는 빌드 시점 고정** — 웹 번들에 박히는 구조. 호스트·포트 변경 시 `.env` 수정 후 `--build`로 재빌드 필요.
 
+### 4-2. 1.x에서 2.0으로 올리기
+
+2.0은 데이터 구조가 바뀐다 (음식점이 장소에 직접 속하고 카테고리는 여러 개, 메뉴와 지점이 따로 생김).
+기존 데이터는 **`migrate` 한 번으로 그대로 옮겨진다**. 1.4.0 구조의 PostgreSQL 16에서 옮긴 뒤 내보낸 기록이
+옮기기 전과 같은지, 되돌리면(`migrate restaurant 0009`) 1.4.0 코드가 원래 데이터를 그대로 읽는지까지 확인했다.
+
+```bash
+# 0) 올리기 전에 웹 → 내정보 → "백업 파일로 내보내기"로 JSON을 받아 둔다
+
+# 1) 소스 갱신 후 다시 빌드
+git pull
+docker compose up -d --build
+
+# 2) 알림 보내기 토큰 (install.sh로 새로 설치했다면 이미 있음)
+echo "PUSH_API_TOKEN=$(openssl rand -hex 24)" >> .env
+docker compose up -d
+
+# 3) 데이터 옮기기
+docker compose exec api python manage.py migrate
+
+# 4) (선택) "교촌치킨 역삼점"처럼 지점을 이름에 넣어 따로 등록했던 음식점을 지점으로 옮기기
+docker compose exec api python manage.py merge_branches            # 미리보기
+docker compose exec api python manage.py merge_branches --apply    # 실제로 옮기기
+```
+
+| 바뀌는 것 | 옮겨지는 방식 |
+| --- | --- |
+| 음식점 → 카테고리 하나 | 음식점은 원래 카테고리의 장소에 속하고, 원래 카테고리 하나가 태그로 붙는다 |
+| 리뷰의 메뉴(글자) | 음식점마다 메뉴 항목이 생기고, 공백·대소문자만 다른 표기는 처음 쓴 표기로 묶인다. 메뉴가 비어 있던 리뷰는 "메뉴 미기재" |
+| 지점 | 기존 리뷰는 모두 "지점 없음". 이름에 지점을 넣어 둔 음식점은 4)번으로 옮긴다 (같은 장소에 앞부분 이름의 음식점이 있고 "…점"으로 끝날 때만 후보, "홍콩반점" 같은 가게는 건드리지 않음) |
+| 주소 | 화면에서는 빠지지만 DB와 백업 파일에는 그대로 남는다 |
+
+문제가 생기면 `migrate restaurant 0009`로 되돌릴 수 있다. 단, 2.0에서 카테고리를 여러 개 붙인 음식점은 처음 붙인 하나만 남는다.
+
 ---
 
 ## 5. 개발 환경에서 실행 (Docker 없이)

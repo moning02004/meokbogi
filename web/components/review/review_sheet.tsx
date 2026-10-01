@@ -199,30 +199,45 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                         </div>
 
                         <div>
-                            <div id="review-branch-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                지점 <span className="font-medium text-[#B7AF9F]">(지점마다 맛이 다르면)</span>
-                            </div>
-                            <div role="radiogroup" aria-labelledby="review-branch-label" className="flex flex-wrap gap-1.5">
-                                {[{id: null as number | null, name: "지점 없음"}, ...branches].map((option) => {
-                                    const active = branch === option.id
-                                    return (
-                                        <button key={option.id ?? "none"} type="button" role="radio" aria-checked={active}
-                                                onClick={() => setBranch(option.id)}
-                                                className={`px-3 py-1.5 rounded-full text-[13px] font-bold border cursor-pointer transition-colors ${
-                                                    active ? "bg-[#24564A] text-white border-[#24564A]"
-                                                        : "bg-white text-[#8A8172] border-[#E7E0CF]"
-                                                }`}>
-                                            {option.name}
+                            {branches.length === 0 ? (
+                                // 동네 가게처럼 지점이 없는 곳은 고를 게 없으니 추가 링크만 작게 둔다
+                                !isAddingBranch && (
+                                    <div className="flex items-center gap-2 text-[12px] text-[#B7AF9F]">
+                                        <button type="button" onClick={() => setIsAddingBranch(true)}
+                                                className="font-bold text-[#8A8172] underline underline-offset-2 cursor-pointer">
+                                            + 지점 추가
                                         </button>
-                                    )
-                                })}
-                                {!isAddingBranch && (
-                                    <button type="button" onClick={() => setIsAddingBranch(true)}
-                                            className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-[#D6D2CC] text-[#8A8172] cursor-pointer">
-                                        + 지점 추가
-                                    </button>
-                                )}
-                            </div>
+                                        <span>프랜차이즈처럼 지점마다 맛이 다르면</span>
+                                    </div>
+                                )
+                            ) : (
+                                <>
+                                    <div id="review-branch-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                        지점
+                                    </div>
+                                    <div role="radiogroup" aria-labelledby="review-branch-label" className="flex flex-wrap gap-1.5">
+                                        {[{id: null as number | null, name: "지점 없음"}, ...branches].map((option) => {
+                                            const active = branch === option.id
+                                            return (
+                                                <button key={option.id ?? "none"} type="button" role="radio" aria-checked={active}
+                                                        onClick={() => setBranch(option.id)}
+                                                        className={`px-3 py-1.5 rounded-full text-[13px] font-bold border cursor-pointer transition-colors ${
+                                                            active ? "bg-[#24564A] text-white border-[#24564A]"
+                                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                                        }`}>
+                                                    {option.name}
+                                                </button>
+                                            )
+                                        })}
+                                        {!isAddingBranch && (
+                                            <button type="button" onClick={() => setIsAddingBranch(true)}
+                                                    className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-[#D6D2CC] text-[#8A8172] cursor-pointer">
+                                                + 지점 추가
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                             {isAddingBranch && (
                                 <div className="flex items-center gap-2 mt-2">
                                     <input
