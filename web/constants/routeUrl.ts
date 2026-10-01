@@ -121,4 +121,12 @@ export const USER_API = {
         method: "patch",
         endpoint: `/users/me/password`
     },
+    export: {
+        method: "get",
+        endpoint: `/users/me/export`
+    },
+    import: {
+        method: "post",
+        endpoint: `/users/me/import`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;

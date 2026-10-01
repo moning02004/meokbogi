@@ -13,6 +13,8 @@ urlpatterns = [
     path("auth/token", auth_views.LogoutAPIView.as_view(), name="logout"),
     path("users/me", auth_views.UserInfoAPIView.as_view(), name="my-info"),
     path("users/me/password", auth_views.ChangePasswordAPIView.as_view(), name="change-password"),
+    path("users/me/export", restaurant_views.ArchiveExportAPIView.as_view(), name="archive-export"),
+    path("users/me/import", restaurant_views.ArchiveImportAPIView.as_view(), name="archive-import"),
 
     # zone
     path("zones", zone_views.ZoneViewSet.as_view({

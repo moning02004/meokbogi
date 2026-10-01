@@ -4,6 +4,9 @@ from types import SimpleNamespace
 from unittest import mock
 
 from django.apps import apps as django_apps
+import json
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -632,3 +635,166 @@ class MenuSpellingTestCase(TestCase):
 
         menus = list(RestaurantReview.objects.order_by("id").values_list("menu", flat=True))
         self.assertEqual(menus, ["간장치킨", "간장치킨", "간장치킨", "양념", ""])
+
+
+def _strip_volatile(archive):
+    """비교할 때 시각 값(내보낸 시각, 음식점 생성 시각)은 뺀다."""
+    archive = json.loads(json.dumps(archive))
+    archive.pop("exported_at", None)
+    for zone in archive["zones"]:
+        for category in zone["categories"]:
+            for restaurant in category["restaurants"]:
+                restaurant.pop("created_at", None)
+    return archive
+
+
+class ArchiveTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.kyochon = Restaurant.objects.create(category=self.chicken, name="교촌치킨", address="역 앞")
+        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
+        RestaurantReview.objects.create(restaurant=self.kyochon, user=self.user, ordered_at="2026-02-01",
+                                        menu="허니콤보", point=1, content="바삭")
+        RestaurantReview.objects.create(restaurant=self.kyochon, user=self.user, ordered_at="2026-01-01",
+                                        menu="레드콤보", point=-1)
+        self.client.login(username="owner", password="123")
+
+    def _export(self, client=None, **params):
+        return (client or self.client).get(reverse("archive-export"), params)
+
+    def _import(self, payload, client=None, dry_run=False):
+        body = payload if isinstance(payload, bytes) else json.dumps(payload, ensure_ascii=False).encode()
+        url = reverse("archive-import") + ("?dry_run=1" if dry_run else "")
+        return (client or self.client).post(url, {"file": SimpleUploadedFile("archive.json", body)})
+
+    # ---- 내보내기
+
+    def test_export_json_nests_everything_without_ids(self):
+        response = self._export()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment;", response["Content-Disposition"])
+        archive = json.loads(response.content)
+
+        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 1))
+        zone = archive["zones"][0]
+        self.assertEqual([c["keyword"] for c in zone["categories"]], ["치킨", "피자"])
+        kyochon = zone["categories"][0]["restaurants"][0]
+        self.assertEqual((kyochon["name"], kyochon["address"]), ("교촌치킨", "역 앞"))
+        # 리뷰는 먹은 날 순서
+        self.assertEqual([r["menu"] for r in kyochon["reviews"]], ["레드콤보", "허니콤보"])
+        self.assertNotIn("id", json.dumps(archive))
+
+    def test_export_only_my_records(self):
+        other = User.objects.create_user(username="other", password="123")
+        Zone.objects.create(user=other, name="남의 집")
+        names = [z["name"] for z in json.loads(self._export().content)["zones"]]
+        self.assertEqual(names, ["우리집"])
+
+    def test_export_csv_for_spreadsheets(self):
+        response = self._export(type="csv")
+        self.assertTrue(response["Content-Type"].startswith("text/csv"))
+        text = response.content.decode("utf-8")
+        self.assertTrue(text.startswith("\ufeff"))  # 엑셀이 UTF-8로 읽도록
+        rows = text.lstrip("\ufeff").strip().splitlines()
+        self.assertEqual(rows[0], "장소,카테고리,음식점,주소,설명,먹은 날,메뉴,만족도,한줄평")
+        self.assertIn("우리집,치킨,교촌치킨,역 앞,,2026-01-01,레드콤보,실망,", rows)
+        # 리뷰가 없는 음식점도 한 줄
+        self.assertIn("우리집,피자,미뜨레피자,,,,,,", rows)
+
+    def test_export_requires_login(self):
+        self.client.logout()
+        self.assertEqual(self._export().status_code, 401)
+
+    # ---- 가져오기
+
+    def test_round_trip_into_new_account(self):
+        archive = json.loads(self._export().content)
+
+        User.objects.create_user(username="newbie", password="123")
+        newbie = self.client_class()
+        newbie.login(username="newbie", password="123")
+        response = self._import(archive, client=newbie)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["reviews_created"], 2)
+
+        again = json.loads(self._export(client=newbie).content)
+        self.assertEqual(_strip_volatile(again), _strip_volatile(archive))
+
+    def test_importing_same_file_twice_adds_nothing(self):
+        archive = json.loads(self._export().content)
+        summary = self._import(archive).json()
+
+        self.assertEqual(summary["zones_created"], 0)
+        self.assertEqual(summary["restaurants_created"], 0)
+        self.assertEqual(summary["reviews_created"], 0)
+        self.assertEqual(summary["reviews_skipped"], 2)
+        self.assertEqual(RestaurantReview.objects.count(), 2)
+
+    def test_merges_by_name(self):
+        payload = {"format": "meokbogi-archive", "version": 1, "zones": [{
+            "name": "우리집",
+            "categories": [{
+                "keyword": "치 킨",  # 공백만 다른 기존 카테고리로 합쳐진다
+                "restaurants": [
+                    {"name": "교촌치킨", "reviews": [
+                        {"ordered_at": "2026-03-01", "menu": "허니 콤보", "point": 0},
+                    ]},
+                    {"name": "BBQ", "reviews": []},
+                ],
+            }, {
+                "keyword": "족발",
+                "restaurants": [],
+            }],
+        }, {
+            "name": "회사",
+            "categories": [],
+        }]}
+        summary = self._import(payload).json()
+
+        self.assertEqual((summary["zones_created"], summary["categories_created"]), (1, 1))
+        self.assertEqual((summary["restaurants_created"], summary["restaurants_matched"]), (1, 1))
+        self.assertEqual(Category.objects.filter(zone=self.zone, keyword__startswith="치").count(), 1)
+        # 메뉴 표기도 기존 것으로 합친다
+        self.assertTrue(RestaurantReview.objects.filter(restaurant=self.kyochon, ordered_at="2026-03-01",
+                                                        menu="허니콤보").exists())
+        # 새로 만든 장소에는 기본 카테고리를 만들지 않는다
+        self.assertEqual(Zone.objects.get(user=self.user, name="회사").category_set.count(), 0)
+
+    def test_dry_run_changes_nothing(self):
+        payload = {"format": "meokbogi-archive", "version": 1, "zones": [{
+            "name": "본가", "categories": [{"keyword": "한식", "restaurants": [
+                {"name": "엄마밥", "reviews": [{"ordered_at": "2026-01-01", "menu": "김치찌개", "point": 1}]},
+            ]}],
+        }]}
+        response = self._import(payload, dry_run=True)
+        self.assertEqual(response.json()["reviews_created"], 1)
+        self.assertTrue(response.json()["dry_run"])
+        self.assertFalse(Zone.objects.filter(name="본가").exists())
+
+    def test_rejects_non_json(self):
+        response = self._import(b"\x89PNG not json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("JSON", response.json()["file"])
+
+    def test_rejects_other_format(self):
+        response = self._import({"format": "something-else", "version": 1, "zones": []})
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_newer_version(self):
+        response = self._import({"format": "meokbogi-archive", "version": 99, "zones": []})
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_review_writes_nothing(self):
+        payload = {"format": "meokbogi-archive", "version": 1, "zones": [{
+            "name": "본가", "categories": [{"keyword": "한식", "restaurants": [
+                {"name": "엄마밥", "reviews": [{"ordered_at": "2026-01-01", "menu": "김치찌개", "point": 5}]},
+            ]}],
+        }]}
+        self.assertEqual(self._import(payload).status_code, 400)
+        self.assertFalse(Zone.objects.filter(name="본가").exists())
+
+    def test_requires_file(self):
+        self.assertEqual(self.client.post(reverse("archive-import"), {}).status_code, 400)

@@ -1,11 +1,17 @@
+import json
+
 from django.db.models import Avg, Count, F, Max, Prefetch, Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.restaurant.archive import ArchiveSerializer, build_archive, build_csv, import_archive
 from apps.restaurant.menus import canonical_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
 from apps.restaurant.picking import pick_restaurant
@@ -136,3 +142,50 @@ class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
                                  restaurant__category__zone__user_id=self.request.user.id,
                                  restaurant_id=self.kwargs["restaurant_pk"],
                                  pk=self.kwargs["review_pk"])
+
+
+class ArchiveExportAPIView(APIView):
+    """내 기록 전체를 파일로 내려준다. ?type=csv 면 엑셀용 CSV, 아니면 다시 가져올 수 있는 JSON.
+
+    (DRF가 ?format= 을 응답 형식 지정에 쓰므로 type으로 받는다)
+    """
+
+    def get(self, request, *args, **kwargs):
+        stamp = timezone.localdate().strftime("%Y%m%d")
+        if request.query_params.get("type") == "csv":
+            response = HttpResponse(build_csv(request.user), content_type="text/csv; charset=utf-8")
+            filename = f"meokbogi-{stamp}.csv"
+        else:
+            response = HttpResponse(json.dumps(build_archive(request.user), ensure_ascii=False, indent=2),
+                                    content_type="application/json; charset=utf-8")
+            filename = f"meokbogi-{stamp}.json"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ArchiveImportAPIView(APIView):
+    """내보낸 JSON 파일을 합쳐서 가져온다. ?dry_run=1 이면 바꾸지 않고 결과만 미리 본다.
+
+    요청 본문 크기 제한(2.5MB)을 피하려고 multipart 파일(file)로 받는다.
+    """
+    parser_classes = [MultiPartParser]
+    MAX_BYTES = 20 * 1024 * 1024
+
+    def post(self, request, *args, **kwargs):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "가져올 파일을 골라주세요."})
+        if upload.size > self.MAX_BYTES:
+            raise ValidationError({"file": "파일이 너무 커요. 20MB까지 가져올 수 있어요."})
+        try:
+            data = json.loads(upload.read().decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ValidationError({"file": "JSON 파일을 읽지 못했어요. 먹보기에서 내보낸 .json 파일인지 확인해주세요."})
+        if not isinstance(data, dict):
+            raise ValidationError({"file": "먹보기에서 내보낸 파일이 아니에요."})
+
+        serializer = ArchiveSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        dry_run = request.query_params.get("dry_run") == "1"
+        summary = import_archive(request.user, serializer.validated_data, dry_run=dry_run)
+        return Response({**summary, "dry_run": dry_run})
