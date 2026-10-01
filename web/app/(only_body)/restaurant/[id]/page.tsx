@@ -72,7 +72,6 @@ export default function Page() {
     const [editCategoryIds, setEditCategoryIds] = useState<number[]>([])
     const [editName, setEditName] = useState("")
     const [editDescription, setEditDescription] = useState("")
-    const [editAddress, setEditAddress] = useState("")
 
     // 리뷰 쓰기·고치기 시트. 열 때마다 seq를 올려 폼을 새로 만든다.
     const [sheet, setSheet] = useState<{ review: RestaurantReviewType | null; initial: ReviewDraft; seq: number } | null>(null)
@@ -151,7 +150,6 @@ export default function Page() {
         setEditCategoryIds(restaurant.categories.map((category) => category.id))
         setEditName(restaurant.name)
         setEditDescription(restaurant.description ?? "")
-        setEditAddress(restaurant.address ?? "")
         setIsEditingRestaurant(true)
     }
 
@@ -168,8 +166,7 @@ export default function Page() {
             body: JSON.stringify({
                 category_ids: editCategoryIds,
                 name: editName.trim(),
-                description: editDescription,
-                address: editAddress,
+                description: editDescription.trim(),
             })
         }).then(() => {
             setIsEditingRestaurant(false)
@@ -315,10 +312,14 @@ export default function Page() {
                         </div>
                     </div>
                     <div className="text-[12.5px] text-[#8A8172] font-medium">
-                        {categoryLabel(restaurant.categories)} · {restaurant.address || "주소 미등록"}
+                        {categoryLabel(restaurant.categories)}
                     </div>
-                    <div
-                        className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed bg-white px-3 py-1 rounded border border-[#E7E0CF]">{restaurant.description || "소개 없음"}</div>
+                    {/* 설명은 쓴 경우에만 보여준다 (비어 있으면 "소개 없음" 칸이 자리만 차지했다) */}
+                    {restaurant.description && (
+                        <div className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed bg-white px-3 py-1.5 rounded border border-[#E7E0CF] whitespace-pre-wrap">
+                            {restaurant.description}
+                        </div>
+                    )}
                     <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
                         방문 {restaurant.ordered_count}회 · 최근 방문 {restaurant.latest_ordered_at || "-"} · 전체
                         리뷰 {restaurant.review_count} 개
@@ -530,21 +531,10 @@ export default function Page() {
                                 value={editDescription}
                                 onChange={(e) => setEditDescription(e.target.value)}
                                 maxLength={100}
-                                placeholder="이 음식점에 대한 짧은 메모"
-                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">주소</label>
-                            <input
-                                value={editAddress}
-                                onChange={(e) => setEditAddress(e.target.value)}
-                                maxLength={255}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && !e.nativeEvent.isComposing) saveRestaurant()
                                 }}
-                                placeholder="예: 서울시 강남구 ..."
+                                placeholder="예: 양념은 따로 달라고 하기"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
                         </div>

@@ -20,7 +20,7 @@ test.describe("음식점과 리뷰", () => {
 
         await page.getByRole("button", {name: "음식점등록"}).click()
         await pickCategories(page, ["치킨"])
-        await page.getByPlaceholder("예: 미뜨레피자").fill("교촌치킨")
+        await page.getByLabel(/^이름/).fill("교촌치킨")
         await page.getByRole("button", {name: "등록", exact: true}).click()
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
         const restaurantId = Number(page.url().split("/").pop())
@@ -168,7 +168,7 @@ test.describe("음식점과 리뷰", () => {
         await page.goto("/restaurant/add")
         // 다른 카테고리를 골라도 이름 검색은 장소 전체에서 한다
         await pickCategories(page, ["피자"])
-        await page.getByPlaceholder("예: 미뜨레피자").fill("숨은")
+        await page.getByLabel(/^이름/).fill("숨은")
         await expect(page.getByText("이름이 비슷한 음식점이 이미 있어요", {exact: false})).toBeVisible()
         await expect(page.getByRole("button", {name: /숨은맛집/})).toBeVisible()
     })
@@ -250,7 +250,7 @@ test.describe("음식점과 리뷰", () => {
         await pickCategories(page, ["분식", "돈까스"])
         // 입력칸에는 목록 순서대로 이어서 보인다
         await expect(page.getByRole("button", {name: /^카테고리/})).toContainText("분식, 돈까스")
-        await page.getByPlaceholder("예: 미뜨레피자").fill("김밥천국")
+        await page.getByLabel(/^이름/).fill("김밥천국")
         await page.getByRole("button", {name: "등록", exact: true}).click()
 
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
@@ -298,5 +298,30 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("이름이 비슷한 음식점이 이미 있어요", {exact: false})).toBeVisible()
         await page.getByRole("button", {name: /미뜨레피자/}).click()
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
+    })
+
+    test("등록 화면에서 없는 카테고리를 바로 만들어 고른다", async ({page, request}) => {
+        const user = createUser()
+        await (await Api.login(request, user)).createZone("우리집")
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto("/restaurant/add")
+        await page.getByRole("button", {name: /^카테고리/}).click()
+        await page.getByLabel("새 카테고리").fill("샐러드")
+        await page.getByRole("button", {name: "추가", exact: true}).click()
+        await expect(page.getByText("'샐러드' 카테고리를 만들었어요.")).toBeVisible()
+        await expect(page.getByRole("option", {name: "샐러드", exact: true})).toHaveAttribute("aria-selected", "true")
+
+        // 공백만 다른 이름은 새로 만들지 않고 있는 걸 고른다
+        await page.getByLabel("새 카테고리").fill("샐 러드")
+        await page.getByRole("button", {name: "추가", exact: true}).click()
+        await expect(page.getByRole("option", {name: /샐러드/})).toHaveCount(1)
+
+        await page.getByRole("button", {name: "완료"}).click()
+        await page.getByLabel(/^이름/).fill("샐러디")
+        await page.getByRole("button", {name: "등록", exact: true}).click()
+        await expect(page).toHaveURL(/\/restaurant\/\d+$/)
+        await expect(page.getByText("샐러드", {exact: true})).toBeVisible()
     })
 })
