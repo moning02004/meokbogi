@@ -5,18 +5,19 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets
-from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.restaurant.archive import ARCHIVE_FORMAT, ArchiveSerializer, build_archive, build_csv, import_archive
-from apps.restaurant.menus import canonical_menu
-from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.menus import normalize_menu, tidy_menu
+from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.restaurant.picking import pick_restaurant
-from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
-from apps.zone.models import Category
+from apps.restaurant.serializers import (BranchSerializer, RestaurantInfoSerializer, RestaurantListSerializer,
+                                         RestaurantReviewSerializer)
+from apps.zone.models import Category, Zone
 
 
 # 목록 정렬 (?sort=). 방문·리뷰가 없는 음식점은 어느 정렬에서든 뒤로 보낸다.
@@ -33,7 +34,7 @@ def sort_restaurants(queryset, sort):
 
 
 def annotate_restaurants(queryset):
-    return queryset.select_related("category").annotate(
+    return queryset.prefetch_related(ordered_tags()).annotate(
         review_avg=Avg("review_set__point"),
         review_point=Sum("review_set__point"),
         latest_ordered_at=Max("review_set__ordered_at"),
@@ -42,30 +43,60 @@ def annotate_restaurants(queryset):
     )
 
 
-class AllRestaurantsListAPIView(ListAPIView):
+def ordered_tags():
+    # 카테고리 태그는 만든 순서로 보여준다
+    return Prefetch("categories", queryset=Category.objects.order_by("id"))
+
+
+def my_restaurants(request, zone_id=None):
+    queryset = Restaurant.objects.filter(zone__user_id=request.user.id)
+    return queryset.filter(zone_id=zone_id) if zone_id is not None else queryset
+
+
+def filter_by_category(queryset, category_ids):
+    """?category=1&category=2 → 그중 하나라도 붙은 음식점.
+
+    태그 테이블과 바로 조인하면 카테고리가 여러 개 맞는 음식점이 여러 줄이 되어 리뷰 집계가 부풀므로
+    음식점 id 하위 쿼리로 거른다. 숫자가 아닌 값은 무시한다 (filter()가 ValueError로 500을 낸다).
+    """
+    ids = [value for value in category_ids if value.isdigit()]
+    if not ids:
+        return queryset
+    tagged = Restaurant.categories.through.objects.filter(category_id__in=ids).values("restaurant_id")
+    return queryset.filter(id__in=tagged)
+
+
+class AllRestaurantsListAPIView(ListCreateAPIView):
+    """장소의 음식점 목록(GET, ?category= ?search= ?sort=)과 등록(POST, category_ids 하나 이상)."""
     serializer_class = RestaurantListSerializer
     # ?search= 로 이름 검색 (음식점 등록 화면의 중복 확인에 쓴다)
     search_fields = ["name"]
 
     def get_queryset(self):
-        queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
-                                             category__zone_id=self.kwargs["zone_pk"])
-        category_id = self.request.query_params.get("category")
-        # 숫자가 아닌 값이 오면 filter()가 ValueError로 500을 내므로 무시한다
-        if category_id and category_id.isdigit():
-            queryset = queryset.filter(category_id=category_id)
+        queryset = filter_by_category(my_restaurants(self.request, self.kwargs["zone_pk"]),
+                                      self.request.query_params.getlist("category"))
         return sort_restaurants(annotate_restaurants(queryset), self.request.query_params.get("sort"))
+
+    def get_zone(self):
+        return get_object_or_404(Zone, pk=self.kwargs["zone_pk"], user_id=self.request.user.id)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method == "POST":
+            # 카테고리가 이 장소 것인지 확인하려고 넘긴다. 남의 장소면 여기서 404.
+            context["zone"] = self.get_zone()
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(zone=serializer.context["zone"])
 
 
 class RestaurantPickAPIView(APIView):
     """한 카테고리(없으면 장소 전체)에서 음식점 하나를 가중치를 줘서 뽑는다."""
 
     def get(self, request, *args, **kwargs):
-        queryset = Restaurant.objects.filter(category__zone__user_id=request.user.id,
-                                             category__zone_id=self.kwargs["zone_pk"])
-        category_id = request.query_params.get("category")
-        if category_id and category_id.isdigit():
-            queryset = queryset.filter(category_id=category_id)
+        queryset = filter_by_category(my_restaurants(request, self.kwargs["zone_pk"]),
+                                      request.query_params.getlist("category"))
         # 기본은 실망한 곳을 뺀다. exclude_disappointing=0 이면 포함
         exclude = request.query_params.get("exclude_disappointing", "1") != "0"
 
@@ -73,75 +104,105 @@ class RestaurantPickAPIView(APIView):
         return Response({"restaurant": RestaurantListSerializer(picked).data if picked else None})
 
 
-class RestaurantListViewSet(viewsets.ModelViewSet):
-    serializer_class = RestaurantListSerializer
-
-    def get_queryset(self):
-        queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
-                                             category__zone_id=self.kwargs["zone_pk"],
-                                             category_id=self.kwargs["category_pk"])
-        return sort_restaurants(annotate_restaurants(queryset), "recent")
-
-    def perform_create(self, serializer):
-        # get_queryset은 조회에만 적용되므로 생성 시에는 카테고리 소유 여부를 따로 확인해야 한다
-        category = get_object_or_404(Category,
-                                     pk=self.kwargs["category_pk"],
-                                     zone_id=self.kwargs["zone_pk"],
-                                     zone__user_id=self.request.user.id)
-        serializer.save(category=category)
-
-
 class RestaurantInfoViewSet(viewsets.ModelViewSet):
     serializer_class = RestaurantInfoSerializer
 
     def get_object(self):
-        queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id)
-        queryset = queryset.prefetch_related(
+        queryset = my_restaurants(self.request).prefetch_related(
             Prefetch("review_set",
-                     queryset=RestaurantReview.objects.all().order_by("-ordered_at", "-id"))
+                     queryset=RestaurantReview.objects.select_related("menu", "branch").order_by("-ordered_at", "-id")),
+            "branches",
         )
         queryset = annotate_restaurants(queryset)
         # 남의 음식점이거나 없는 id면 500이 아니라 404
         return get_object_or_404(queryset, pk=self.kwargs["restaurant_pk"])
+
+    def perform_update(self, serializer):
+        serializer.save()
+        # 바뀐 카테고리·집계를 응답에 담으려고 다시 읽는다
+        serializer.instance = self.get_object()
+
+
+def my_reviews(request, restaurant_id):
+    return RestaurantReview.objects.select_related("menu", "branch").filter(
+        restaurant__zone__user_id=request.user.id, restaurant_id=restaurant_id)
 
 
 class RestaurantReviewViewSet(viewsets.ModelViewSet):
     serializer_class = RestaurantReviewSerializer
 
     def get_queryset(self):
-        queryset = RestaurantReview.objects.filter(restaurant__category__zone__user_id=self.request.user.id,
-                                                   restaurant_id=self.kwargs["restaurant_pk"])
+        queryset = my_reviews(self.request, self.kwargs["restaurant_pk"])
         menu = self.request.query_params.get("menu")
         if menu is not None:
-            queryset = queryset.filter(menu=menu)
+            # 빈 값은 "메뉴 미기재", 아니면 공백·대소문자를 무시하고 같은 메뉴
+            queryset = queryset.filter(menu__isnull=True) if not menu.strip() \
+                else queryset.filter(menu__name_key=normalize_menu(menu))
+        branch = self.request.query_params.get("branch")
+        if branch == "none":
+            queryset = queryset.filter(branch__isnull=True)
+        elif branch and branch.isdigit():
+            queryset = queryset.filter(branch_id=branch)
         return queryset.order_by("-ordered_at", "-id")
 
     def perform_create(self, serializer):
         # get_queryset은 조회에만 적용되므로 생성 시에는 음식점 소유 여부를 따로 확인해야 한다
-        restaurant = get_object_or_404(Restaurant,
-                                       pk=self.kwargs["restaurant_pk"],
-                                       category__zone__user_id=self.request.user.id)
-        menu = canonical_menu(restaurant, serializer.validated_data.get("menu", ""))
-        serializer.save(user=self.request.user, restaurant=restaurant, menu=menu)
+        restaurant = get_object_or_404(Restaurant, pk=self.kwargs["restaurant_pk"],
+                                       zone__user_id=self.request.user.id)
+        serializer.save(user=self.request.user, restaurant=restaurant)
 
 
 class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
     # 이름은 예전 그대로 두지만 수정(PATCH)도 받는다
     serializer_class = RestaurantReviewSerializer
 
+    def get_object(self):
+        return get_object_or_404(my_reviews(self.request, self.kwargs["restaurant_pk"]), pk=self.kwargs["review_pk"])
+
+
+def my_restaurant_or_404(request, restaurant_id):
+    return get_object_or_404(Restaurant, pk=restaurant_id, zone__user_id=request.user.id)
+
+
+def ensure_unique_branch(restaurant, name, exclude_pk=None):
+    # "역삼점"과 "역삼 점"처럼 공백·대소문자만 다른 지점이 생기지 않게 한다
+    if Branch.objects.filter(restaurant=restaurant, name_key=normalize_menu(name)).exclude(pk=exclude_pk).exists():
+        raise ValidationError({"name": f"'{name}' 지점은 이미 있어요."})
+
+
+class BranchListAPIView(ListCreateAPIView):
+    """음식점의 지점 목록(GET)과 추가(POST {name})."""
+    serializer_class = BranchSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return Branch.objects.filter(restaurant=my_restaurant_or_404(self.request, self.kwargs["restaurant_pk"])) \
+            .annotate(review_count=Count("reviews")).order_by("id")
+
+    def perform_create(self, serializer):
+        restaurant = my_restaurant_or_404(self.request, self.kwargs["restaurant_pk"])
+        name = tidy_menu(serializer.validated_data["name"])
+        ensure_unique_branch(restaurant, name)
+        serializer.save(restaurant=restaurant, name=name, name_key=normalize_menu(name))
+
+
+class BranchDetailAPIView(RetrieveUpdateDestroyAPIView):
+    """지점 이름 바꾸기(PATCH)와 지우기(DELETE). 지우면 그 지점 리뷰는 남고 지점만 비워진다."""
+    serializer_class = BranchSerializer
+    lookup_url_kwarg = "branch_pk"
+
+    def get_queryset(self):
+        return Branch.objects.filter(restaurant__zone__user_id=self.request.user.id,
+                                     restaurant_id=self.kwargs["restaurant_pk"])
+
     def perform_update(self, serializer):
-        if "menu" not in serializer.validated_data:
+        name = serializer.validated_data.get("name")
+        if name is None:
             serializer.save()
             return
-        menu = canonical_menu(serializer.instance.restaurant, serializer.validated_data["menu"],
-                              exclude_review_id=serializer.instance.pk)
-        serializer.save(menu=menu)
-
-    def get_object(self):
-        return get_object_or_404(RestaurantReview,
-                                 restaurant__category__zone__user_id=self.request.user.id,
-                                 restaurant_id=self.kwargs["restaurant_pk"],
-                                 pk=self.kwargs["review_pk"])
+        name = tidy_menu(name)
+        ensure_unique_branch(serializer.instance.restaurant, name, exclude_pk=serializer.instance.pk)
+        serializer.save(name=name, name_key=normalize_menu(name))
 
 
 class ArchiveExportAPIView(APIView):

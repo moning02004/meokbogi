@@ -4,16 +4,16 @@ import {Suspense, useEffect, useState} from "react"
 import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {SectionBox} from "@/components/section";
+import {CategoryPicker} from "@/components/restaurant/category_picker";
 import {FaArrowLeft} from "react-icons/fa";
-import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
+import {CATEGORY_API, RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
+import {CategoryType} from "@/types/zone";
 import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {RestaurantListItemType} from "@/types/restaurant";
-import {CategoryType} from "@/types/zone";
 import toast from "react-hot-toast";
 import {apiRequest, errorMessage} from "@/lib/api";
-import {fetchZoneRestaurants} from "@/lib/restaurant";
+import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
 
 export default function Page() {
     const router = useRouter()
@@ -21,15 +21,14 @@ export default function Page() {
     const selectedZone = useZoneStore(state => state.selectedZone)
     const selectedZoneId = selectedZone?.id
     const categories = useCategoryStore(state => state.categories)
+    const setCategories = useCategoryStore(state => state.setCategories)
 
     // fields
-    const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
+    // 여러 개 붙일 수 있다 (분식 + 돈까스 파는 김밥집)
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([])
     const [name, setName] = useState<string>("")
     const [description, setDescription] = useState<string>("")
-    const [address, setAddress] = useState<string>("")
 
-    // 카테고리는 입력 없이 기존 목록에서 선택만 가능
-    const [showCategorySuggestions, setShowCategorySuggestions] = useState(false)
 
     // 이름 입력 시 같은 존 안의 기존 음식점 제안 (중복 등록 방지)
     // 예전에는 첫 페이지(20곳)만 받아 거기서 찾았기 때문에 21번째부터는 중복을 못 잡았다. 서버에서 검색한다.
@@ -37,6 +36,9 @@ export default function Page() {
     const [showNameSuggestions, setShowNameSuggestions] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const keyword = name.trim()
+    // 이름 칸을 누르면 바로 보여줄 등록된 음식점 (카테고리를 골랐으면 그 카테고리 것만)
+    const [categoryRestaurants, setCategoryRestaurants] = useState<RestaurantListItemType[]>([])
+    const categoryKey = selectedCategoryIds.join(",")
 
     useEffect(() => {
         if (!token) router.replace("/login")
@@ -58,15 +60,41 @@ export default function Page() {
         }
     }, [selectedZoneId, keyword])
 
+    useEffect(() => {
+        if (!selectedZoneId) return
+        let ignore = false
+        const categoryIds = categoryKey ? categoryKey.split(",").map(Number) : undefined
+        fetchZoneRestaurants(selectedZoneId, {categoryIds, sort: "name"})
+            .then((res) => {
+                if (!ignore) setCategoryRestaurants(res.results)
+            })
+            .catch(() => null)
+        return () => {
+            ignore = true
+        }
+    }, [selectedZoneId, categoryKey])
+
     if (!selectedZone) return <LoadingPage/>
 
-    const selectCategorySuggestion = (category: CategoryType) => {
-        setSelectedCategory(category)
-        setShowCategorySuggestions(false)
-    }
 
-    // 입력이 비었을 때는 "이미 등록된 음식점" 안내를 띄우지 않는다
-    const visibleNameSuggestions = keyword ? nameSuggestions : []
+    // 입력 전: 등록된 음식점 목록(카테고리를 골랐으면 그 카테고리) / 입력 중: 장소 전체에서 이름이 비슷한 음식점
+    const hasCategory = selectedCategoryIds.length > 0
+    const visibleNameSuggestions = keyword ? nameSuggestions : categoryRestaurants
+
+    // 등록하다가 없는 카테고리가 필요하면 그 자리에서 만든다. 상단바·필터에도 바로 보이도록 전역 목록에 더한다.
+    const createCategory = (keyword: string) => {
+        const add = CATEGORY_API.add
+        return apiRequest[add.method]<CategoryType>(add.endpoint, {
+            body: JSON.stringify({keyword}),
+        }).then((category) => {
+            setCategories([...categories, {id: category.id, keyword: category.keyword}])
+            toast.success(`'${category.keyword}' 카테고리를 만들었어요.`)
+            return category
+        }).catch((error) => {
+            toast.error(errorMessage(error, "카테고리를 만들지 못했어요."))
+            throw error
+        })
+    }
 
     const goToExistingRestaurant = (_id: number) => {
         setShowNameSuggestions(false)
@@ -77,8 +105,8 @@ export default function Page() {
         const addAPI = RESTAURANT_API.add
 
         if (isSubmitting) return
-        if (!keyword || !selectedCategory) {
-            toast.error("음식점 이름과 카테고리를 선택해주세요.")
+        if (!keyword || selectedCategoryIds.length === 0) {
+            toast.error("음식점 이름과 카테고리를 하나 이상 골라주세요.")
             return;
         }
 
@@ -86,12 +114,11 @@ export default function Page() {
 
         apiRequest[addAPI.method]<{ id: number }>(addAPI.endpoint({
                 zone: selectedZone.id,
-                category: selectedCategory.id,
             }), {
                 body: JSON.stringify({
                     name: keyword,
                     description: description.trim(),
-                    address: address.trim()
+                    category_ids: selectedCategoryIds,
                 })
             }
         ).then((response: { id: number }) => {
@@ -116,56 +143,46 @@ export default function Page() {
 
                 <div className="px-5 pt-6 flex flex-col gap-5">
 
-                    <div className="relative">
-                        <label className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
-                            대표 카테고리 <span className="text-[#D2571E]">*</span>
+                    <div>
+                        <label htmlFor="restaurant-categories" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
+                            카테고리 <span className="text-[#D2571E]">*</span>
                         </label>
-                        <input
-                            value={selectedCategory?.keyword ?? ""}
-                            readOnly
-                            onFocus={() => setShowCategorySuggestions(true)}
-                            onClick={() => setShowCategorySuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 150)}
-                            type="text"
-                            placeholder="카테고리를 선택해주세요"
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors cursor-pointer bg-white"
-                        />
-                        {showCategorySuggestions && categories.length > 0 && (
-                            <div
-                                className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
-                                {categories.map((category: CategoryType) => (
-                                    <button
-                                        key={category.id}
-                                        type="button"
-                                        onMouseDown={() => selectCategorySuggestion(category)}
-                                        className="w-full px-3.5 py-2.5 text-left text-[13.5px] font-bold text-[#211D17] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
-                                    >
-                                        {category.keyword}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <CategoryPicker id="restaurant-categories" categories={categories}
+                                        selected={selectedCategoryIds} onChange={setSelectedCategoryIds}
+                                        placeholder="카테고리를 골라주세요 (여러 개 가능)"
+                                        onCreate={createCategory}/>
                     </div>
 
                     <div className="relative">
-                        <label className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
+                        <label htmlFor="restaurant-name" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
                             이름 <span className="text-[#D2571E]">*</span>
                         </label>
                         <input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             onFocus={() => setShowNameSuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowNameSuggestions(false), 150)}
+                            // 이미 포커스가 있어도 누르면 다시 연다
+                            onClick={() => setShowNameSuggestions(true)}
+                            // 목록 항목은 mousedown에서 이동하므로 지연 없이 닫는다.
+                            // (예전처럼 150ms 뒤에 닫으면, 다른 곳을 눌렀다 바로 다시 누를 때 새로 연 목록을 그 타이머가 닫았다)
+                            onBlur={() => setShowNameSuggestions(false)}
                             type="text"
-                            placeholder="예: 미뜨레피자"
+                            id="restaurant-name"
+                            placeholder="예: 교촌치킨"
                             maxLength={100}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
+                            autoComplete="off"
+                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                         />
+                        <p className="mt-1.5 text-[11.5px] text-[#B7AF9F]">지점은 리뷰를 남길 때 골라요. 이름에는 브랜드만 적어 주세요.</p>
                         {showNameSuggestions && visibleNameSuggestions.length > 0 && (
                             <div
                                 className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
                                 <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-[#B7AF9F]">
-                                    이미 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요.
+                                    {keyword
+                                        ? "이름이 비슷한 음식점이 이미 있어요. 눌러서 바로 이동할 수 있어요."
+                                        : hasCategory
+                                            ? "이 카테고리에 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."
+                                            : "등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."}
                                 </p>
                                 {visibleNameSuggestions.map((restaurant) => (
                                     <button
@@ -175,7 +192,7 @@ export default function Page() {
                                         className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
                                     >
                                         <span className="text-[13.5px] font-bold text-[#211D17] truncate">{restaurant.name}</span>
-                                        <span className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">{restaurant.category_name}</span>
+                                        <span className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">{categoryLabel(restaurant.categories)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -183,26 +200,17 @@ export default function Page() {
                     </div>
 
                     <div>
-                        <label className="block text-[12.5px] font-bold text-[#8A8172] mb-2">설명</label>
-                        <input
+                        <label htmlFor="restaurant-description" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
+                            설명 <span className="font-medium text-[#B7AF9F]">(선택)</span>
+                        </label>
+                        <textarea
+                            id="restaurant-description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            type="text"
-                            placeholder="이 음식점에 대한 짧은 메모"
+                            rows={2}
+                            placeholder="예: 양념은 따로 달라고 하기"
                             maxLength={100}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-[12.5px] font-bold text-[#8A8172] mb-2">주소</label>
-                        <input
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            type="text"
-                            placeholder="예: 서울시 강남구 ..."
-                            maxLength={255}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
+                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors resize-none leading-relaxed placeholder:text-[#B7AF9F]"
                         />
                     </div>
 

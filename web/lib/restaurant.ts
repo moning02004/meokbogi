@@ -1,6 +1,9 @@
 import {apiRequest} from "@/lib/api";
 import {RESTAURANT_API, ZONE_API} from "@/constants/routeUrl";
 import {CategoryType} from "@/types/zone";
+
+// "치킨 · 분식" 처럼 음식점의 카테고리를 한 줄로
+export const categoryLabel = (categories: CategoryType[]) => categories.map((category) => category.keyword).join(" · ")
 import {DeliciousRestaurant, RecentRegisteredRestaurant, RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
 
 
@@ -29,8 +32,10 @@ export interface PaginatedResponse<T> {
 
 export const fetchZoneRestaurants = async (
     zoneId: number,
-    {categoryId, page = 1, search, sort}: {
+    {categoryId, categoryIds, page = 1, search, sort}: {
         categoryId?: number | null;
+        // 여러 카테고리 중 하나라도 붙은 음식점
+        categoryIds?: number[];
         page?: number;
         search?: string;
         sort?: RestaurantSort
@@ -38,6 +43,7 @@ export const fetchZoneRestaurants = async (
 ) => {
     const params = new URLSearchParams({page: String(page)})
     if (categoryId) params.set("category", String(categoryId))
+    categoryIds?.forEach((id) => params.append("category", String(id)))
     if (search) params.set("search", search)
     if (sort) params.set("sort", sort)
 

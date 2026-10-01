@@ -42,9 +42,9 @@ export class Api {
             "post", "/zones", {name})
     }
 
-    createRestaurant(zoneId: number, categoryId: number, name: string) {
+    createRestaurant(zoneId: number, categoryIds: number | number[], name: string) {
         return this.call<{ id: number; name: string }>(
-            "post", `/zones/${zoneId}/category/${categoryId}/restaurants`, {name})
+            "post", `/zones/${zoneId}/restaurants`, {name, category_ids: [categoryIds].flat()})
     }
 
     createReview(restaurantId: number, review: { menu: string; point?: number; ordered_at?: string; content?: string }) {

@@ -1,6 +1,6 @@
 import re
 
-from apps.restaurant.models import RestaurantReview
+from apps.restaurant.models import Menu
 
 
 def normalize_menu(menu):
@@ -13,21 +13,14 @@ def tidy_menu(menu):
     return re.sub(r"\s+", " ", menu or "").strip()
 
 
-def canonical_menu(restaurant, menu, exclude_review_id=None):
-    """같은 음식점에 이미 같은 메뉴가 있으면 그 표기를 돌려준다.
+def get_or_create_menu(restaurant, name):
+    """리뷰에 적힌 메뉴 이름을 그 음식점의 Menu로 바꾼다. 비어 있으면 None(메뉴 미기재).
 
-    "간장치킨"으로 3번 기록한 뒤 "간장 치킨"으로 쓰면 메뉴별 요약이 둘로 갈라졌다.
-    처음 쓴 표기를 기준으로 묶는다.
+    이미 공백·대소문자만 다른 메뉴가 있으면 그 메뉴를 쓴다 (처음 쓴 표기가 남는다).
     """
-    menu = tidy_menu(menu)
-    key = normalize_menu(menu)
-    if not key:
-        return menu
-
-    reviews = RestaurantReview.objects.filter(restaurant=restaurant).exclude(menu="")
-    if exclude_review_id is not None:
-        reviews = reviews.exclude(pk=exclude_review_id)
-    for existing in reviews.order_by("id").values_list("menu", flat=True).distinct():
-        if normalize_menu(existing) == key:
-            return existing
+    name = tidy_menu(name)
+    if not name:
+        return None
+    menu, _ = Menu.objects.get_or_create(restaurant=restaurant, name_key=normalize_menu(name),
+                                         defaults={"name": name})
     return menu

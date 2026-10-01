@@ -14,19 +14,54 @@ class CategoryManageSerializer(serializers.ModelSerializer):
     """카테고리 관리 화면용. 음식점이 몇 개 묶여 있는지 함께 보여준다."""
 
     restaurant_count = serializers.SerializerMethodField()
+    exclusive_restaurant_count = serializers.SerializerMethodField()
+    zones = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "keyword", "restaurant_count"]
+        fields = ["id", "keyword", "restaurant_count", "exclusive_restaurant_count", "zones"]
 
+    def get_zones(self, instance):
+        """이 카테고리의 음식점이 어느 장소에 몇 곳 있는지. 목록 뷰가 한 번에 세어 context에 넣어 둔다."""
+        by_category = self.context.get("zone_counts")
+        if by_category is None:
+            return []
+        return by_category.get(instance.id, [])
+
+    # 목록에서는 annotate된 값을 쓰고, 생성·수정 직후처럼 annotate가 없으면 직접 센다
     def get_restaurant_count(self, instance):
-        # 목록에서는 annotate된 값을 쓰고, 생성 직후처럼 annotate가 없으면 직접 센다
         count = getattr(instance, "restaurant_count", None)
-        return instance.restaurant_set.count() if count is None else count
+        return instance.restaurants.count() if count is None else count
+
+    def get_exclusive_restaurant_count(self, instance):
+        count = getattr(instance, "exclusive_restaurant_count", None)
+        if count is not None:
+            return count
+        return sum(1 for restaurant in instance.restaurants.all() if restaurant.categories.count() == 1)
 
 
-class ZoneListSerializer(serializers.ModelSerializer):
-    category = CategoryListSerializer(source="category_set", many=True, read_only=True)
+DEFAULT_CATEGORIES = [
+    "한식", "일식", "중식", "동남아", "인도", "양식",
+    "치킨", "피자", "햄버거", "족발/보쌈", "회", "찜/탕", "분식", "돈까스",
+]
+
+
+class UserCategoriesMixin(serializers.Serializer):
+    """장소 응답에 붙이는 카테고리 목록. 카테고리는 사용자에게 속하므로 어느 장소든 같은 목록이다.
+
+    필드 이름은 화면이 쓰던 그대로 category. 장소 여러 개를 내려줄 때 한 번만 읽도록 context에 둔다.
+    """
+    category = serializers.SerializerMethodField()
+
+    def get_category(self, zone):
+        cache = self.context.setdefault("_user_categories", {})
+        if zone.user_id not in cache:
+            cache[zone.user_id] = CategoryListSerializer(
+                Category.objects.filter(user_id=zone.user_id).order_by("id"), many=True).data
+        return cache[zone.user_id]
+
+
+class ZoneListSerializer(UserCategoriesMixin, serializers.ModelSerializer):
     name = serializers.CharField(max_length=100, trim_whitespace=True)
 
     class Meta:
@@ -34,23 +69,16 @@ class ZoneListSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "category"]
 
     def create(self, validated_data):
-        validated_data["user_id"] = self.context["request"].user.id
+        user = self.context["request"].user
+        validated_data["user_id"] = user.id
         instance = super().create(validated_data)
-
-        category_keywords = [
-            "한식", "일식", "중식", "동남아", "인도", "양식",
-            "치킨", "피자", "햄버거", "족발/보쌈", "회", "찜/탕", "분식", "돈까스",
-            ]
-        bulk_creates = list()
-        for keyword in category_keywords:
-            bulk_creates.append(Category(zone=instance, keyword=keyword))
-        Category.objects.bulk_create(bulk_creates)
-
+        # 기본 카테고리는 처음 한 번만. 장소를 더 만들어도 복제하지 않는다.
+        if not Category.objects.filter(user=user).exists():
+            Category.objects.bulk_create([Category(user=user, keyword=keyword) for keyword in DEFAULT_CATEGORIES])
         return instance
 
 
-class ZoneDashboardSerializer(serializers.ModelSerializer):
-    category = CategoryListSerializer(source="category_set", many=True, read_only=True)
+class ZoneDashboardSerializer(UserCategoriesMixin, serializers.ModelSerializer):
     restaurant_count = serializers.IntegerField(read_only=True)
     review_count = serializers.IntegerField(read_only=True)
     monthly_visited_count = serializers.IntegerField(read_only=True)
@@ -67,27 +95,12 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
         validated_data["user_id"] = self.context["request"].user.id
         return super().create(validated_data)
 
+    # 목록은 뷰(ZoneDashboardAPIView)가 계산해 붙여 둔다
     def get_delicious_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.delicious_restaurants)
-
-        restaurants.sort(key=lambda r: r.review_avg, reverse=True)
-        return RestaurantListSerializer(restaurants[:5], many=True).data
+        return RestaurantListSerializer(value.delicious_restaurants, many=True).data
 
     def get_recent_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.recently_ordered_restaurants)
-
-        restaurants.sort(key=lambda r: r.latest_ordered_at, reverse=True)
-        return RestaurantListSerializer(restaurants[:3], many=True).data
+        return RestaurantListSerializer(value.recently_ordered_restaurants, many=True).data
 
     def get_forgotten_restaurants(self, value):
-        restaurants = []
-        for category in value.category_set.all():
-            restaurants.extend(category.forgotten_restaurants)
-
-        # 가장 오래 안 간 곳부터
-        restaurants.sort(key=lambda r: (r.latest_ordered_at, -r.review_avg))
-        return RestaurantListSerializer(restaurants[:5], many=True).data
+        return RestaurantListSerializer(value.forgotten_restaurants, many=True).data

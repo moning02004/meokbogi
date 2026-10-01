@@ -14,4 +14,8 @@ export interface CategoryType {
 // 카테고리 관리 화면에서만 쓰는, 음식점 개수가 붙은 형태
 export interface ManagedCategoryType extends CategoryType {
     restaurant_count: number;
+    // 이 카테고리만 붙은 음식점 수. 0이 아니면 지울 수 없다
+    exclusive_restaurant_count: number;
+    // 장소별 음식점 수 (장소 순서대로)
+    zones: { id: number; name: string; count: number }[];
 }

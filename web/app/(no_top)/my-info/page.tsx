@@ -1,6 +1,8 @@
 "use client"
 
 import {Suspense, useEffect, useState} from "react"
+import {useRouter} from "next/navigation"
+import {LuChevronRight} from "react-icons/lu";
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {USER_API} from "@/constants/routeUrl";
@@ -25,6 +27,7 @@ interface UserType {
 }
 
 export default function Page() {
+    const router = useRouter()
     const [user, setUser] = useState<UserType | null>(null)
     // 가져오기 뒤 존 관리 목록을 새로 읽게 하려고 key로 다시 만든다
     const [zoneListKey, setZoneListKey] = useState(0)
@@ -169,7 +172,7 @@ export default function Page() {
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
                                     {String(user.zone_count).padStart(2, "0")}
                                 </div>
-                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">존</p>
+                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">장소</p>
                             </div>
                             <div className="flex-1 text-center">
                                 <div
@@ -189,14 +192,28 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* ---- 카테고리별 음식점: 길어서 별도 페이지 ---- */}
+                <div className="px-5 pt-5">
+                    <button
+                        onClick={() => router.push("/categories")}
+                        className="w-full flex items-center justify-between bg-white border border-[#E7E0CF] rounded-2xl px-4 py-3.5 cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                    >
+                        <span className="text-left">
+                            <span className="block text-[14px] font-semibold text-[#211D17]">카테고리별 음식점</span>
+                            <span className="block text-[12px] text-[#8A8172]">어느 장소에 어떤 음식점이 있는지, 이름 바꾸기·지우기</span>
+                        </span>
+                        <LuChevronRight size={16} className="shrink-0 text-[#B7AF9F]"/>
+                    </button>
+                </div>
+
                 {/* ---- 존 관리 ---- */}
                 <div className="px-5 pt-5">
-                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">존 관리</div>
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">장소 관리</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
                         <ZoneManager key={zoneListKey}/>
                     </div>
                     <p className="text-[11.5px] text-[#B7AF9F] mt-2 leading-relaxed">
-                        존을 선택하면 카테고리를 추가하거나 지울 수 있어요.
+                        장소를 누르면 이름을 바꾸거나 지울 수 있어요.
                     </p>
                 </div>
 

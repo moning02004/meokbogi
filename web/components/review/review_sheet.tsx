@@ -13,6 +13,8 @@ import {normalizeMenu} from "@/lib/menu"
 
 export interface ReviewDraft {
     ordered_at: string
+    // 지점 id. 비어 있으면 지점 구분 없음 (동네 가게)
+    branch: number | null
     menu: string
     point: SentimentKey
     content: string
@@ -27,6 +29,9 @@ interface ReviewSheetProps {
     initial: ReviewDraft
     // 이 음식점에서 전에 기록한 메뉴들 (고르기 · 표기 합치기 안내)
     menus: { menu: string; review_count: number }[]
+    // 이 음식점의 지점들과, 그 자리에서 새 지점을 만드는 함수
+    branches: { id: number; name: string }[]
+    onCreateBranch: (name: string) => Promise<{ id: number; name: string }>
     onSubmit: (draft: ReviewDraft) => Promise<unknown>
 }
 
@@ -63,8 +68,12 @@ DateButton.displayName = "DateButton"
 
 // 리뷰 쓰기·고치기 바텀시트.
 // 키보드가 올라오면 시트 전체를 키보드 위로 올려서 저장 버튼이 항상 키보드 바로 위에 있게 한다.
-export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, menus, onSubmit}: ReviewSheetProps) {
+export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, menus, branches, onCreateBranch, onSubmit}: ReviewSheetProps) {
     const [orderedAt, setOrderedAt] = useState(initial.ordered_at)
+    const [branch, setBranch] = useState<number | null>(initial.branch)
+    const [isAddingBranch, setIsAddingBranch] = useState(false)
+    const [newBranch, setNewBranch] = useState("")
+    const [isCreatingBranch, setIsCreatingBranch] = useState(false)
     const [menu, setMenu] = useState(initial.menu)
     const [point, setPoint] = useState<SentimentKey>(initial.point)
     const [content, setContent] = useState(initial.content)
@@ -86,6 +95,28 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
         : undefined
     const date = orderedAt || today()
 
+    const createBranch = () => {
+        const name = newBranch.trim()
+        if (!name || isCreatingBranch) return
+        // 띄어쓰기만 다른 지점이 이미 있으면 그걸 고른다
+        const existing = branches.find((b) => normalizeMenu(b.name) === normalizeMenu(name))
+        if (existing) {
+            setBranch(existing.id)
+            setNewBranch("")
+            setIsAddingBranch(false)
+            return
+        }
+        setIsCreatingBranch(true)
+        onCreateBranch(name)
+            .then((created) => {
+                setBranch(created.id)
+                setNewBranch("")
+                setIsAddingBranch(false)
+            })
+            .catch(() => null)
+            .finally(() => setIsCreatingBranch(false))
+    }
+
     const chooseMenu = (value: string) => {
         setMenu(value)
         setError("")
@@ -101,7 +132,7 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
             return
         }
         setIsSaving(true)
-        onSubmit({ordered_at: orderedAt || today(), menu: keyword, point, content: content.trim()})
+        onSubmit({ordered_at: orderedAt || today(), branch, menu: keyword, point, content: content.trim()})
             .finally(() => setIsSaving(false))
     }
 
@@ -165,6 +196,74 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                     </div>
                                 )}
                             />
+                        </div>
+
+                        <div>
+                            {branches.length === 0 ? (
+                                // 동네 가게처럼 지점이 없는 곳은 고를 게 없으니 추가 링크만 작게 둔다
+                                !isAddingBranch && (
+                                    <div className="flex items-center gap-2 text-[12px] text-[#B7AF9F]">
+                                        <button type="button" onClick={() => setIsAddingBranch(true)}
+                                                className="font-bold text-[#8A8172] underline underline-offset-2 cursor-pointer">
+                                            + 지점 추가
+                                        </button>
+                                        <span>프랜차이즈처럼 지점마다 맛이 다르면</span>
+                                    </div>
+                                )
+                            ) : (
+                                <>
+                                    <div id="review-branch-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                        지점
+                                    </div>
+                                    <div role="radiogroup" aria-labelledby="review-branch-label" className="flex flex-wrap gap-1.5">
+                                        {[{id: null as number | null, name: "지점 없음"}, ...branches].map((option) => {
+                                            const active = branch === option.id
+                                            return (
+                                                <button key={option.id ?? "none"} type="button" role="radio" aria-checked={active}
+                                                        onClick={() => setBranch(option.id)}
+                                                        className={`px-3 py-1.5 rounded-full text-[13px] font-bold border cursor-pointer transition-colors ${
+                                                            active ? "bg-[#24564A] text-white border-[#24564A]"
+                                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                                        }`}>
+                                                    {option.name}
+                                                </button>
+                                            )
+                                        })}
+                                        {!isAddingBranch && (
+                                            <button type="button" onClick={() => setIsAddingBranch(true)}
+                                                    className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-[#D6D2CC] text-[#8A8172] cursor-pointer">
+                                                + 지점 추가
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                            {isAddingBranch && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    <input
+                                        value={newBranch}
+                                        onChange={(e) => setNewBranch(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.nativeEvent.isComposing) createBranch()
+                                        }}
+                                        autoFocus
+                                        maxLength={100}
+                                        placeholder="예: 역삼점"
+                                        aria-label="새 지점 이름"
+                                        className="flex-1 min-w-0 text-[14px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3 py-2 outline-none focus:border-[#24564A] placeholder:text-[#B7AF9F]"
+                                    />
+                                    <button type="button" onClick={createBranch} disabled={!newBranch.trim() || isCreatingBranch}
+                                            className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-xl px-3.5 py-2 cursor-pointer disabled:opacity-40">
+                                        {isCreatingBranch ? "추가 중…" : "추가"}
+                                    </button>
+                                    <button type="button" onClick={() => {
+                                        setIsAddingBranch(false)
+                                        setNewBranch("")
+                                    }} className="shrink-0 text-[12.5px] font-bold text-[#8A8172] px-1 cursor-pointer">
+                                        취소
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div>

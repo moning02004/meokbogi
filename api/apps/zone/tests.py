@@ -6,6 +6,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.zone.models import Category, Zone
 
 
@@ -20,7 +21,12 @@ class ZoneTestCase(TestCase):
 
         zone = Zone.objects.get(pk=response.json()["id"])
         self.assertEqual(zone.user_id, self.user.id)
-        self.assertEqual(zone.category_set.count(), 14)
+        self.assertEqual(Category.objects.filter(user=self.user).count(), 14)
+
+        # 장소를 더 만들어도 기본 카테고리를 복제하지 않는다. 어느 장소든 같은 목록.
+        second = self.client.post(reverse("zones"), data={"name": "회사"}).json()
+        self.assertEqual(Category.objects.filter(user=self.user).count(), 14)
+        self.assertEqual(second["category"], response.json()["category"])
 
     def test_list_returns_only_my_zones(self):
         other = User.objects.create_user(username="other", password="123")
@@ -41,9 +47,9 @@ class ZoneTestCase(TestCase):
 
     def test_dashboard_counts(self):
         zone = Zone.objects.create(user=self.user, name="내 존")
-        category = Category.objects.create(zone=zone, keyword="치킨")
-        restaurant = Restaurant.objects.create(category=category, name="맛집")
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user,
+        category = make_category(zone, "치킨")
+        restaurant = make_restaurant(category=category, name="맛집")
+        make_review(restaurant=restaurant, user=self.user,
                                         ordered_at="2026-01-01", point=1)
 
         response = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": zone.pk}))
@@ -54,10 +60,10 @@ class ZoneTestCase(TestCase):
     def test_monthly_count_uses_local_date(self):
         # 10/1 00:00~09:00 KST는 UTC로 아직 9월이다. "이번 달"은 KST 날짜로 잡아야 한다.
         zone = Zone.objects.create(user=self.user, name="내 존")
-        category = Category.objects.create(zone=zone, keyword="치킨")
-        restaurant = Restaurant.objects.create(category=category, name="맛집")
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-09-30", point=1)
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-10-01", point=1)
+        category = make_category(zone, "치킨")
+        restaurant = make_restaurant(category=category, name="맛집")
+        make_review(restaurant=restaurant, user=self.user, ordered_at="2026-09-30", point=1)
+        make_review(restaurant=restaurant, user=self.user, ordered_at="2026-10-01", point=1)
 
         with mock.patch("apps.zone.views.timezone.localdate", return_value=date(2026, 10, 1)):
             response = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": zone.pk}))
@@ -79,59 +85,82 @@ class CategoryTestCase(TestCase):
         self.client.login(username="owner", password="123")
 
     def test_list_categories(self):
-        Category.objects.create(zone=self.zone, keyword="치킨")
+        make_category(self.zone, "치킨")
 
-        response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
+        response = self.client.get(reverse("category-list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 1)
 
     def test_create_category(self):
-        response = self.client.post(reverse("category-list", kwargs={"zone_pk": self.zone.pk}),
+        response = self.client.post(reverse("category-list"),
                                     data={"keyword": "피자"})
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(Category.objects.filter(zone=self.zone, keyword="피자").exists())
+        self.assertTrue(Category.objects.filter(user=self.user, keyword="피자").exists())
         # 갓 만든 카테고리도 restaurant_count가 내려와야 한다 (annotate가 없는 경로)
         self.assertEqual(response.json()["restaurant_count"], 0)
 
     def test_list_includes_restaurant_count(self):
-        chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        Category.objects.create(zone=self.zone, keyword="피자")
-        Restaurant.objects.create(category=chicken, name="맛집1")
-        Restaurant.objects.create(category=chicken, name="맛집2")
+        chicken = make_category(self.zone, "치킨")
+        make_category(self.zone, "피자")
+        make_restaurant(category=chicken, name="맛집1")
+        make_restaurant(category=chicken, name="맛집2")
 
-        response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
+        response = self.client.get(reverse("category-list"))
         self.assertEqual(response.status_code, 200)
 
         counts = {row["keyword"]: row["restaurant_count"] for row in response.json()}
         self.assertEqual(counts, {"치킨": 2, "피자": 0})
 
     def test_delete_empty_category(self):
-        category = Category.objects.create(zone=self.zone, keyword="치킨")
+        category = make_category(self.zone, "치킨")
 
-        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
-                                                                        "category_pk": category.pk}))
+        response = self.client.delete(reverse("category-delete", kwargs={"category_pk": category.pk}))
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Category.objects.filter(pk=category.pk).exists())
 
     def test_cannot_delete_category_with_restaurants(self):
-        category = Category.objects.create(zone=self.zone, keyword="치킨")
-        Restaurant.objects.create(category=category, name="맛집")
+        category = make_category(self.zone, "치킨")
+        make_restaurant(category=category, name="맛집")
 
-        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
-                                                                        "category_pk": category.pk}))
+        response = self.client.delete(reverse("category-delete", kwargs={"category_pk": category.pk}))
         self.assertEqual(response.status_code, 400)
-        # CASCADE라서 막지 않으면 음식점까지 함께 지워진다
+        # 이 카테고리 하나만 붙은 음식점이 카테고리 없이 남지 않게 막는다
+        self.assertIn("1곳", response.json()["detail"])
         self.assertTrue(Category.objects.filter(pk=category.pk).exists())
         self.assertEqual(Restaurant.objects.count(), 1)
 
-    def test_cannot_delete_category_of_another_zone(self):
-        other_zone = Zone.objects.create(user=self.user, name="다른 존")
-        category = Category.objects.create(zone=other_zone, keyword="치킨")
+    def test_delete_tag_shared_with_other_category(self):
+        # 다른 카테고리도 붙은 음식점뿐이면 지울 수 있고, 음식점은 남는다
+        chicken = make_category(self.zone, "치킨")
+        snack = make_category(self.zone, "분식")
+        restaurant = make_restaurant(categories=[chicken, snack], zone=self.zone, name="김밥천국")
 
-        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
-                                                                        "category_pk": category.pk}))
-        self.assertEqual(response.status_code, 404)
-        self.assertTrue(Category.objects.filter(pk=category.pk).exists())
+        response = self.client.delete(reverse("category-delete", kwargs={"category_pk": chicken.pk}))
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(list(restaurant.categories.all()), [snack])
+
+    def test_list_counts_exclusive_restaurants(self):
+        chicken = make_category(self.zone, "치킨")
+        snack = make_category(self.zone, "분식")
+        make_restaurant(category=chicken, name="교촌")
+        make_restaurant(categories=[chicken, snack], zone=self.zone, name="김밥천국")
+
+        rows = {row["keyword"]: row for row in
+                self.client.get(reverse("category-list")).json()}
+        self.assertEqual((rows["치킨"]["restaurant_count"], rows["치킨"]["exclusive_restaurant_count"]), (2, 1))
+        self.assertEqual((rows["분식"]["restaurant_count"], rows["분식"]["exclusive_restaurant_count"]), (1, 0))
+
+    def test_categories_are_shared_across_zones(self):
+        office = Zone.objects.create(user=self.user, name="회사")
+        chicken = make_category(self.zone, "치킨")
+        make_restaurant(category=chicken, zone=self.zone, name="교촌")
+        make_restaurant(category=chicken, zone=office, name="회사 앞 BBQ")
+
+        rows = self.client.get(reverse("category-list")).json()
+        self.assertEqual([(r["keyword"], r["restaurant_count"]) for r in rows], [("치킨", 2)])
+        # 장소를 지워도 카테고리는 남는다
+        self.client.delete(reverse("zone-delete", kwargs={"zone_pk": office.pk}))
+        self.assertTrue(Category.objects.filter(pk=chicken.pk).exists())
 
 
 class ZoneAuthorizationTestCase(TestCase):
@@ -145,25 +174,23 @@ class ZoneAuthorizationTestCase(TestCase):
         User.objects.create_user(username="attacker", password="123")
 
         self.zone = Zone.objects.create(user=self.victim, name="남의 존")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.category = make_category(self.zone, "치킨")
 
         self.client.login(username="attacker", password="123")
 
     def test_cannot_list_other_users_categories(self):
-        response = self.client.get(reverse("category-list", kwargs={"zone_pk": self.zone.pk}))
+        response = self.client.get(reverse("category-list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
 
-    def test_cannot_create_category_in_other_users_zone(self):
-        # get_queryset은 조회에만 적용되므로 생성 경로에 대한 검증이 따로 필요하다
-        response = self.client.post(reverse("category-list", kwargs={"zone_pk": self.zone.pk}),
-                                    data={"keyword": "해킹"})
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(Category.objects.filter(zone=self.zone).count(), 1)
+    def test_new_category_belongs_to_me(self):
+        response = self.client.post(reverse("category-list"), data={"keyword": "해킹"})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Category.objects.get(pk=response.json()["id"]).user.username, "attacker")
+        self.assertEqual(Category.objects.filter(user=self.victim).count(), 1)
 
     def test_cannot_delete_other_users_category(self):
-        response = self.client.delete(reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
-                                                                        "category_pk": self.category.pk}))
+        response = self.client.delete(reverse("category-delete", kwargs={"category_pk": self.category.pk}))
         self.assertEqual(response.status_code, 404)
         self.assertTrue(Category.objects.filter(pk=self.category.pk).exists())
 
@@ -184,14 +211,14 @@ class DashboardTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.category = make_category(self.zone, "치킨")
         self.client.login(username="owner", password="123")
 
     def _restaurant(self, name, visits):
         # visits: [(주문일, 만족도), ...]
-        restaurant = Restaurant.objects.create(category=self.category, name=name)
+        restaurant = make_restaurant(category=self.category, name=name)
         for day, point in visits:
-            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+            make_review(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
         return restaurant
 
     def _dashboard(self):
@@ -235,9 +262,9 @@ class DashboardTestCase(TestCase):
     def test_counts_ignore_other_zones(self):
         self._restaurant("교촌", [("2026-01-01", 1)])
         other_zone = Zone.objects.create(user=self.user, name="회사")
-        other = Restaurant.objects.create(category=Category.objects.create(zone=other_zone, keyword="한식"),
+        other = make_restaurant(category=make_category(other_zone, "한식"),
                                           name="회사 앞 백반")
-        RestaurantReview.objects.create(restaurant=other, user=self.user, ordered_at="2026-01-01", point=1)
+        make_review(restaurant=other, user=self.user, ordered_at="2026-01-01", point=1)
 
         data = self._dashboard()
         self.assertEqual((data["restaurant_count"], data["review_count"]), (1, 1))
@@ -261,34 +288,35 @@ class ZoneListTestCase(TestCase):
         busy = Zone.objects.create(user=self.user, name="회사")
         empty = Zone.objects.create(user=self.user, name="새 장소")
         for zone, day in ((quiet, "2026-01-01"), (busy, "2026-09-01")):
-            restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+            restaurant = make_restaurant(category=make_category(zone, "치킨"),
                                                    name="가게")
-            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day)
+            make_review(restaurant=restaurant, user=self.user, ordered_at=day)
 
         names = [row["name"] for row in self.client.get(reverse("zones")).json()["results"]]
         self.assertEqual(names, [busy.name, quiet.name, empty.name])
 
     def test_delete_removes_everything_inside(self):
         zone = Zone.objects.create(user=self.user, name="본가")
-        restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+        restaurant = make_restaurant(category=make_category(zone, "치킨"),
                                                name="가게")
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+        make_review(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
 
         self.client.delete(reverse("zone-delete", kwargs={"zone_pk": zone.pk}))
+        # 카테고리는 사용자 것이라 장소와 함께 지워지지 않는다
         self.assertEqual((Category.objects.count(), Restaurant.objects.count(), RestaurantReview.objects.count()),
-                         (0, 0, 0))
+                         (1, 0, 0))
 
 
 class ForgottenRestaurantsTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.category = make_category(self.zone, "치킨")
         self.client.login(username="owner", password="123")
 
     def _restaurant(self, name, day, point):
-        restaurant = Restaurant.objects.create(category=self.category, name=name)
-        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+        restaurant = make_restaurant(category=self.category, name=name)
+        make_review(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
 
     def test_good_but_not_visited_for_60_days(self):
         self._restaurant("잊은 맛집", "2026-07-01", 1)
@@ -306,12 +334,11 @@ class RenameTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
-        Category.objects.create(zone=self.zone, keyword="돈까스")
+        self.category = make_category(self.zone, "치킨")
+        make_category(self.zone, "돈까스")
         self.client.login(username="owner", password="123")
         self.zone_url = reverse("zone-delete", kwargs={"zone_pk": self.zone.pk})
-        self.category_url = reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
-                                                               "category_pk": self.category.pk})
+        self.category_url = reverse("category-delete", kwargs={"category_pk": self.category.pk})
 
     def _patch(self, url, body):
         return self.client.patch(url, data=body, content_type="application/json")
@@ -346,12 +373,68 @@ class RenameTestCase(TestCase):
         self.assertIn("이미 있는", response.json()["keyword"])
 
     def test_create_category_rejects_duplicate(self):
-        response = self.client.post(reverse("category-list", kwargs={"zone_pk": self.zone.pk}),
+        response = self.client.post(reverse("category-list"),
                                     data={"keyword": "돈까스"})
         self.assertEqual(response.status_code, 400)
 
-    def test_same_keyword_allowed_in_another_zone(self):
-        other_zone = Zone.objects.create(user=self.user, name="회사")
-        response = self.client.post(reverse("category-list", kwargs={"zone_pk": other_zone.pk}),
-                                    data={"keyword": "돈까스"})
-        self.assertEqual(response.status_code, 201)
+    def test_same_keyword_is_one_category_for_all_zones(self):
+        Zone.objects.create(user=self.user, name="회사")
+        response = self.client.post(reverse("category-list"), data={"keyword": "돈까스"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_other_user_can_have_same_keyword(self):
+        User.objects.create_user(username="other", password="123")
+        self.client.login(username="other", password="123")
+        self.assertEqual(self.client.post(reverse("category-list"), data={"keyword": "돈까스"}).status_code, 201)
+
+
+class DashboardTagsTestCase(TestCase):
+    def test_restaurant_with_two_categories_counted_once(self):
+        user = User.objects.create_user(username="owner", password="123")
+        zone = Zone.objects.create(user=user, name="우리집")
+        chicken = make_category(zone, "치킨")
+        snack = make_category(zone, "분식")
+        restaurant = make_restaurant(categories=[chicken, snack], zone=zone, name="김밥천국")
+        for day in ("2026-09-01", "2026-09-02"):
+            make_review(restaurant=restaurant, user=user, ordered_at=day, point=1, menu="김밥")
+        self.client.login(username="owner", password="123")
+
+        data = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": zone.pk})).json()
+        self.assertEqual((data["restaurant_count"], data["review_count"]), (1, 2))
+        self.assertEqual([r["name"] for r in data["delicious_restaurants"]], ["김밥천국"])
+        self.assertEqual([r["name"] for r in data["recent_restaurants"]], ["김밥천국"])
+        self.assertEqual([c["keyword"] for c in data["recent_restaurants"][0]["categories"]], ["치킨", "분식"])
+
+
+class CategoryBrowseTestCase(TestCase):
+    """카테고리별로 어느 장소에 어떤 음식점이 있는지."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.home = Zone.objects.create(user=self.user, name="우리집")
+        self.office = Zone.objects.create(user=self.user, name="회사")
+        self.chicken = make_category(self.home, "치킨")
+        self.pizza = make_category(self.home, "피자")
+        make_restaurant(category=self.chicken, zone=self.home, name="교촌")
+        make_restaurant(category=self.chicken, zone=self.home, name="BBQ")
+        bhc = make_restaurant(category=self.chicken, zone=self.office, name="회사 앞 BHC")
+        make_review(restaurant=bhc, user=self.user, ordered_at="2026-09-01", point=1, menu="뿌링클")
+        self.client.login(username="owner", password="123")
+
+    def test_list_shows_counts_per_zone(self):
+        rows = {row["keyword"]: row["zones"] for row in self.client.get(reverse("category-list")).json()}
+        self.assertEqual(rows["치킨"], [{"id": self.home.id, "name": "우리집", "count": 2},
+                                       {"id": self.office.id, "name": "회사", "count": 1}])
+        self.assertEqual(rows["피자"], [])
+
+    def test_restaurants_grouped_by_zone(self):
+        groups = self.client.get(reverse("category-restaurants", kwargs={"category_pk": self.chicken.pk})).json()
+        self.assertEqual([g["zone"]["name"] for g in groups], ["우리집", "회사"])
+        self.assertEqual(sorted(r["name"] for r in groups[0]["restaurants"]), ["BBQ", "교촌"])
+        self.assertEqual(groups[1]["restaurants"][0]["review_avg"], 1)
+
+    def test_other_users_category_is_404(self):
+        User.objects.create_user(username="attacker", password="123")
+        self.client.login(username="attacker", password="123")
+        url = reverse("category-restaurants", kwargs={"category_pk": self.chicken.pk})
+        self.assertEqual(self.client.get(url).status_code, 404)

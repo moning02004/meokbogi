@@ -5,12 +5,12 @@ import {useRouter} from "next/navigation"
 import toast from "react-hot-toast"
 import {LuChevronRight, LuPlus} from "react-icons/lu"
 
-import {CategoryManager} from "@/components/settings/category_manager"
 import {Modal} from "@/components/ui/modal"
 import {ZONE_API, ZONE_PAGE} from "@/constants/routeUrl"
 import {apiRequest, errorMessage} from "@/lib/api"
 import {syncZones} from "@/lib/zone"
-import {ManagedCategoryType, ZoneType} from "@/types/zone"
+import {fetchZoneRestaurants} from "@/lib/restaurant"
+import {ZoneType} from "@/types/zone"
 
 // 마이페이지에서는 존 목록만 보여주고, 실제 관리(카테고리 추가·삭제, 존 삭제)는 모달 안에서 한다.
 export function ZoneManager() {
@@ -104,9 +104,6 @@ export function ZoneManager() {
                                 <span className="flex-1 min-w-0">
                                     <span
                                         className="block text-[14px] font-bold text-[#211D17] truncate">{zone.name}</span>
-                                    <span className="block text-[12px] text-[#8A8172] mt-0.5">
-                                        카테고리 {zone.category.length}개
-                                    </span>
                                 </span>
                                 <LuChevronRight size={16} className="shrink-0 text-[#B7AF9F]"/>
                             </button>
@@ -137,7 +134,6 @@ export function ZoneManager() {
                     <ZoneDetail
                         key={`${selected.id}:${openSeq}`}
                         zone={selected}
-                        onCategoriesMutated={() => setIsDirty(true)}
                         onRename={renameZone}
                         onDelete={deleteZone}
                     />
@@ -149,13 +145,11 @@ export function ZoneManager() {
 
 interface ZoneDetailProps {
     zone: ZoneType
-    onCategoriesMutated: () => void
     onRename: (zone: ZoneType, name: string) => Promise<void>
     onDelete: (zone: ZoneType) => Promise<void>
 }
 
-function ZoneDetail({zone, onCategoriesMutated, onRename, onDelete}: ZoneDetailProps) {
-    const [categories, setCategories] = useState<ManagedCategoryType[] | null>(null)
+function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
     const [nameInput, setNameInput] = useState(zone.name)
     const [isRenaming, setIsRenaming] = useState(false)
     const trimmedName = nameInput.trim()
@@ -169,8 +163,12 @@ function ZoneDetail({zone, onCategoriesMutated, onRename, onDelete}: ZoneDetailP
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
-    // 존을 지우면 음식점·리뷰까지 CASCADE로 함께 사라지므로, 무엇이 사라지는지 숫자로 보여준다
-    const restaurantCount = categories?.reduce((total, category) => total + category.restaurant_count, 0) ?? 0
+    // 존을 지우면 음식점·리뷰까지 함께 사라지므로, 무엇이 사라지는지 숫자로 보여준다.
+    // 음식점에 카테고리가 여러 개 붙을 수 있어 카테고리별 수를 더하면 겹치므로 장소의 음식점 수를 따로 읽는다.
+    const [restaurantCount, setRestaurantCount] = useState<number | null>(null)
+    useEffect(() => {
+        fetchZoneRestaurants(zone.id).then((response) => setRestaurantCount(response.count)).catch(() => null)
+    }, [zone.id])
 
     return (
         <div className="flex flex-col gap-5">
@@ -202,19 +200,6 @@ function ZoneDetail({zone, onCategoriesMutated, onRename, onDelete}: ZoneDetailP
 
             <section className="border-t border-[#F0EBDD] pt-4">
                 <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
-                    카테고리
-                </div>
-                <CategoryManager
-                    zoneId={zone.id}
-                    onCategoriesChange={(rows, mutated) => {
-                        setCategories(rows)
-                        if (mutated) onCategoriesMutated()
-                    }}
-                />
-            </section>
-
-            <section className="border-t border-[#F0EBDD] pt-4">
-                <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
                     존 삭제
                 </div>
 
@@ -224,8 +209,8 @@ function ZoneDetail({zone, onCategoriesMutated, onRename, onDelete}: ZoneDetailP
                             &lsquo;{zone.name}&rsquo;을(를) 삭제할까요?
                         </p>
                         <p className="text-[12px] text-[#8A6A5C] leading-relaxed mb-3">
-                            카테고리 {categories?.length ?? 0}개와 음식점 {restaurantCount}개,
-                            그동안 남긴 리뷰가 모두 함께 사라져요. 되돌릴 수 없어요.
+                            음식점 {restaurantCount ?? "…"}곳과 그동안 남긴 리뷰가 모두 함께 사라져요. 되돌릴 수 없어요.
+                            카테고리는 다른 장소에서도 쓰므로 남아요.
                         </p>
                         <div className="flex gap-2">
                             <button
