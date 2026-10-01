@@ -178,3 +178,102 @@ class ZoneAuthorizationTestCase(TestCase):
 
         response = client.get(reverse("zone-dashboard", kwargs={"zone_pk": self.zone.pk}))
         self.assertEqual(response.status_code, 404)
+
+
+class DashboardTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.client.login(username="owner", password="123")
+
+    def _restaurant(self, name, visits):
+        # visits: [(주문일, 만족도), ...]
+        restaurant = Restaurant.objects.create(category=self.category, name=name)
+        for day, point in visits:
+            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+        return restaurant
+
+    def _dashboard(self):
+        return self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": self.zone.pk})).json()
+
+    def test_delicious_requires_two_visits_and_good_average(self):
+        self._restaurant("두번 만족", [("2026-01-01", 1), ("2026-01-02", 1)])
+        self._restaurant("한번 만족", [("2026-01-01", 1)])
+        self._restaurant("두번 애매", [("2026-01-01", 1), ("2026-01-02", 0)])
+        self._restaurant("같은날 두번", [("2026-01-01", 1), ("2026-01-01", 1)])
+
+        names = [row["name"] for row in self._dashboard()["delicious_restaurants"]]
+        self.assertEqual(names, ["두번 만족"])
+
+    def test_delicious_is_top_five_by_average(self):
+        for i in range(6):
+            # 앞의 다섯 곳은 평균 1.0, 마지막 한 곳은 평균 2/3
+            points = [1, 1, 1] if i < 5 else [1, 1, 0]
+            self._restaurant(f"가게{i}", [(f"2026-01-0{d + 1}", p) for d, p in enumerate(points)])
+
+        rows = self._dashboard()["delicious_restaurants"]
+        self.assertEqual(len(rows), 5)
+        self.assertNotIn("가게5", [row["name"] for row in rows])
+
+    def test_recent_is_latest_three(self):
+        for i, day in enumerate(["2026-01-01", "2026-03-01", "2026-02-01", "2026-04-01"]):
+            self._restaurant(f"가게{i}", [(day, 0)])
+        self._restaurant("미방문", [])
+
+        names = [row["name"] for row in self._dashboard()["recent_restaurants"]]
+        self.assertEqual(names, ["가게3", "가게1", "가게2"])
+
+    def test_monthly_count_is_distinct_restaurant_days(self):
+        # 같은 가게 같은 날 메뉴 두 개 = 1번, 다른 가게 같은 날 = 따로 1번
+        self._restaurant("교촌", [("2026-10-02", 1), ("2026-10-02", 0)])
+        self._restaurant("BBQ", [("2026-10-02", 1), ("2026-09-30", 1)])
+
+        with mock.patch("apps.zone.views.timezone.localdate", return_value=date(2026, 10, 15)):
+            self.assertEqual(self._dashboard()["monthly_visited_count"], 2)
+
+    def test_counts_ignore_other_zones(self):
+        self._restaurant("교촌", [("2026-01-01", 1)])
+        other_zone = Zone.objects.create(user=self.user, name="회사")
+        other = Restaurant.objects.create(category=Category.objects.create(zone=other_zone, keyword="한식"),
+                                          name="회사 앞 백반")
+        RestaurantReview.objects.create(restaurant=other, user=self.user, ordered_at="2026-01-01", point=1)
+
+        data = self._dashboard()
+        self.assertEqual((data["restaurant_count"], data["review_count"]), (1, 1))
+
+
+class ZoneListTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.client.login(username="owner", password="123")
+
+    def test_requires_authentication(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("zones")).status_code, 401)
+
+    def test_create_requires_name(self):
+        self.assertEqual(self.client.post(reverse("zones"), data={"name": ""}).status_code, 400)
+
+    def test_ordered_by_latest_visit(self):
+        # 최근에 기록한 장소가 첫 번째 = 로그인 직후 기본 선택 장소다
+        quiet = Zone.objects.create(user=self.user, name="본가")
+        busy = Zone.objects.create(user=self.user, name="회사")
+        empty = Zone.objects.create(user=self.user, name="새 장소")
+        for zone, day in ((quiet, "2026-01-01"), (busy, "2026-09-01")):
+            restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+                                                   name="가게")
+            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day)
+
+        names = [row["name"] for row in self.client.get(reverse("zones")).json()["results"]]
+        self.assertEqual(names, [busy.name, quiet.name, empty.name])
+
+    def test_delete_removes_everything_inside(self):
+        zone = Zone.objects.create(user=self.user, name="본가")
+        restaurant = Restaurant.objects.create(category=Category.objects.create(zone=zone, keyword="치킨"),
+                                               name="가게")
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+
+        self.client.delete(reverse("zone-delete", kwargs={"zone_pk": zone.pk}))
+        self.assertEqual((Category.objects.count(), Restaurant.objects.count(), RestaurantReview.objects.count()),
+                         (0, 0, 0))

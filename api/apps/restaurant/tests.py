@@ -252,3 +252,149 @@ class RestaurantListBehaviorTestCase(TestCase):
         response = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": restaurant.pk}))
         menus = [row["menu"] for row in response.json()["menu_summaries"]]
         self.assertEqual(menus, ["간장", "양념"])
+
+
+class RestaurantWriteTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        self.client.login(username="owner", password="123")
+        self.create_url = reverse("restaurants", kwargs={"zone_pk": self.zone.pk, "category_pk": self.chicken.pk})
+        self.info_url = reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
+        self.review_url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
+
+    def _patch(self, url, body):
+        return self.client.patch(url, data=body, content_type="application/json")
+
+    def test_requires_authentication(self):
+        self.client.logout()
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        self.assertEqual(self.client.get(url).status_code, 401)
+
+    def test_create_requires_name(self):
+        self.assertEqual(self.client.post(self.create_url, data={"description": "메모"}).status_code, 400)
+
+    def test_create_rejects_too_long_name(self):
+        response = self.client.post(self.create_url, data={"name": "가" * 101})
+        self.assertEqual(response.status_code, 400)
+
+    def test_move_to_another_category_in_my_zone(self):
+        response = self._patch(self.info_url, {"category": self.pizza.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["category_name"], "피자")
+
+    def test_cannot_move_into_other_users_category(self):
+        other = User.objects.create_user(username="other", password="123")
+        other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
+                                                 keyword="치킨")
+
+        response = self._patch(self.info_url, {"category": other_category.pk})
+        self.assertEqual(response.status_code, 400)
+        self.restaurant.refresh_from_db()
+        self.assertEqual(self.restaurant.category_id, self.chicken.pk)
+
+    def test_delete_removes_reviews(self):
+        RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01")
+
+        self.assertEqual(self.client.delete(self.info_url).status_code, 204)
+        self.assertFalse(RestaurantReview.objects.exists())
+
+    def test_review_rejects_unknown_point(self):
+        response = self.client.post(self.review_url, data={"ordered_at": "2026-01-01", "menu": "후라이드",
+                                                           "point": 2})
+        self.assertEqual(response.status_code, 400)
+
+    def test_review_requires_ordered_at(self):
+        response = self.client.post(self.review_url, data={"menu": "후라이드", "point": 1})
+        self.assertEqual(response.status_code, 400)
+
+    def test_review_rejects_too_long_content(self):
+        response = self.client.post(self.review_url, data={"ordered_at": "2026-01-01", "menu": "후라이드",
+                                                           "content": "가" * 256, "point": 1})
+        self.assertEqual(response.status_code, 400)
+
+    def test_review_belongs_to_requesting_user(self):
+        response = self.client.post(self.review_url, data={"ordered_at": "2026-01-01", "menu": "후라이드",
+                                                           "point": 1})
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(RestaurantReview.objects.get(pk=response.json()["id"]).user_id, self.user.id)
+
+    def test_delete_review_of_another_restaurant_is_404(self):
+        # 리뷰 id가 맞아도 URL의 음식점과 다르면 지우지 않는다
+        other_restaurant = Restaurant.objects.create(category=self.chicken, name="BBQ")
+        review = RestaurantReview.objects.create(restaurant=other_restaurant, user=self.user,
+                                                 ordered_at="2026-01-01")
+        url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
+
+        self.assertEqual(self.client.delete(url).status_code, 404)
+        self.assertTrue(RestaurantReview.objects.filter(pk=review.pk).exists())
+
+
+class RestaurantQueryTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.client.login(username="owner", password="123")
+        self.list_url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+
+    def test_pages_do_not_overlap(self):
+        # 정렬 키가 같은(방문 기록 없는) 음식점이 많아도 페이지 사이에 겹침·누락이 없어야 한다
+        Restaurant.objects.bulk_create([Restaurant(category=self.chicken, name=f"가게{i}") for i in range(25)])
+
+        first = self.client.get(self.list_url, {"page": 1}).json()
+        second = self.client.get(self.list_url, {"page": 2}).json()
+        ids = [row["id"] for row in first["results"] + second["results"]]
+        self.assertEqual((len(first["results"]), len(second["results"])), (20, 5))
+        self.assertEqual(len(set(ids)), 25)
+
+    def test_category_filter(self):
+        Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
+
+        response = self.client.get(self.list_url, {"category": self.pizza.pk})
+        self.assertEqual([row["name"] for row in response.json()["results"]], ["미뜨레피자"])
+
+    def test_search_does_not_leak_other_users_restaurants(self):
+        other = User.objects.create_user(username="other", password="123")
+        other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
+                                                 keyword="치킨")
+        Restaurant.objects.create(category=other_category, name="교촌치킨")
+
+        response = self.client.get(self.list_url, {"search": "교촌"})
+        self.assertEqual(response.json()["count"], 0)
+
+    def test_visit_count_counts_distinct_days(self):
+        # 한 번 주문에서 메뉴 두 개를 기록해도 방문은 1회다
+        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        for menu, day in (("후라이드", "2026-01-01"), ("양념", "2026-01-01"), ("간장", "2026-01-05")):
+            RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, menu=menu,
+                                            point=1)
+
+        row = self.client.get(self.list_url).json()["results"][0]
+        self.assertEqual(row["ordered_count"], 2)
+        self.assertEqual(row["review_count"], 3)
+        self.assertEqual(row["latest_ordered_at"], "2026-01-05")
+
+    def test_review_menu_filter_includes_blank_menu(self):
+        # 화면의 "메뉴 미기재" 필터는 menu= (빈 값)으로 요청한다
+        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01", menu="")
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-02", menu="양념")
+
+        url = reverse("review-create", kwargs={"restaurant_pk": restaurant.pk})
+        self.assertEqual(self.client.get(url, {"menu": ""}).json()["count"], 1)
+        self.assertEqual(self.client.get(url, {"menu": "양념"}).json()["count"], 1)
+        self.assertEqual(self.client.get(url).json()["count"], 2)
+
+    def test_reviews_on_same_day_newest_first(self):
+        restaurant = Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        older = RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+        newer = RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-01-01")
+
+        url = reverse("review-create", kwargs={"restaurant_pk": restaurant.pk})
+        self.assertEqual([row["id"] for row in self.client.get(url).json()["results"]], [newer.id, older.id])
