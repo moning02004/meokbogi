@@ -19,7 +19,7 @@ test.describe("내 기록 내보내기·가져오기", () => {
         expect(download.suggestedFilename()).toMatch(/^meokbogi-\d{8}\.json$/)
         const file = await download.path()
         const archive = JSON.parse(await readFile(file, "utf-8"))
-        expect(archive.version).toBe(3)
+        expect(archive.version).toBe(4)
         expect(archive.zones[0].restaurants[0]).toMatchObject({name: "교촌치킨", categories: ["치킨"]})
 
         // 새 계정(장소 하나만 있는)으로 가져오기

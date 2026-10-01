@@ -38,22 +38,23 @@ export const ZONE_API = {
     },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
+// 카테고리는 장소가 아니라 사용자에게 속한다 (어느 장소든 같은 목록)
 export const CATEGORY_API = {
     list: {
         method: "get",
-        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category`
+        endpoint: "/categories"
     },
     add: {
         method: "post",
-        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category`
+        endpoint: "/categories"
     },
     update: {
         method: "patch",
-        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}`
+        endpoint: (args: EndpointArgs) => `/categories/${args.category}`
     },
     delete: {
         method: "delete",
-        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/category/${args.category}`
+        endpoint: (args: EndpointArgs) => `/categories/${args.category}`
     },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 

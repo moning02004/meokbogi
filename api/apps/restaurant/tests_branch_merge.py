@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from apps.restaurant.branch_merge import find_candidates
 from apps.restaurant.models import Restaurant
-from apps.restaurant.testing import make_restaurant, make_review
+from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.zone.models import Category, Zone
 
 
@@ -14,8 +14,8 @@ class MergeBranchesTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.snack = Category.objects.create(zone=self.zone, keyword="분식")
+        self.chicken = make_category(self.zone, "치킨")
+        self.snack = make_category(self.zone, "분식")
         self.brand = make_restaurant(category=self.chicken, name="교촌치킨")
         self.source = make_restaurant(categories=[self.chicken, self.snack], zone=self.zone, name="교촌치킨 역삼점",
                                       description="양념 따로")
@@ -33,7 +33,7 @@ class MergeBranchesTestCase(TestCase):
         make_restaurant(category=self.chicken, name="홍콩반점")
         # 다른 장소의 같은 브랜드에는 붙이지 않는다
         other_zone = Zone.objects.create(user=self.user, name="회사")
-        make_restaurant(category=Category.objects.create(zone=other_zone, keyword="치킨"), name="교촌치킨 강남점")
+        make_restaurant(category=make_category(other_zone, "치킨"), name="교촌치킨 강남점")
         # "점"으로 끝나지 않으면 지점으로 보지 않는다
         make_restaurant(category=self.chicken, name="교촌치킨 순살")
 

@@ -84,7 +84,7 @@ export default function Page() {
     // 등록하다가 없는 카테고리가 필요하면 그 자리에서 만든다. 상단바·필터에도 바로 보이도록 전역 목록에 더한다.
     const createCategory = (keyword: string) => {
         const add = CATEGORY_API.add
-        return apiRequest[add.method]<CategoryType>(add.endpoint({zone: selectedZone.id}), {
+        return apiRequest[add.method]<CategoryType>(add.endpoint, {
             body: JSON.stringify({keyword}),
         }).then((category) => {
             setCategories([...categories, {id: category.id, keyword: category.keyword}])

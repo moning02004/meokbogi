@@ -62,14 +62,14 @@ class RestaurantReviewSerializer(serializers.ModelSerializer):
 
 
 class CategoryIdsMixin(serializers.Serializer):
-    """음식점에 붙일 카테고리 id 목록. 같은 장소의 내 카테고리만, 하나 이상."""
+    """음식점에 붙일 카테고리 id 목록. 내 카테고리만, 하나 이상."""
     category_ids = serializers.PrimaryKeyRelatedField(source="categories", many=True, write_only=True,
                                                       queryset=Category.objects.all(), allow_empty=False)
 
     def validate_category_ids(self, categories):
-        zone = self.context.get("zone") or getattr(self.instance, "zone", None)
-        if zone is None or any(category.zone_id != zone.id for category in categories):
-            raise serializers.ValidationError("이 장소의 카테고리만 붙일 수 있어요.")
+        request = self.context.get("request")
+        if request is None or any(category.user_id != request.user.id for category in categories):
+            raise serializers.ValidationError("내 카테고리만 붙일 수 있어요.")
         return categories
 
 

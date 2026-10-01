@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.restaurant.testing import make_restaurant, make_review
+from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.zone.models import Category, Zone
 
 
@@ -168,7 +168,7 @@ class UserInfoDetailTestCase(TestCase):
 
     def test_counts_only_own_records(self):
         zone = Zone.objects.create(user=self.user, name="우리집")
-        category = Category.objects.create(zone=zone, keyword="치킨")
+        category = make_category(zone, "치킨")
         first = make_restaurant(category=category, name="교촌")
         make_restaurant(category=category, name="BBQ")
         for day in ("2026-01-01", "2026-01-02", "2026-01-03"):
@@ -176,7 +176,7 @@ class UserInfoDetailTestCase(TestCase):
 
         other = User.objects.create_user(username="other", password="123")
         other_zone = Zone.objects.create(user=other, name="남의 집")
-        other_restaurant = make_restaurant(category=Category.objects.create(zone=other_zone, keyword="피자"), name="남의 가게")
+        other_restaurant = make_restaurant(category=make_category(other_zone, "피자"), name="남의 가게")
         make_review(restaurant=other_restaurant, user=other, ordered_at="2026-01-01", point=1)
 
         data = self.client.get(reverse("my-info")).json()

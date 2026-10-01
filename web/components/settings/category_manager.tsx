@@ -9,7 +9,6 @@ import {apiRequest, errorMessage} from "@/lib/api"
 import {ManagedCategoryType} from "@/types/zone"
 
 interface CategoryManagerProps {
-    zoneId: number
     // 목록을 새로 읽을 때마다 호출된다. mutated는 추가·삭제 직후인지 여부.
     onCategoriesChange?: (categories: ManagedCategoryType[], mutated: boolean) => void
 }
@@ -38,11 +37,9 @@ function highlightMatch(text: string, query: string) {
 
 // 한 존의 카테고리를 검색·추가·삭제한다.
 // 입력창은 검색을 겸한다. 비슷한 키워드가 이미 있으면 목록이 좁혀지면서 눈에 띄도록.
-// 음식점이 묶여 있는 카테고리는 지울 수 없다 (Restaurant.category가 CASCADE라 음식점까지 사라진다).
-export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerProps) {
-    // 존이 바뀌는 순간 이전 존의 목록이 잠깐 보이지 않도록 zoneId를 함께 들고 있는다
-    const [loaded, setLoaded] = useState<{ zoneId: number; rows: ManagedCategoryType[] } | null>(null)
-    const categories = loaded && loaded.zoneId === zoneId ? loaded.rows : null
+// 카테고리는 장소와 상관없이 한 벌이다. 그 카테고리만 붙은 음식점이 있으면 지울 수 없다.
+export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
+    const [categories, setCategories] = useState<ManagedCategoryType[] | null>(null)
 
     const [keyword, setKeyword] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -59,12 +56,12 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
 
     const loadCategories = useCallback((mutated: boolean) => {
         const list = CATEGORY_API.list
-        return apiRequest[list.method]<ManagedCategoryType[]>(list.endpoint({zone: zoneId}))
+        return apiRequest[list.method]<ManagedCategoryType[]>(list.endpoint)
             .then((rows) => {
-                setLoaded({zoneId, rows})
+                setCategories(rows)
                 notify.current?.(rows, mutated)
             })
-    }, [zoneId])
+    }, [])
 
     useEffect(() => {
         loadCategories(false)
@@ -84,7 +81,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
 
         setIsSubmitting(true)
         const add = CATEGORY_API.add
-        apiRequest[add.method](add.endpoint({zone: zoneId}), {
+        apiRequest[add.method](add.endpoint, {
             body: JSON.stringify({keyword: trimmed})
         }).then(() => {
             setKeyword("")
@@ -113,7 +110,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
 
         setIsSubmitting(true)
         const update = CATEGORY_API.update
-        apiRequest[update.method](update.endpoint({zone: zoneId, category: category.id}), {
+        apiRequest[update.method](update.endpoint({category: category.id}), {
             body: JSON.stringify({keyword: editTrimmed})
         }).then(() => {
             setEditingId(null)
@@ -128,7 +125,7 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
 
         setIsSubmitting(true)
         const remove = CATEGORY_API.delete
-        apiRequest[remove.method](remove.endpoint({zone: zoneId, category: category.id})
+        apiRequest[remove.method](remove.endpoint({category: category.id})
         ).then(() => {
             toast.success(`'${category.keyword}' 카테고리를 삭제했어요.`)
             return loadCategories(true)

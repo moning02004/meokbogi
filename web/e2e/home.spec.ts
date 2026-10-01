@@ -35,4 +35,31 @@ test.describe("홈과 설정", () => {
         await page.getByRole("button", {name: "홈"}).click()
         await expect(page.getByText("새 집 기록")).toBeVisible()
     })
+
+    test("카테고리는 장소와 상관없이 한 벌이다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        const home = await api.createZone("우리집")
+        const office = await api.createZone("회사")
+        // 두 번째 장소를 만들어도 기본 카테고리가 복제되지 않는다
+        expect(office.category.map((c) => c.id)).toEqual(home.category.map((c) => c.id))
+
+        await loginUi(page, user)
+        await expect(page.getByText(/기록$/).first()).toBeVisible()
+        await page.getByRole("button", {name: "내정보"}).click()
+        await page.getByPlaceholder(/카테고리 찾기/).fill("샐러드")
+        await page.getByRole("button", {name: "추가", exact: true}).click()
+        await expect(page.getByText("샐러드", {exact: true})).toBeVisible()
+
+        // 어느 장소에서 음식점을 등록하든 같은 카테고리가 보인다
+        for (const zone of ["우리집", "회사"]) {
+            await page.goto("/home")
+            await page.getByRole("button", {name: "장소 바꾸기"}).click()
+            await page.getByRole("button", {name: zone, exact: true}).click()
+            await expect(page.getByText(`${zone} 기록`)).toBeVisible()
+            await page.goto("/restaurant/add")
+            await page.getByRole("button", {name: /^카테고리/}).click()
+            await expect(page.getByRole("option", {name: "샐러드", exact: true})).toBeVisible()
+        }
+    })
 })

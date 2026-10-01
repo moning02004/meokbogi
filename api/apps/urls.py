@@ -30,9 +30,9 @@ urlpatterns = [
     }), name="zones"),
     path("zones/<int:zone_pk>", zone_views.ZoneDetailAPIView.as_view(), name="zone-delete"),
     path("zones/<int:zone_pk>/dashboard", zone_views.ZoneDashboardAPIView.as_view(), name="zone-dashboard"),
-    path("zones/<int:zone_pk>/category", zone_views.CategoryListAPIView.as_view(), name="category-list"),
-    path("zones/<int:zone_pk>/category/<int:category_pk>", zone_views.CategoryDetailAPIView.as_view(),
-         name="category-delete"),
+    # 카테고리는 장소가 아니라 사용자에게 속한다
+    path("categories", zone_views.CategoryListAPIView.as_view(), name="category-list"),
+    path("categories/<int:category_pk>", zone_views.CategoryDetailAPIView.as_view(), name="category-delete"),
 
     # restaurants
     path("zones/<int:zone_pk>/restaurants", restaurant_views.AllRestaurantsListAPIView.as_view(),

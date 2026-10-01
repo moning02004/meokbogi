@@ -1,10 +1,10 @@
 """내 기록 내보내기·가져오기.
 
-파일 형식(JSON, version 3)은 장소 → 음식점 → 리뷰를 중첩하고, 카테고리는 장소의 태그 목록과
-음식점마다 붙은 태그 이름, 지점은 음식점의 지점 이름 목록과 리뷰마다 지점 이름으로 담는다.
+파일 형식(JSON, version 4)은 장소 → 음식점 → 리뷰를 중첩한다. 카테고리는 사용자 것이라 파일 맨 위의
+목록과 음식점마다 붙은 이름으로, 지점은 음식점의 지점 이름 목록과 리뷰마다 지점 이름으로 담는다.
 id를 담지 않아 다른 서버로 옮겨도 그대로 되살릴 수 있다.
 예전 파일도 가져온다: version 1(1.4~1.5, 장소 → 카테고리 → 음식점)은 version 2 모양으로 바꾸고,
-version 2(지점 없음)는 그대로 읽는다.
+version 2·3의 장소별 카테고리 목록은 사용자 카테고리로 합친다.
 
 가져오기는 덮어쓰지 않고 합친다.
 - 장소는 이름, 카테고리·음식점은 공백·대소문자를 무시한 이름으로 같은 것을 찾는다.
@@ -26,7 +26,7 @@ from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.zone.models import Category, Zone
 
 ARCHIVE_FORMAT = "meokbogi-archive"
-ARCHIVE_VERSION = 3
+ARCHIVE_VERSION = 4
 POINT_LABELS = {1: "만족", 0: "보통", -1: "실망"}
 
 
@@ -34,7 +34,6 @@ POINT_LABELS = {1: "만족", 0: "보통", -1: "실망"}
 
 def build_archive(user):
     zones = Zone.objects.filter(user=user).order_by("id").prefetch_related(
-        Prefetch("category_set", queryset=Category.objects.order_by("id")),
         Prefetch("restaurant_set", queryset=Restaurant.objects.order_by("id").prefetch_related(
             Prefetch("categories", queryset=Category.objects.order_by("id")),
             Prefetch("branches", queryset=Branch.objects.order_by("id")),
@@ -46,10 +45,10 @@ def build_archive(user):
         "format": ARCHIVE_FORMAT,
         "version": ARCHIVE_VERSION,
         "exported_at": timezone.localtime().isoformat(timespec="seconds"),
+        "categories": list(Category.objects.filter(user=user).order_by("id").values_list("keyword", flat=True)),
         "zones": [
             {
                 "name": zone.name,
-                "categories": [category.keyword for category in zone.category_set.all()],
                 "restaurants": [
                     {
                         "name": restaurant.name,
@@ -119,6 +118,7 @@ class RestaurantArchiveSerializer(serializers.Serializer):
 
 class ZoneArchiveSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
+    # version 2·3: 장소마다 카테고리 목록이 있었다. 가져올 때 사용자 카테고리로 합친다.
     categories = serializers.ListField(child=serializers.CharField(max_length=100), default=list)
     restaurants = RestaurantArchiveSerializer(many=True, default=list)
 
@@ -126,6 +126,7 @@ class ZoneArchiveSerializer(serializers.Serializer):
 class ArchiveSerializer(serializers.Serializer):
     format = serializers.CharField()
     version = serializers.IntegerField()
+    categories = serializers.ListField(child=serializers.CharField(max_length=100), default=list)
     zones = ZoneArchiveSerializer(many=True)
 
     def validate_format(self, value):
@@ -177,6 +178,21 @@ def import_archive(user, archive, dry_run=False):
 
     with transaction.atomic():
         zones_by_name = {zone.name.strip(): zone for zone in Zone.objects.filter(user=user)}
+        categories = {_name_key(c.keyword): c for c in Category.objects.filter(user=user)}
+
+        def category_for(keyword):
+            keyword = keyword.strip()
+            if not keyword:
+                return None
+            category = categories.get(_name_key(keyword))
+            if category is None:
+                category = Category.objects.create(user=user, keyword=keyword)
+                categories[_name_key(keyword)] = category
+                summary["categories_created"] += 1
+            return category
+
+        for keyword in archive["categories"]:
+            category_for(keyword)
 
         for zone_data in archive["zones"]:
             zone_name = zone_data["name"].strip()
@@ -186,19 +202,6 @@ def import_archive(user, archive, dry_run=False):
                 zone = Zone.objects.create(user=user, name=zone_name)
                 zones_by_name[zone_name] = zone
                 summary["zones_created"] += 1
-
-            categories = {_name_key(c.keyword): c for c in Category.objects.filter(zone=zone)}
-
-            def category_for(keyword):
-                keyword = keyword.strip()
-                if not keyword:
-                    return None
-                category = categories.get(_name_key(keyword))
-                if category is None:
-                    category = Category.objects.create(zone=zone, keyword=keyword)
-                    categories[_name_key(keyword)] = category
-                    summary["categories_created"] += 1
-                return category
 
             for keyword in zone_data["categories"]:
                 category_for(keyword)

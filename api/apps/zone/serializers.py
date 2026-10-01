@@ -32,8 +32,28 @@ class CategoryManageSerializer(serializers.ModelSerializer):
         return sum(1 for restaurant in instance.restaurants.all() if restaurant.categories.count() == 1)
 
 
-class ZoneListSerializer(serializers.ModelSerializer):
-    category = CategoryListSerializer(source="category_set", many=True, read_only=True)
+DEFAULT_CATEGORIES = [
+    "한식", "일식", "중식", "동남아", "인도", "양식",
+    "치킨", "피자", "햄버거", "족발/보쌈", "회", "찜/탕", "분식", "돈까스",
+]
+
+
+class UserCategoriesMixin(serializers.Serializer):
+    """장소 응답에 붙이는 카테고리 목록. 카테고리는 사용자에게 속하므로 어느 장소든 같은 목록이다.
+
+    필드 이름은 화면이 쓰던 그대로 category. 장소 여러 개를 내려줄 때 한 번만 읽도록 context에 둔다.
+    """
+    category = serializers.SerializerMethodField()
+
+    def get_category(self, zone):
+        cache = self.context.setdefault("_user_categories", {})
+        if zone.user_id not in cache:
+            cache[zone.user_id] = CategoryListSerializer(
+                Category.objects.filter(user_id=zone.user_id).order_by("id"), many=True).data
+        return cache[zone.user_id]
+
+
+class ZoneListSerializer(UserCategoriesMixin, serializers.ModelSerializer):
     name = serializers.CharField(max_length=100, trim_whitespace=True)
 
     class Meta:
@@ -41,23 +61,16 @@ class ZoneListSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "category"]
 
     def create(self, validated_data):
-        validated_data["user_id"] = self.context["request"].user.id
+        user = self.context["request"].user
+        validated_data["user_id"] = user.id
         instance = super().create(validated_data)
-
-        category_keywords = [
-            "한식", "일식", "중식", "동남아", "인도", "양식",
-            "치킨", "피자", "햄버거", "족발/보쌈", "회", "찜/탕", "분식", "돈까스",
-            ]
-        bulk_creates = list()
-        for keyword in category_keywords:
-            bulk_creates.append(Category(zone=instance, keyword=keyword))
-        Category.objects.bulk_create(bulk_creates)
-
+        # 기본 카테고리는 처음 한 번만. 장소를 더 만들어도 복제하지 않는다.
+        if not Category.objects.filter(user=user).exists():
+            Category.objects.bulk_create([Category(user=user, keyword=keyword) for keyword in DEFAULT_CATEGORIES])
         return instance
 
 
-class ZoneDashboardSerializer(serializers.ModelSerializer):
-    category = CategoryListSerializer(source="category_set", many=True, read_only=True)
+class ZoneDashboardSerializer(UserCategoriesMixin, serializers.ModelSerializer):
     restaurant_count = serializers.IntegerField(read_only=True)
     review_count = serializers.IntegerField(read_only=True)
     monthly_visited_count = serializers.IntegerField(read_only=True)

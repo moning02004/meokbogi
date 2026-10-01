@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from apps.restaurant.menus import get_or_create_menu, normalize_menu
 from apps.restaurant.models import Branch, Restaurant, RestaurantReview
-from apps.restaurant.testing import make_restaurant, make_review
+from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.restaurant.picking import pick_restaurant, pick_weight
 from apps.zone.models import Zone, Category
 
@@ -22,7 +22,7 @@ class RestaurantTestCase(TestCase):
     def test_get_restaurant(self):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
-        category = Category.objects.create(keyword="test", zone=zone)
+        category = make_category(zone, "test")
 
         self.client.login(username="test", password="123")
         url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
@@ -32,8 +32,8 @@ class RestaurantTestCase(TestCase):
     def test_create_restaurant(self):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
-        category1 = Category.objects.create(keyword="test1", zone=zone)
-        category2 = Category.objects.create(keyword="test2", zone=zone)
+        category1 = make_category(zone, "test1")
+        category2 = make_category(zone, "test2")
 
         self.client.login(username="test", password="123")
         url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
@@ -58,7 +58,7 @@ class RestaurantTestCase(TestCase):
     def test_restaurant_detail(self):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
-        category1 = Category.objects.create(keyword="test1", zone=zone)
+        category1 = make_category(zone, "test1")
 
         self.client.login(username="test", password="123")
         url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})
@@ -106,7 +106,7 @@ class RestaurantTestCase(TestCase):
     def test_menu_summaries_grouped_by_menu_with_accurate_average(self):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
-        category = Category.objects.create(keyword="test", zone=zone)
+        category = make_category(zone, "test")
         restaurant = make_restaurant(category=category, name="restaurant")
 
         # 김치찌개: point 1, 0, 0 -> 평균 1/3 (정수 나눗셈이면 0으로 잘림)
@@ -146,7 +146,7 @@ class RestaurantAuthorizationTestCase(TestCase):
         User.objects.create_user(username="attacker", password="123")
 
         self.zone = Zone.objects.create(user=self.victim, name="남의 존")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.category = make_category(self.zone, "치킨")
         self.restaurant = make_restaurant(category=self.category, name="비밀맛집")
         self.review = make_review(restaurant=self.restaurant, user=self.victim,
                                                       ordered_at="2026-01-01", point=1)
@@ -215,7 +215,7 @@ class RestaurantListBehaviorTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.category = make_category(self.zone, "치킨")
         self.client.login(username="owner", password="123")
 
     def _review(self, restaurant, ordered_at, menu="후라이드", point=1):
@@ -278,8 +278,8 @@ class RestaurantWriteTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.chicken = make_category(self.zone, "치킨")
+        self.pizza = make_category(self.zone, "피자")
         self.restaurant = make_restaurant(category=self.chicken, name="교촌치킨")
         self.client.login(username="owner", password="123")
         self.create_url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
@@ -321,7 +321,7 @@ class RestaurantWriteTestCase(TestCase):
             self.assertIn("김밥천국", names)
 
     def test_filter_by_several_categories_without_double_counting(self):
-        snack = Category.objects.create(zone=self.zone, keyword="분식")
+        snack = make_category(self.zone, "분식")
         both = make_restaurant(categories=[self.chicken, snack], zone=self.zone, name="김밥천국")
         make_review(restaurant=both, user=self.user, ordered_at="2026-01-01", menu="김밥", point=1)
         make_restaurant(category=self.pizza, name="미뜨레피자")
@@ -347,8 +347,7 @@ class RestaurantWriteTestCase(TestCase):
 
     def test_cannot_move_into_other_users_category(self):
         other = User.objects.create_user(username="other", password="123")
-        other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
-                                                 keyword="치킨")
+        other_category = make_category(Zone.objects.create(user=other, name="남의 집"), "치킨")
 
         response = self._patch(self.info_url, {"category_ids": [other_category.pk]})
         self.assertEqual(response.status_code, 400)
@@ -395,8 +394,8 @@ class RestaurantQueryTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.chicken = make_category(self.zone, "치킨")
+        self.pizza = make_category(self.zone, "피자")
         self.client.login(username="owner", password="123")
         self.list_url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
 
@@ -420,8 +419,7 @@ class RestaurantQueryTestCase(TestCase):
 
     def test_search_does_not_leak_other_users_restaurants(self):
         other = User.objects.create_user(username="other", password="123")
-        other_category = Category.objects.create(zone=Zone.objects.create(user=other, name="남의 집"),
-                                                 keyword="치킨")
+        other_category = make_category(Zone.objects.create(user=other, name="남의 집"), "치킨")
         make_restaurant(category=other_category, name="교촌치킨")
 
         response = self.client.get(self.list_url, {"search": "교촌"})
@@ -463,7 +461,7 @@ class ReviewEditTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=self.user, name="우리집")
-        self.restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"),
+        self.restaurant = make_restaurant(category=make_category(zone, "치킨"),
                                                     name="교촌치킨")
         self.review = make_review(restaurant=self.restaurant, user=self.user,
                                                       ordered_at="2026-01-01", menu="후라이드", point=0)
@@ -498,7 +496,7 @@ class RestaurantSortTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        category = Category.objects.create(zone=self.zone, keyword="치킨")
+        category = make_category(self.zone, "치킨")
         self.client.login(username="owner", password="123")
 
         def make(name, visits):
@@ -535,7 +533,7 @@ class MenuLastPointTestCase(TestCase):
     def test_menu_summary_has_latest_point(self):
         user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=user, name="우리집")
-        restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"),
+        restaurant = make_restaurant(category=make_category(zone, "치킨"),
                                                name="교촌치킨")
         make_review(restaurant=restaurant, user=user, ordered_at="2026-01-01", menu="양념",
                                         point=1)
@@ -586,8 +584,8 @@ class RestaurantPickAPITestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.chicken = make_category(self.zone, "치킨")
+        self.pizza = make_category(self.zone, "피자")
         self.client.login(username="owner", password="123")
         self.url = reverse("restaurant-pick", kwargs={"zone_pk": self.zone.pk})
 
@@ -615,7 +613,7 @@ class RestaurantPickAPITestCase(TestCase):
     def test_never_picks_other_users_restaurant(self):
         other = User.objects.create_user(username="other", password="123")
         other_zone = Zone.objects.create(user=other, name="남의 집")
-        make_restaurant(category=Category.objects.create(zone=other_zone, keyword="치킨"), name="남의 가게")
+        make_restaurant(category=make_category(other_zone, "치킨"), name="남의 가게")
 
         url = reverse("restaurant-pick", kwargs={"zone_pk": other_zone.pk})
         self.assertIsNone(self.client.get(url).json()["restaurant"])
@@ -625,7 +623,7 @@ class MenuSpellingTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         zone = Zone.objects.create(user=self.user, name="우리집")
-        self.restaurant = make_restaurant(category=Category.objects.create(zone=zone, keyword="치킨"), name="교촌치킨")
+        self.restaurant = make_restaurant(category=make_category(zone, "치킨"), name="교촌치킨")
         self.client.login(username="owner", password="123")
         self.url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
 
@@ -649,7 +647,7 @@ class MenuSpellingTestCase(TestCase):
         self.assertEqual(self._post("  반반   치킨 "), "반반 치킨")
 
     def test_spelling_is_not_shared_across_restaurants(self):
-        other = make_restaurant(category=self.restaurant.categories.first(), name="BBQ")
+        other = make_restaurant(category=self.restaurant.categories.first(), zone=self.restaurant.zone, name="BBQ")
         make_review(restaurant=other, user=self.user, ordered_at="2026-01-01", menu="간장치킨")
         self.assertEqual(get_or_create_menu(self.restaurant, "간장 치킨").name, "간장 치킨")
 
@@ -698,8 +696,8 @@ class ArchiveTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
-        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.chicken = make_category(self.zone, "치킨")
+        self.pizza = make_category(self.zone, "피자")
         self.kyochon = make_restaurant(category=self.chicken, name="교촌치킨", address="역 앞")
         make_restaurant(category=self.pizza, name="미뜨레피자")
         make_review(restaurant=self.kyochon, user=self.user, ordered_at="2026-02-01",
@@ -724,9 +722,11 @@ class ArchiveTestCase(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         archive = json.loads(response.content)
 
-        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 3))
+        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 4))
+        # 카테고리는 사용자 것이라 파일 맨 위에 한 번
+        self.assertEqual(archive["categories"], ["치킨", "피자"])
         zone = archive["zones"][0]
-        self.assertEqual(zone["categories"], ["치킨", "피자"])
+        self.assertNotIn("categories", zone)
         kyochon = zone["restaurants"][0]
         self.assertEqual(kyochon["categories"], ["치킨"])
         self.assertEqual((kyochon["name"], kyochon["address"]), ("교촌치킨", "역 앞"))
@@ -809,12 +809,14 @@ class ArchiveTestCase(TestCase):
 
         self.assertEqual((summary["zones_created"], summary["categories_created"]), (1, 1))
         self.assertEqual((summary["restaurants_created"], summary["restaurants_matched"]), (1, 1))
-        self.assertEqual(Category.objects.filter(zone=self.zone, keyword__startswith="치").count(), 1)
+        self.assertEqual(Category.objects.filter(user=self.user, keyword__startswith="치").count(), 1)
         # 메뉴 표기도 기존 것으로 합친다
         self.assertTrue(RestaurantReview.objects.filter(restaurant=self.kyochon, ordered_at="2026-03-01",
                                                         menu__name="허니콤보").exists())
-        # 새로 만든 장소에는 기본 카테고리를 만들지 않는다
-        self.assertEqual(Zone.objects.get(user=self.user, name="회사").category_set.count(), 0)
+        # 가져오기로 장소를 만들어도 기본 카테고리를 만들지 않는다 (파일에 있는 것만)
+        self.assertEqual(sorted(Category.objects.filter(user=self.user).values_list("keyword", flat=True)),
+                         ["족발", "치킨", "피자"])
+        self.assertTrue(Zone.objects.filter(user=self.user, name="회사").exists())
 
     def test_dry_run_changes_nothing(self):
         payload = {"format": "meokbogi-archive", "version": 1, "zones": [{
@@ -861,7 +863,7 @@ class BranchTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="123")
         self.zone = Zone.objects.create(user=self.user, name="우리집")
-        self.restaurant = make_restaurant(category=Category.objects.create(zone=self.zone, keyword="치킨"),
+        self.restaurant = make_restaurant(category=make_category(self.zone, "치킨"),
                                           name="교촌치킨")
         self.client.login(username="owner", password="123")
         self.branches_url = reverse("branches", kwargs={"restaurant_pk": self.restaurant.pk})
@@ -919,7 +921,7 @@ class BranchTestCase(TestCase):
         self.assertEqual(self.client.get(self.reviews_url, {"branch": "none"}).json()["count"], 1)
 
     def test_cannot_use_branch_of_another_restaurant(self):
-        other = make_restaurant(category=self.restaurant.categories.first(), name="BBQ")
+        other = make_restaurant(category=self.restaurant.categories.first(), zone=self.restaurant.zone, name="BBQ")
         other_branch = Branch.objects.create(restaurant=other, name="강남점", name_key="강남점")
         response = self.client.post(self.reviews_url, content_type="application/json",
                                     data={"ordered_at": "2026-01-01", "menu": "후라이드", "point": 1,
@@ -989,3 +991,28 @@ class BranchTestCase(TestCase):
         response = self.client.post(reverse("archive-import"), {"file": SimpleUploadedFile("v2.json", body)})
         self.assertEqual(response.json()["reviews_created"], 1)
         self.assertIsNone(RestaurantReview.objects.get(restaurant__name="엄마밥").branch)
+
+
+class ArchiveOldVersionsTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.client.login(username="owner", password="123")
+
+    def _import(self, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode()
+        return self.client.post(reverse("archive-import"), {"file": SimpleUploadedFile("old.json", body)}).json()
+
+    def test_version_3_zone_categories_become_my_categories(self):
+        # 장소마다 따로 있던 같은 이름의 카테고리는 하나로 합쳐진다
+        payload = {"format": "meokbogi-archive", "version": 3, "zones": [
+            {"name": "우리집", "categories": ["치킨", "피자"],
+             "restaurants": [{"name": "교촌치킨", "categories": ["치킨"], "branches": [], "reviews": []}]},
+            {"name": "회사", "categories": ["치킨", "한식"],
+             "restaurants": [{"name": "회사 앞 BBQ", "categories": ["치 킨"], "branches": [], "reviews": []}]},
+        ]}
+        summary = self._import(payload)
+        self.assertEqual(summary["categories_created"], 3)
+        self.assertEqual(sorted(Category.objects.filter(user=self.user).values_list("keyword", flat=True)),
+                         ["치킨", "피자", "한식"])
+        chicken = Category.objects.get(user=self.user, keyword="치킨")
+        self.assertEqual(sorted(chicken.restaurants.values_list("name", flat=True)), ["교촌치킨", "회사 앞 BBQ"])
