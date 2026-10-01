@@ -38,6 +38,41 @@ function forceLogout() {
     window.location.replace("/login");
 }
 
+// 서버가 준 에러 메시지를 화면까지 전달하기 위한 에러 타입.
+// DRF는 {"detail": "..."} 또는 {"field": ["..."]} 모양으로 내려준다.
+export class ApiError extends Error {
+    status: number;
+    body: unknown;
+
+    constructor(status: number, message: string, body: unknown = null) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
+        this.body = body;
+    }
+}
+
+// catch 블록에서 받은 값을 사용자에게 보여줄 문장으로 바꾼다
+export const errorMessage = (error: unknown, fallback = "요청을 처리하지 못했어요.") =>
+    error instanceof Error && error.message ? error.message : fallback;
+
+function extractErrorMessage(status: number, body: unknown): string {
+    if (status >= 500) return "서버에 문제가 생겼어요. 잠시 후 다시 시도해주세요.";
+    if (status === 429) return "요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
+    // Django의 404 detail은 "No Restaurant matches the given query." 같은 영어라 쓰지 않는다
+    if (status === 404) return "찾을 수 없어요. 이미 삭제되었을 수 있어요.";
+    if (body && typeof body === "object") {
+        const first = (body as Record<string, unknown>).detail ?? Object.values(body)[0];
+        const message = Array.isArray(first) ? first[0] : first;
+        if (typeof message === "string" && message) return message;
+    }
+    return "요청을 처리하지 못했어요.";
+}
+
+// 로그인·토큰 재발급 요청은 401이 "아이디/비밀번호 틀림"이라는 뜻이므로
+// refresh를 시도하거나 강제 로그아웃(페이지 새로고침)하면 안 된다.
+const isAuthEndpoint = (endPoint: string) => endPoint.startsWith("/auth/");
+
 async function request<T = unknown>(endPoint: string,
                                     method: HttpMethod,
                                     options: RequestInit = {},
@@ -53,30 +88,33 @@ async function request<T = unknown>(endPoint: string,
         ...(!extraOptions.isMime && {"Content-Type": "application/json"}),
     };
 
-    let res = await fetch(`${API_HOST}${endPoint}`, {
+    const send = () => fetch(`${API_HOST}${endPoint}`, {
         ...options,
         method,
         headers,
         credentials: "include",
+    }).catch(() => {
+        throw new ApiError(0, "네트워크 연결을 확인해주세요.");
     });
 
-    if (res.status === 401) {
+    let res = await send();
+
+    if (res.status === 401 && !isAuthEndpoint(endPoint)) {
         const refreshed = await refreshAccessToken();
 
         if (refreshed) {
             headers.Authorization = `Bearer ${refreshed.access_token}`;
-            res = await fetch(`${API_HOST}${endPoint}`, {
-                ...options,
-                method,
-                headers,
-                credentials: "include",
-            });
+            res = await send();
         } else {
             forceLogout();
-            throw new Error("세션이 만료되었습니다. 다시 로그인해주세요.");
+            throw new ApiError(401, "세션이 만료되었습니다. 다시 로그인해주세요.");
         }
-    } else if (res.status.toString().startsWith("4")) {
-        throw new Error("에러가 발생했습니다.")
+    }
+
+    // 4xx뿐 아니라 5xx도 실패로 처리한다. 예전에는 500이면 null을 돌려줘서 화면이 조용히 깨졌다.
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new ApiError(res.status, extractErrorMessage(res.status, body), body);
     }
 
     if (!extraOptions.isDownloadFile) return await res.json().catch(() => null) as T

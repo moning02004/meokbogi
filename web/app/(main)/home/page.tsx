@@ -3,10 +3,11 @@
 import {Suspense, useEffect, useState} from "react"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {apiRequest} from "@/lib/api";
-import {RESTAURANT_PAGE, ZONE_API, ZONE_PAGE} from "@/constants/routeUrl";
+import {errorMessage} from "@/lib/api";
+import {syncZones} from "@/lib/zone";
+import {RESTAURANT_PAGE, ZONE_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
-import {ZoneType} from "@/types/zone";
+import toast from "react-hot-toast";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
 import {DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
 import {BsForkKnife} from "react-icons/bs";
@@ -19,8 +20,9 @@ export default function Page() {
     const router = useRouter()
 
     const {token} = useAuthStore.getState()
-    const {setZones, setSelectedZone} = useZoneStore.getState();
     const selectedZone = useZoneStore(state => state.selectedZone)
+    // 존 목록을 다시 맞출 때 같은 존이어도 객체가 새로 들어오므로, 대시보드는 id가 바뀔 때만 다시 읽는다
+    const selectedZoneId = selectedZone?.id
     const setCategories = useCategoryStore(state => state.setCategories)
 
     const [restaurantCount, setRestaurantCount] = useState(0)
@@ -30,24 +32,20 @@ export default function Page() {
     const [recentRegisteredRestaurants, setRecentRegisteredRestaurants] = useState<RecentRegisteredRestaurant[]>([])
     const [activeTab, setActiveTab] = useState<"delicious" | "recent">("delicious")
 
+    // 홈에 올 때마다 존 목록을 새로 맞춘다. 다른 기기에서 지운 존이 선택돼 있으면 첫 번째 존으로 바뀐다.
     useEffect(() => {
-        apiRequest[ZONE_API.list.method]<{ results: ZoneType[] }>(ZONE_API.list.endpoint)
-            .then((response: { results: ZoneType[] }) => {
-                if (response.results.length > 0) {
-                    setZones(response.results)
-                    if (!selectedZone) {
-                        setSelectedZone(response.results[0])
-                    }
-                } else {
-                    window.location.replace(ZONE_PAGE.add)
-                }
-            })
+        syncZones().then((rows) => {
+            if (rows.length === 0) window.location.replace(ZONE_PAGE.add)
+        }).catch((error) => toast.error(errorMessage(error)))
     }, []);
 
     useEffect(() => {
-        if (!selectedZone) return
+        if (!selectedZoneId) return
+        // 존을 빠르게 바꾸면 이전 존의 응답이 늦게 도착해 덮어쓸 수 있으므로 무시한다
+        let ignore = false
 
-        fetchZoneDashboard(selectedZone.id).then((res: DashboardResponseType) => {
+        fetchZoneDashboard(selectedZoneId).then((res: DashboardResponseType) => {
+                if (ignore) return
                 setCategories(res.category)
                 setDeliciousRestaurants(res.delicious_restaurants)
                 setRecentRegisteredRestaurants(res.recent_restaurants)
@@ -55,8 +53,11 @@ export default function Page() {
                 setReviewCount(res.review_count)
                 setMonthlyVisitedCount(res.monthly_visited_count)
             }
-        )
-    }, [selectedZone]);
+        ).catch((error) => toast.error(errorMessage(error)))
+        return () => {
+            ignore = true
+        }
+    }, [selectedZoneId, setCategories]);
 
     useEffect(() => {
         if (!token) window.location.href = "/login"
@@ -134,7 +135,7 @@ export default function Page() {
                         !deliciousRestaurants.length ? (
                                 <p className="text-sm text-[#8A8172] py-4">
                                     아직 믿고 먹는 음식점이 없습니다. <br/>
-                                    최소 방문 3회 이상, 최고 만족도를 받은 음식점이 믿고 먹는 음식점으로 선정됩니다.
+                                    2번 이상 방문하고 평균 만족도가 &lsquo;좋음&rsquo; 이상인 음식점이 믿고 먹는 음식점으로 선정됩니다.
                                 </p>
                             ) :
                             deliciousRestaurants.map((restaurant) => {

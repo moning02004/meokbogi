@@ -19,6 +19,7 @@ export default function Page() {
     const {token} = useAuthStore.getState()
 
     const selectedZone = useZoneStore(state => state.selectedZone)
+    const selectedZoneId = selectedZone?.id
     const allCategories = useCategoryStore(state => state.categories)
         .map(x => x.keyword)
     const categoryInfo = Object.fromEntries(useCategoryStore(state => state.categories)
@@ -32,23 +33,37 @@ export default function Page() {
     const selectedCategoryName = selectedCategory ? idToName[selectedCategory] ?? "" : ""
     const [restaurants, setRestaurants] = useState<RecentRegisteredRestaurant[]>([])
 
+    // 존을 바꾸면 이전 존에서 뽑은 카테고리 결과를 지운다
+    const [trackedZoneId, setTrackedZoneId] = useState(selectedZoneId)
+    if (selectedZoneId !== trackedZoneId) {
+        setTrackedZoneId(selectedZoneId)
+        setSelectedCategory(null)
+        setRestaurants([])
+    }
+
     useEffect(() => {
-        if (!selectedZone || !selectedCategory) return;
+        if (!selectedZoneId || !selectedCategory) return;
+        let ignore = false
 
         const fetchCategoryRestaurants = async () => {
             const params = `category=${selectedCategory}`
 
             const restaurantList = RESTAURANT_API.list
             await apiRequest[restaurantList.method]<PaginatedResponse<RecentRegisteredRestaurant>>(
-                `${restaurantList.endpoint({zone: selectedZone.id})}?${params.toString()}`).then(
+                `${restaurantList.endpoint({zone: selectedZoneId})}?${params.toString()}`).then(
                 (response) => {
-                    setRestaurants(response.results)
+                    if (!ignore) setRestaurants(response.results)
                 }
-            )
+            ).catch(() => {
+                if (!ignore) setRestaurants([])
+            })
         }
 
         fetchCategoryRestaurants()
-    }, [selectedCategory]);
+        return () => {
+            ignore = true
+        }
+    }, [selectedZoneId, selectedCategory]);
 
     useEffect(() => {
         if (!token) window.location.href = "/login"

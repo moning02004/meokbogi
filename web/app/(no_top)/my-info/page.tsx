@@ -4,7 +4,7 @@ import {Suspense, useEffect, useState} from "react"
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {USER_API} from "@/constants/routeUrl";
-import {apiRequest} from "@/lib/api";
+import {apiRequest, errorMessage} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
 import {Modal} from "@/components/ui/modal";
@@ -57,8 +57,8 @@ export default function Page() {
         }).then(() => {
             setIsEditingName(false)
             fetchUserInfo()
-        }).catch(() => {
-            toast.error("이름 수정에 실패했어요. 잠시 후 다시 시도해주세요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "이름 수정에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
@@ -89,8 +89,9 @@ export default function Page() {
         }).then(() => {
             toast.success("비밀번호가 변경되었어요.")
             closePasswordForm()
-        }).catch(() => {
-            toast.error("비밀번호 변경에 실패했어요. 현재 비밀번호를 확인해주세요.")
+        }).catch((error) => {
+            // "현재 비밀번호가 올바르지 않습니다", "비밀번호가 너무 짧습니다" 등 서버가 준 사유를 보여준다
+            toast.error(errorMessage(error, "비밀번호 변경에 실패했어요."))
         })
     }
 
@@ -117,6 +118,7 @@ export default function Page() {
                                     }}
                                     autoFocus
                                     placeholder="이름"
+                                    maxLength={150}
                                     className="flex-1 min-w-0 text-[15px] font-bold text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2 outline-none focus:border-[#24564A] transition-colors"
                                 />
                                 <button

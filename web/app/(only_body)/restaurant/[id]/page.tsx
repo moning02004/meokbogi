@@ -5,7 +5,7 @@ import {useParams, useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
-import {apiRequest} from "@/lib/api";
+import {ApiError, apiRequest, errorMessage} from "@/lib/api";
 import NotFound from "next/dist/client/components/builtin/not-found";
 import {MdSentimentNeutral, MdSentimentSatisfiedAlt, MdSentimentVeryDissatisfied} from "react-icons/md";
 import {MenuSummaryType, RestaurantReviewType, RestaurantType} from "@/types/restaurant";
@@ -91,6 +91,8 @@ export default function Page() {
     const maxDate = new Date();
 
     const [restaurant, setRestaurant] = useState<RestaurantType | null>(null)
+    // 없는 음식점·지워진 음식점이면 로딩 화면에서 멈추지 않고 안내를 보여준다
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [menuSummaries, setMenuSummaries] = useState<MenuSummaryType[]>([])
 
     // 음식점 수정
@@ -106,6 +108,7 @@ export default function Page() {
     const [reviewMenu, setReviewMenu] = useState("")
     const [reviewContent, setReviewContent] = useState("")
     const [showMenuSuggestions, setShowMenuSuggestions] = useState(false)
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
     // 리뷰 목록 (별도 페이지네이션)
     const [activeTab, setActiveTab] = useState<"menu" | "all">("menu")
@@ -116,7 +119,12 @@ export default function Page() {
     const [hasMoreReviews, setHasMoreReviews] = useState(false)
     const [isReviewLoading, setIsReviewLoading] = useState(false)
 
-    const orderedAtDate = orderedAt ? new Date(orderedAt) : null
+    // "YYYY-MM-DD"를 new Date()에 그대로 넣으면 UTC 자정으로 해석돼 UTC보다 느린 시간대에서 하루 밀린다
+    const parseLocalDate = (value: string) => {
+        const [year, month, day] = value.split("-").map(Number)
+        return new Date(year, month - 1, day)
+    }
+    const orderedAtDate = orderedAt ? parseLocalDate(orderedAt) : null
 
     const formatDate = (date: Date) => {
         const year = date.getFullYear()
@@ -138,6 +146,10 @@ export default function Page() {
             setRestaurant(response)
             setMenuSummaries(response.menu_summaries ?? [])
             setReviewCount(response.review_count ?? 0)
+        }).catch((error) => {
+            setLoadError(error instanceof ApiError && error.status === 404
+                ? "음식점을 찾을 수 없어요. 삭제되었거나 다른 계정의 음식점이에요."
+                : errorMessage(error, "음식점 정보를 불러오지 못했어요."))
         })
     }, [restaurantId])
 
@@ -164,19 +176,20 @@ export default function Page() {
             setReviewCount(res.count)
             setHasMoreReviews(Boolean(res.next))
             setReviewPage(page)
+        }).catch((error) => {
+            toast.error(errorMessage(error, "리뷰를 불러오지 못했어요."))
         }).finally(() => setIsReviewLoading(false))
     }, [restaurantId])
 
-    // 전체 리뷰 탭으로 들어가거나 필터가 바뀌면 1페이지부터 다시 요청
-    useEffect(() => {
-        if (activeTab !== "all") return
-        fetchReviews(menuFilter, 1, false)
-    }, [activeTab, menuFilter, fetchReviews])
-
-    const openMenuReviews = (menu: string) => {
+    // 전체 리뷰 탭으로 들어가거나 필터가 바뀌면 1페이지부터 다시 요청한다.
+    // effect로 하면 렌더 → effect → setState가 연쇄되므로 탭/필터를 바꾸는 이벤트에서 바로 부른다.
+    const showReviews = (menu: string | null) => {
         setMenuFilter(menu)
         setActiveTab("all")
+        fetchReviews(menu, 1, false)
     }
+
+    const openMenuReviews = (menu: string) => showReviews(menu)
 
     // 현재 값으로 폼을 채운 뒤 수정 모달을 연다
     const editRestaurant = () => {
@@ -207,8 +220,8 @@ export default function Page() {
         }).then(() => {
             setIsEditingRestaurant(false)
             fetchRestaurant()
-        }).catch(() => {
-            toast.error("수정에 실패했어요. 잠시 후 다시 시도해주세요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "수정에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
@@ -220,6 +233,7 @@ export default function Page() {
                 toast.success("음식점이 삭제되었습니다.")
                 router.replace("/restaurant")
             })
+            .catch((error) => toast.error(errorMessage(error, "삭제에 실패했어요.")))
     }
 
     // 입력한 텍스트로 시작하는 기존 메뉴 (없으면 새 메뉴로 기록됨)
@@ -234,10 +248,14 @@ export default function Page() {
     }
 
     const registerReview = () => {
+        if (isSubmittingReview) return
         if (!reviewMenu.trim()) {
             toast.error("드신 메뉴를 입력해주세요.")
             return;
         }
+
+        // 기록 버튼을 연타하면 같은 리뷰가 여러 개 생기던 문제
+        setIsSubmittingReview(true)
 
         const reviewAdd = RESTAURANT_REVIEW_API.add
         apiRequest[reviewAdd.method]<RestaurantReviewType>(reviewAdd.endpoint({
@@ -245,7 +263,7 @@ export default function Page() {
         }), {
             body: JSON.stringify({
                 menu: reviewMenu.trim(),
-                content: reviewContent,
+                content: reviewContent.trim(),
                 ordered_at: orderedAt || formatDate(new Date()),
                 point: reviewPoint
             })
@@ -258,12 +276,14 @@ export default function Page() {
             // 요약/카운트가 서버에서 재계산되므로 상세를 다시 불러온다
             fetchRestaurant()
             if (activeTab === "all") fetchReviews(menuFilter, 1, false)
-        }).catch(() => {
-            toast.error("기록에 실패했어요. 잠시 후 다시 시도해주세요.")
-        })
+        }).catch((error) => {
+            toast.error(errorMessage(error, "기록에 실패했어요. 잠시 후 다시 시도해주세요."))
+        }).finally(() => setIsSubmittingReview(false))
     }
 
     const deleteReview = (reviewId: number) => {
+        // 음식점 삭제와 마찬가지로 되돌릴 수 없으니 한 번 더 묻는다
+        if (!confirm("리뷰를 삭제하시겠습니까?")) return
         const reviewDelete = RESTAURANT_REVIEW_API.delete
         apiRequest[reviewDelete.method](reviewDelete.endpoint({
             restaurant: Number(restaurantId),
@@ -274,12 +294,22 @@ export default function Page() {
 
             // 메뉴 요약/평균이 서버에서 재계산되므로 상세를 다시 불러온다
             fetchRestaurant()
-        }).catch(() => {
-            toast.error("삭제에 실패했어요. 잠시 후 다시 시도해주세요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "삭제에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
     if (!restaurantId) return <NotFound/>
+    if (loadError) return (
+        <div className="flex flex-col items-center justify-center gap-4 h-full px-6 text-center">
+            <p className="text-[14px] font-semibold text-[#8A8172] leading-relaxed">{loadError}</p>
+            <button
+                onClick={() => router.replace("/restaurant")}
+                className="text-[13.5px] font-bold text-white bg-[#24564A] rounded-xl px-5 py-3 cursor-pointer sm:hover:bg-[#1c443a] transition-colors">
+                음식점 목록으로
+            </button>
+        </div>
+    )
     if (!restaurant) return <LoadingPage/>
 
     return (
@@ -356,6 +386,7 @@ export default function Page() {
                                 onFocus={() => setShowMenuSuggestions(true)}
                                 onBlur={() => setTimeout(() => setShowMenuSuggestions(false), 150)}
                                 placeholder="오늘 뭐 드셨어요?"
+                                maxLength={255}
                                 className="w-full text-[13px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
                             {showMenuSuggestions && menuSuggestions.length > 0 && (
@@ -400,12 +431,14 @@ export default function Page() {
                             value={reviewContent}
                             onChange={(e) => setReviewContent(e.target.value)}
                             placeholder="한줄평 (선택)"
+                            maxLength={255}
                             className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none"
                             rows={2}
                         />
                         <button
                             onClick={registerReview}
-                            className="text-[13px] font-extrabold px-4 py-2.5 bg-[#D2571E] text-white rounded-lg shrink-0 cursor-pointer sm:hover:bg-[#b84a19] transition-colors"
+                            disabled={isSubmittingReview}
+                            className="text-[13px] font-extrabold px-4 py-2.5 bg-[#D2571E] text-white rounded-lg shrink-0 cursor-pointer sm:hover:bg-[#b84a19] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             기록
                         </button>
@@ -428,10 +461,7 @@ export default function Page() {
                         메뉴별 보기
                     </button>
                     <button
-                        onClick={() => {
-                            setActiveTab("all");
-                            setMenuFilter(null)
-                        }}
+                        onClick={() => showReviews(null)}
                         className={`px-4 py-2 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
                             activeTab === "all"
                                 ? "bg-[#24564A] text-white border-[#24564A]"
@@ -446,7 +476,7 @@ export default function Page() {
                 {activeTab === "all" && menuFilter && (
                     <div className="px-5 mb-2.5">
                         <button
-                            onClick={() => setMenuFilter(null)}
+                            onClick={() => showReviews(null)}
                             className="inline-flex items-center gap-2 bg-[#E4EEEA] text-[#24564A] text-[12px] font-bold px-3.5 py-1.5 rounded-full cursor-pointer"
                         >
                             {menuFilter != "" ? menuFilter : "메뉴 미기재"}
@@ -576,6 +606,7 @@ export default function Page() {
                             <input
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
+                                maxLength={100}
                                 placeholder="예: 미뜨레피자"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
@@ -586,6 +617,7 @@ export default function Page() {
                             <input
                                 value={editDescription}
                                 onChange={(e) => setEditDescription(e.target.value)}
+                                maxLength={100}
                                 placeholder="이 음식점에 대한 짧은 메모"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
@@ -596,6 +628,7 @@ export default function Page() {
                             <input
                                 value={editAddress}
                                 onChange={(e) => setEditAddress(e.target.value)}
+                                maxLength={255}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && !e.nativeEvent.isComposing) saveRestaurant()
                                 }}

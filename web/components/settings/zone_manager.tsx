@@ -8,12 +8,9 @@ import {LuChevronRight, LuPlus} from "react-icons/lu"
 import {CategoryManager} from "@/components/settings/category_manager"
 import {Modal} from "@/components/ui/modal"
 import {ZONE_API, ZONE_PAGE} from "@/constants/routeUrl"
-import {apiRequest} from "@/lib/api"
-import {useCategoryStore} from "@/store/category"
-import {useZoneStore} from "@/store/zone"
+import {apiRequest, errorMessage} from "@/lib/api"
+import {syncZones} from "@/lib/zone"
 import {ManagedCategoryType, ZoneType} from "@/types/zone"
-
-type Paginated<T> = { count: number; results: T[] }
 
 // 마이페이지에서는 존 목록만 보여주고, 실제 관리(카테고리 추가·삭제, 존 삭제)는 모달 안에서 한다.
 export function ZoneManager() {
@@ -27,20 +24,10 @@ export function ZoneManager() {
     // 모달 안에서 카테고리를 건드렸으면 닫을 때 존 목록(과 전역 상태)을 다시 읽는다
     const [isDirty, setIsDirty] = useState(false)
 
+    // 상단바·카테고리 선택이 지워진 존/카테고리를 계속 들고 있지 않도록 전역 상태도 함께 맞춘다
     const loadZones = useCallback(() => {
-        const list = ZONE_API.list
-        return apiRequest[list.method]<Paginated<ZoneType>>(list.endpoint).then((response) => {
-            const rows = response.results
+        return syncZones().then((rows) => {
             setZones(rows)
-
-            // 상단바·카테고리 선택이 지워진 존/카테고리를 계속 들고 있지 않도록 전역 상태도 맞춰준다
-            const zoneStore = useZoneStore.getState()
-            zoneStore.setZones(rows)
-            const current = rows.find((zone) => zone.id === zoneStore.selectedZone?.id) ?? rows[0]
-            if (current) {
-                zoneStore.setSelectedZone(current)
-                useCategoryStore.getState().setCategories(current.category)
-            }
             return rows
         })
     }, [])
@@ -75,14 +62,10 @@ export function ZoneManager() {
             })
             .then((rows) => {
                 // 존이 하나도 없으면 앱에서 할 수 있는 게 없으므로 바로 생성 화면으로 보낸다
-                if (rows.length === 0) {
-                    useZoneStore.getState().clear()
-                    useCategoryStore.getState().clear()
-                    router.replace(ZONE_PAGE.add)
-                }
+                if (rows.length === 0) router.replace(ZONE_PAGE.add)
             })
-            .catch(() => {
-                toast.error("존을 삭제하지 못했어요. 잠시 후 다시 시도해주세요.")
+            .catch((error) => {
+                toast.error(errorMessage(error, "존을 삭제하지 못했어요. 잠시 후 다시 시도해주세요."))
             })
     }
 

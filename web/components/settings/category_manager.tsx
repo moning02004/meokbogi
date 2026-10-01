@@ -5,7 +5,7 @@ import toast from "react-hot-toast"
 import {LuPlus, LuSearch, LuX} from "react-icons/lu"
 
 import {CATEGORY_API} from "@/constants/routeUrl"
-import {apiRequest} from "@/lib/api"
+import {apiRequest, errorMessage} from "@/lib/api"
 import {ManagedCategoryType} from "@/types/zone"
 
 interface CategoryManagerProps {
@@ -85,8 +85,8 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
         }).then(() => {
             setKeyword("")
             return loadCategories(true)
-        }).catch(() => {
-            toast.error("카테고리 추가에 실패했어요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "카테고리 추가에 실패했어요."))
         }).finally(() => setIsSubmitting(false))
     }
 
@@ -99,9 +99,9 @@ export function CategoryManager({zoneId, onCategoriesChange}: CategoryManagerPro
         ).then(() => {
             toast.success(`'${category.keyword}' 카테고리를 삭제했어요.`)
             return loadCategories(true)
-        }).catch(() => {
-            // 목록을 받은 뒤에 음식점이 생겼다면 서버가 400으로 막는다
-            toast.error("카테고리를 삭제하지 못했어요.")
+        }).catch((error) => {
+            // 목록을 받은 뒤에 음식점이 생겼다면 서버가 400으로 막는다 (메시지는 서버가 준 사유)
+            toast.error(errorMessage(error, "카테고리를 삭제하지 못했어요."))
             return loadCategories(true)
         }).finally(() => setIsSubmitting(false))
     }

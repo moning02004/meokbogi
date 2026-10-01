@@ -1,5 +1,5 @@
 import {create} from "zustand"
-import {CategoryType, ZoneType} from "@/types/zone";
+import {ZoneType} from "@/types/zone";
 import {createJSONStorage, persist} from "zustand/middleware";
 
 

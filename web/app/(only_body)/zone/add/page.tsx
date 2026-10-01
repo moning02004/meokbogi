@@ -5,7 +5,8 @@ import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {FaArrowLeft} from "react-icons/fa";
-import {apiRequest} from "@/lib/api";
+import {apiRequest, errorMessage} from "@/lib/api";
+import toast from "react-hot-toast";
 import {ZONE_API} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {authLogout} from "@/lib/auth";
@@ -16,6 +17,7 @@ export default function Page() {
     const router = useRouter()
     const {token} = useAuthStore.getState()
     const [zoneName, setZoneName] = useState<string>("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const zones = useZoneStore(state => state.zones)
     const setSelectedZone = useZoneStore((state) => state.setSelectedZone)
     const setCategories = useCategoryStore(state => state.setCategories)
@@ -25,17 +27,22 @@ export default function Page() {
     }, [token])
 
     const registerZone = () => {
-        if (!zoneName.trim()) return
+        // 엔터와 버튼 클릭이 겹치거나 연타하면 같은 존이 여러 개 생기던 문제
+        if (!zoneName.trim() || isSubmitting) return
 
+        setIsSubmitting(true)
         apiRequest[ZONE_API.add.method]<ZoneType>(ZONE_API.add.endpoint, {
                 body: JSON.stringify(
-                    {name: zoneName}
+                    {name: zoneName.trim()}
                 )
             }
         ).then((zone: ZoneType) => {
             setSelectedZone(zone)
             setCategories(zone.category)
             router.replace("/home")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "장소를 만들지 못했어요."))
+            setIsSubmitting(false)
         })
     }
 
@@ -74,13 +81,14 @@ export default function Page() {
                             if (e.key === "Enter" && !e.nativeEvent.isComposing) registerZone()
                         }}
                         placeholder="예: 우리집, 회사, 친구집"
+                        maxLength={100}
                         className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3.5 mb-4 outline-none focus:border-[#24564A] transition-colors"
                         autoFocus
                     />
 
                     <button
                         onClick={registerZone}
-                        disabled={!zoneName.trim()}
+                        disabled={!zoneName.trim() || isSubmitting}
                         className="w-full py-3.5 rounded-xl bg-[#D2571E] text-white font-bold text-[15px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                     >
                         존 만들기

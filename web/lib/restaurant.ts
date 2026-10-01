@@ -28,10 +28,11 @@ export interface PaginatedResponse<T> {
 
 export const fetchZoneRestaurants = async (
     zoneId: number,
-    {categoryId, page = 1}: { categoryId?: number | null; page?: number } = {}
+    {categoryId, page = 1, search}: { categoryId?: number | null; page?: number; search?: string } = {}
 ) => {
     const params = new URLSearchParams({page: String(page)})
     if (categoryId) params.set("category", String(categoryId))
+    if (search) params.set("search", search)
 
     const restaurantList = RESTAURANT_API.list
     return await apiRequest[restaurantList.method]<PaginatedResponse<RestaurantListItemType>>

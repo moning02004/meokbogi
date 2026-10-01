@@ -12,12 +12,14 @@ import {fetchZoneRestaurants} from "@/lib/restaurant";
 import {Skeleton} from "@/components/skeleton";
 import {LuEllipsisVertical} from "react-icons/lu";
 import {ActionDrawer} from "@/components/ui/action_drawer";
-import {apiRequest} from "@/lib/api";
+import {apiRequest, errorMessage} from "@/lib/api";
+import toast from "react-hot-toast";
 
 export default function Page() {
     const router = useRouter()
     const {token} = useAuthStore.getState()
     const selectedZone = useZoneStore(state => state.selectedZone)
+    const selectedZoneId = selectedZone?.id
     const categories = useCategoryStore(state => state.categories)
 
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
@@ -29,7 +31,14 @@ export default function Page() {
     const [isLoading, setIsLoading] = useState(true)
     const [isFetchingMore, setIsFetchingMore] = useState(false)
 
-    const listKey = `${selectedZone?.id ?? ""}:${selectedCategoryId ?? "all"}`
+    // 존이 바뀌면 이전 존의 카테고리 필터가 남아 "0곳"으로 보였다. 존이 바뀌면 전체로 되돌린다.
+    const [trackedZoneId, setTrackedZoneId] = useState(selectedZoneId)
+    if (selectedZoneId !== trackedZoneId) {
+        setTrackedZoneId(selectedZoneId)
+        setSelectedCategoryId(null)
+    }
+
+    const listKey = `${selectedZoneId ?? ""}:${selectedCategoryId ?? "all"}`
     const [trackedListKey, setTrackedListKey] = useState(listKey)
     if (listKey !== trackedListKey) {
         setTrackedListKey(listKey)
@@ -46,31 +55,49 @@ export default function Page() {
     }, [token, router])
 
     useEffect(() => {
-        if (!selectedZone) return
+        if (!selectedZoneId) return
+        // 필터를 빠르게 바꾸면 이전 요청의 응답이 늦게 와서 목록을 덮어쓸 수 있다
+        let ignore = false
 
-        fetchZoneRestaurants(selectedZone.id, {categoryId: selectedCategoryId, page: 1})
+        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: 1})
             .then((res) => {
+                if (ignore) return
                 setRestaurants(res.results)
                 setTotalCount(res.count)
                 setHasMore(Boolean(res.next))
             })
-            .finally(() => setIsLoading(false))
-    }, [selectedZone, selectedCategoryId]);
+            .catch((error) => {
+                if (ignore) return
+                setHasMore(false)
+                toast.error(errorMessage(error))
+            })
+            .finally(() => {
+                if (!ignore) setIsLoading(false)
+            })
+        return () => {
+            ignore = true
+        }
+    }, [selectedZoneId, selectedCategoryId]);
 
     const loadMore = useCallback(() => {
-        if (!selectedZone || isLoading || isFetchingMore || !hasMore) return
+        if (!selectedZoneId || isLoading || isFetchingMore || !hasMore) return
 
         const nextPage = page + 1
         setIsFetchingMore(true)
-        fetchZoneRestaurants(selectedZone.id, {categoryId: selectedCategoryId, page: nextPage})
+        fetchZoneRestaurants(selectedZoneId, {categoryId: selectedCategoryId, page: nextPage})
             .then((res) => {
                 setRestaurants((prev) => [...prev, ...res.results])
                 setTotalCount(res.count)
                 setPage(nextPage)
                 setHasMore(Boolean(res.next))
             })
+            .catch((error) => {
+                // 실패한 페이지를 센티널이 무한히 다시 요청하지 않도록 멈춘다
+                setHasMore(false)
+                toast.error(errorMessage(error))
+            })
             .finally(() => setIsFetchingMore(false))
-    }, [selectedZone, selectedCategoryId, page, isLoading, isFetchingMore, hasMore]);
+    }, [selectedZoneId, selectedCategoryId, page, isLoading, isFetchingMore, hasMore]);
 
     useEffect(() => {
         const target = sentinelRef.current
@@ -92,8 +119,10 @@ export default function Page() {
 
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: _id})).then(() => {
-            setRestaurants(() => restaurants.filter(x => x.id != _id))
-        })
+            setRestaurants((prev) => prev.filter(x => x.id !== _id))
+            setTotalCount((prev) => Math.max(prev - 1, 0))
+            toast.success("음식점을 삭제했어요.")
+        }).catch((error) => toast.error(errorMessage(error)))
     }
 
     if (!token || !selectedZone) return <LoadingPage/>
