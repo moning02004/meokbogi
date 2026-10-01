@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.auth import views as auth_views
+from apps.push import views as push_views
 from apps.restaurant import views as restaurant_views
 from apps.zone import views as zone_views
 
@@ -15,6 +16,13 @@ urlpatterns = [
     path("users/me/password", auth_views.ChangePasswordAPIView.as_view(), name="change-password"),
     path("users/me/export", restaurant_views.ArchiveExportAPIView.as_view(), name="archive-export"),
     path("users/me/import", restaurant_views.ArchiveImportAPIView.as_view(), name="archive-import"),
+
+    # push
+    path("push/config", push_views.PushConfigAPIView.as_view(), name="push-config"),
+    path("push/subscriptions", push_views.PushSubscriptionAPIView.as_view(), name="push-subscriptions"),
+    path("push/test", push_views.PushTestAPIView.as_view(), name="push-test"),
+    path("push/api-key", push_views.PushApiKeyAPIView.as_view(), name="push-api-key"),
+    path("push/send", push_views.PushSendAPIView.as_view(), name="push-send"),
 
     # zone
     path("zones", zone_views.ZoneViewSet.as_view({
