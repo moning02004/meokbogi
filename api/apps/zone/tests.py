@@ -404,3 +404,37 @@ class DashboardTagsTestCase(TestCase):
         self.assertEqual([r["name"] for r in data["delicious_restaurants"]], ["김밥천국"])
         self.assertEqual([r["name"] for r in data["recent_restaurants"]], ["김밥천국"])
         self.assertEqual([c["keyword"] for c in data["recent_restaurants"][0]["categories"]], ["치킨", "분식"])
+
+
+class CategoryBrowseTestCase(TestCase):
+    """카테고리별로 어느 장소에 어떤 음식점이 있는지."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.home = Zone.objects.create(user=self.user, name="우리집")
+        self.office = Zone.objects.create(user=self.user, name="회사")
+        self.chicken = make_category(self.home, "치킨")
+        self.pizza = make_category(self.home, "피자")
+        make_restaurant(category=self.chicken, zone=self.home, name="교촌")
+        make_restaurant(category=self.chicken, zone=self.home, name="BBQ")
+        bhc = make_restaurant(category=self.chicken, zone=self.office, name="회사 앞 BHC")
+        make_review(restaurant=bhc, user=self.user, ordered_at="2026-09-01", point=1, menu="뿌링클")
+        self.client.login(username="owner", password="123")
+
+    def test_list_shows_counts_per_zone(self):
+        rows = {row["keyword"]: row["zones"] for row in self.client.get(reverse("category-list")).json()}
+        self.assertEqual(rows["치킨"], [{"id": self.home.id, "name": "우리집", "count": 2},
+                                       {"id": self.office.id, "name": "회사", "count": 1}])
+        self.assertEqual(rows["피자"], [])
+
+    def test_restaurants_grouped_by_zone(self):
+        groups = self.client.get(reverse("category-restaurants", kwargs={"category_pk": self.chicken.pk})).json()
+        self.assertEqual([g["zone"]["name"] for g in groups], ["우리집", "회사"])
+        self.assertEqual(sorted(r["name"] for r in groups[0]["restaurants"]), ["BBQ", "교촌"])
+        self.assertEqual(groups[1]["restaurants"][0]["review_avg"], 1)
+
+    def test_other_users_category_is_404(self):
+        User.objects.create_user(username="attacker", password="123")
+        self.client.login(username="attacker", password="123")
+        url = reverse("category-restaurants", kwargs={"category_pk": self.chicken.pk})
+        self.assertEqual(self.client.get(url).status_code, 404)

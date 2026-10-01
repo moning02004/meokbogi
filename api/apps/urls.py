@@ -33,6 +33,8 @@ urlpatterns = [
     # 카테고리는 장소가 아니라 사용자에게 속한다
     path("categories", zone_views.CategoryListAPIView.as_view(), name="category-list"),
     path("categories/<int:category_pk>", zone_views.CategoryDetailAPIView.as_view(), name="category-delete"),
+    path("categories/<int:category_pk>/restaurants", zone_views.CategoryRestaurantsAPIView.as_view(),
+         name="category-restaurants"),
 
     # restaurants
     path("zones/<int:zone_pk>/restaurants", restaurant_views.AllRestaurantsListAPIView.as_view(),

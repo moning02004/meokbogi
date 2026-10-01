@@ -170,7 +170,7 @@ export default function Page() {
                                     className="mx-1.5 font-mono text-[24px] font-semibold rounded-[10px] py-2 bg-white/[0.06] border border-white/[0.12]">
                                     {String(user.zone_count).padStart(2, "0")}
                                 </div>
-                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">존</p>
+                                <p className="text-[10.5px] font-medium text-[#9FB6AE] mt-2">장소</p>
                             </div>
                             <div className="flex-1 text-center">
                                 <div
@@ -190,9 +190,20 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* ---- 카테고리 (장소와 상관없이 한 벌) ---- */}
+                <div className="px-5 pt-5">
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">카테고리별 음식점</div>
+                    <div className="bg-white border border-[#E7E0CF] rounded-2xl p-4">
+                        <CategoryManager onCategoriesChange={(_, mutated) => {
+                            // 상단바·음식점 필터·뽑기가 쓰는 전역 카테고리 목록도 맞춘다
+                            if (mutated) syncZones().catch(() => null)
+                        }}/>
+                    </div>
+                </div>
+
                 {/* ---- 존 관리 ---- */}
                 <div className="px-5 pt-5">
-                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">존 관리</div>
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">장소 관리</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
                         <ZoneManager key={zoneListKey}/>
                     </div>
@@ -206,17 +217,6 @@ export default function Page() {
                     <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">알림</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
                         <PushManager/>
-                    </div>
-                </div>
-
-                {/* ---- 카테고리 (장소와 상관없이 한 벌) ---- */}
-                <div className="px-5 pt-5">
-                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">카테고리</div>
-                    <div className="bg-white border border-[#E7E0CF] rounded-2xl p-4">
-                        <CategoryManager onCategoriesChange={(_, mutated) => {
-                            // 상단바·음식점 필터·뽑기가 쓰는 전역 카테고리 목록도 맞춘다
-                            if (mutated) syncZones().catch(() => null)
-                        }}/>
                     </div>
                 </div>
 

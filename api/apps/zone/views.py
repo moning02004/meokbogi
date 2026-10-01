@@ -7,9 +7,13 @@ from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.restaurant.menus import normalize_menu
 from apps.restaurant.models import Restaurant
+from apps.restaurant.serializers import RestaurantListSerializer
+from apps.restaurant.views import annotate_restaurants, sort_restaurants
 from apps.zone.models import Zone, Category
 from apps.zone.serializers import (CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer)
 
@@ -92,9 +96,43 @@ class CategoryListAPIView(ListCreateAPIView):
                                              filter=Q(restaurants__in=Subquery(single_tag_restaurants()))),
         ).order_by("id")
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method == "GET":
+            context["zone_counts"] = zone_counts_by_category(self.request.user.id)
+        return context
+
     def perform_create(self, serializer):
         ensure_unique_keyword(self.request.user.id, serializer.validated_data["keyword"])
         serializer.save(user=self.request.user)
+
+
+def zone_counts_by_category(user_id):
+    """{카테고리 id: [{"id", "name", "count"}, ...]} 장소 순서대로. 쿼리 한 번."""
+    tags = Restaurant.categories.through.objects.filter(category__user_id=user_id).values(
+        "category_id", "restaurant__zone_id", "restaurant__zone__name",
+    ).annotate(count=Count("restaurant_id")).order_by("category_id", "restaurant__zone_id")
+    result = {}
+    for row in tags:
+        result.setdefault(row["category_id"], []).append(
+            {"id": row["restaurant__zone_id"], "name": row["restaurant__zone__name"], "count": row["count"]})
+    return result
+
+
+class CategoryRestaurantsAPIView(APIView):
+    """카테고리 하나의 음식점을 장소별로 묶어서. 카테고리 관리 화면에서 펼쳐 볼 때 쓴다."""
+
+    def get(self, request, *args, **kwargs):
+        category = get_object_or_404(Category, pk=self.kwargs["category_pk"], user_id=request.user.id)
+        restaurants = annotate_restaurants(Restaurant.objects.filter(categories=category).select_related("zone"))
+        restaurants = sort_restaurants(restaurants, "recent")
+
+        groups = {}
+        for restaurant in restaurants:
+            group = groups.setdefault(restaurant.zone_id, {"zone": {"id": restaurant.zone_id, "name": restaurant.zone.name},
+                                                           "restaurants": []})
+            group["restaurants"].append(RestaurantListSerializer(restaurant).data)
+        return Response([groups[zone_id] for zone_id in sorted(groups)])
 
 
 def ensure_unique_keyword(user_id, keyword, exclude_pk=None):

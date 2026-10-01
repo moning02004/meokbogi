@@ -56,6 +56,10 @@ export const CATEGORY_API = {
         method: "delete",
         endpoint: (args: EndpointArgs) => `/categories/${args.category}`
     },
+    restaurants: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/categories/${args.category}/restaurants`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const RESTAURANT_PAGE = {

@@ -15,10 +15,18 @@ class CategoryManageSerializer(serializers.ModelSerializer):
 
     restaurant_count = serializers.SerializerMethodField()
     exclusive_restaurant_count = serializers.SerializerMethodField()
+    zones = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "keyword", "restaurant_count", "exclusive_restaurant_count"]
+        fields = ["id", "keyword", "restaurant_count", "exclusive_restaurant_count", "zones"]
+
+    def get_zones(self, instance):
+        """이 카테고리의 음식점이 어느 장소에 몇 곳 있는지. 목록 뷰가 한 번에 세어 context에 넣어 둔다."""
+        by_category = self.context.get("zone_counts")
+        if by_category is None:
+            return []
+        return by_category.get(instance.id, [])
 
     # 목록에서는 annotate된 값을 쓰고, 생성·수정 직후처럼 annotate가 없으면 직접 센다
     def get_restaurant_count(self, instance):
