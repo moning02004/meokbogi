@@ -23,7 +23,7 @@ export const Topbar = () => {
     }
 
     return (
-        <div className="flex justify-between items-center bg-white border-b border-[#E7E0CF] h-[7vh] px-4">
+        <div className="flex justify-between items-center bg-white border-b border-[#E7E0CF] h-[7vh] px-3.5">
             <div>
                 <div className="text-[11px] font-semibold tracking-[0.14em] text-[#B7AF9F] uppercase mb-0.5">
                     ZONE
@@ -35,7 +35,7 @@ export const Topbar = () => {
 
             <ActionDrawer
                 trigger={
-                    <button aria-label="장소 바꾸기" className="w-10 h-10 rounded-full bg-[#E4EEEA] text-[#24564A] flex items-center justify-center cursor-pointer sm:hover:bg-[#d7e6df] transition-colors">
+                    <button aria-label="장소 바꾸기" className="w-10 h-10 rounded-full text-[#24564A] flex items-center justify-center cursor-pointer sm:hover:bg-[#d7e6df] transition-colors">
                         <FaAngleDown size={15}/>
                     </button>
                 }

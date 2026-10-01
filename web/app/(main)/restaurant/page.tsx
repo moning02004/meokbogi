@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
-import {RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
+import {RestaurantListItemType, RestaurantSort, RestaurantType} from "@/types/restaurant";
 import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
@@ -14,6 +14,7 @@ import {LuEllipsisVertical, LuSearch, LuX} from "react-icons/lu";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {apiRequest, errorMessage} from "@/lib/api";
 import toast from "react-hot-toast";
+import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
 
 const SORT_OPTIONS: { value: RestaurantSort; label: string }[] = [
     {value: "recent", label: "최근 방문순"},
@@ -65,6 +66,10 @@ export default function Page() {
     }
 
     const sentinelRef = useRef<HTMLDivElement | null>(null)
+
+    // 음식점 수정 시트. 지점 목록이 필요해서 상세를 받아서 연다. 열 때마다 seq를 올려 폼을 새로 만든다.
+    const [editing, setEditing] = useState<{ restaurant: RestaurantType; seq: number } | null>(null)
+    const [isEditOpen, setIsEditOpen] = useState(false)
 
     useEffect(() => {
         if (!token) router.replace("/login")
@@ -127,9 +132,40 @@ export default function Page() {
         return () => observer.disconnect()
     }, [loadMore]);
 
+    // 상세 화면 코드를 미리 받아 두어 누르면 바로 넘어가게 한다 (어느 음식점이든 같은 코드)
+    const firstRestaurantId = restaurants[0]?.id
+    useEffect(() => {
+        if (firstRestaurantId) router.prefetch(RESTAURANT_PAGE.detail(firstRestaurantId))
+    }, [firstRestaurantId, router])
+
     const gotoRestaurant = (_id: number) => {
         router.push(RESTAURANT_PAGE.detail(_id))
     }
+    const fetchRestaurant = (_id: number) => {
+        const retrieve = RESTAURANT_API.retrieve
+        return apiRequest[retrieve.method]<RestaurantType>(retrieve.endpoint({restaurant: _id}))
+    }
+
+    const editRestaurant = (_id: number) => {
+        fetchRestaurant(_id).then((restaurant) => {
+            setEditing((prev) => ({restaurant, seq: (prev?.seq ?? 0) + 1}))
+            setIsEditOpen(true)
+        }).catch((error) => toast.error(errorMessage(error, "음식점 정보를 불러오지 못했어요.")))
+    }
+
+    // 저장했으면 목록의 그 칸을, 지점을 바꿨으면 시트의 지점 목록을 새로 고친다
+    const refreshEditing = (_id: number) => {
+        fetchRestaurant(_id).then((restaurant) => {
+            setEditing((prev) => prev && prev.restaurant.id === _id ? {...prev, restaurant} : prev)
+            setRestaurants((prev) => prev.map((item) => item.id === _id ? {
+                ...item,
+                name: restaurant.name,
+                description: restaurant.description,
+                categories: restaurant.categories,
+            } : item))
+        }).catch(() => null)
+    }
+
     const deleteRestaurant = (_id: number) => {
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: _id})).then(() => {
@@ -248,6 +284,9 @@ export default function Page() {
                                     </button>
                                 }
                                 items={[{
+                                    label: "음식점 수정",
+                                    onClick: () => editRestaurant(restaurant.id),
+                                }, {
                                     label: "음식점 삭제",
                                     danger: true,
                                     onClick: () => deleteRestaurant(restaurant.id),
@@ -266,6 +305,16 @@ export default function Page() {
 
                 <div ref={sentinelRef} className="h-1"/>
             </div>
+
+            {editing && (
+                <RestaurantEditSheet
+                    key={editing.seq}
+                    open={isEditOpen}
+                    onOpenChange={setIsEditOpen}
+                    restaurant={editing.restaurant}
+                    onChanged={() => refreshEditing(editing.restaurant.id)}
+                />
+            )}
         </div>
     )
 }

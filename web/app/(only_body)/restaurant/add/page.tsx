@@ -4,16 +4,18 @@ import {Suspense, useEffect, useState} from "react"
 import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {CategoryPicker} from "@/components/restaurant/category_picker";
+import {CategoryChips} from "@/components/restaurant/category_chips";
+import {BranchItem, BranchManager} from "@/components/restaurant/branch_manager";
 import {FaArrowLeft} from "react-icons/fa";
-import {CATEGORY_API, RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
-import {CategoryType} from "@/types/zone";
+import {BRANCH_API, RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {RestaurantListItemType} from "@/types/restaurant";
 import toast from "react-hot-toast";
 import {apiRequest, errorMessage} from "@/lib/api";
 import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
+import {normalizeMenu} from "@/lib/menu";
+import {useCreateCategory} from "@/hooks/useCreateCategory";
 
 export default function Page() {
     const router = useRouter()
@@ -21,13 +23,15 @@ export default function Page() {
     const selectedZone = useZoneStore(state => state.selectedZone)
     const selectedZoneId = selectedZone?.id
     const categories = useCategoryStore(state => state.categories)
-    const setCategories = useCategoryStore(state => state.setCategories)
+    const createCategory = useCreateCategory()
 
     // fields
     // 여러 개 붙일 수 있다 (분식 + 돈까스 파는 김밥집)
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([])
     const [name, setName] = useState<string>("")
     const [description, setDescription] = useState<string>("")
+    // 아직 음식점이 없으니 이름만 모아 두었다가 등록한 뒤에 만든다
+    const [branches, setBranches] = useState<BranchItem[]>([])
 
 
     // 이름 입력 시 같은 존 안의 기존 음식점 제안 (중복 등록 방지)
@@ -81,19 +85,17 @@ export default function Page() {
     const hasCategory = selectedCategoryIds.length > 0
     const visibleNameSuggestions = keyword ? nameSuggestions : categoryRestaurants
 
-    // 등록하다가 없는 카테고리가 필요하면 그 자리에서 만든다. 상단바·필터에도 바로 보이도록 전역 목록에 더한다.
-    const createCategory = (keyword: string) => {
-        const add = CATEGORY_API.add
-        return apiRequest[add.method]<CategoryType>(add.endpoint, {
-            body: JSON.stringify({keyword}),
-        }).then((category) => {
-            setCategories([...categories, {id: category.id, keyword: category.keyword}])
-            toast.success(`'${category.keyword}' 카테고리를 만들었어요.`)
-            return category
-        }).catch((error) => {
-            toast.error(errorMessage(error, "카테고리를 만들지 못했어요."))
-            throw error
-        })
+    const addBranch = async (branchName: string) => {
+        // 띄어쓰기만 다른 지점은 서버도 같은 지점으로 보고 거절한다
+        if (branches.some((branch) => normalizeMenu(branch.name) === normalizeMenu(branchName))) {
+            toast.error(`'${branchName}' 지점은 이미 있어요.`)
+            throw new Error("duplicate branch")
+        }
+        setBranches((prev) => [...prev, {name: branchName}])
+    }
+
+    const removeBranch = async (target: BranchItem) => {
+        setBranches((prev) => prev.filter((branch) => branch !== target))
     }
 
     const goToExistingRestaurant = (_id: number) => {
@@ -121,7 +123,14 @@ export default function Page() {
                     category_ids: selectedCategoryIds,
                 })
             }
-        ).then((response: { id: number }) => {
+        ).then(async (response: { id: number }) => {
+            // 음식점은 만들어졌으니 지점이 하나 안 만들어져도 상세로 간다 (상세의 수정에서 다시 더할 수 있다)
+            const add = BRANCH_API.add
+            for (const branch of branches) {
+                await apiRequest[add.method](add.endpoint({restaurant: response.id}), {
+                    body: JSON.stringify({name: branch.name}),
+                }).catch((error) => toast.error(errorMessage(error, `'${branch.name}' 지점을 추가하지 못했어요.`)))
+            }
             router.replace(RESTAURANT_PAGE.detail(response.id))
         }).catch((error) => {
             // Error 객체를 그대로 toast에 넘기면 React가 객체를 렌더링하려다 화면이 깨진다
@@ -144,13 +153,13 @@ export default function Page() {
                 <div className="px-5 pt-6 flex flex-col gap-5">
 
                     <div>
-                        <label htmlFor="restaurant-categories" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
+                        <div id="restaurant-categories-label" className="text-[12.5px] font-bold text-[#8A8172] mb-2">
                             카테고리 <span className="text-[#D2571E]">*</span>
-                        </label>
-                        <CategoryPicker id="restaurant-categories" categories={categories}
-                                        selected={selectedCategoryIds} onChange={setSelectedCategoryIds}
-                                        placeholder="카테고리를 골라주세요 (여러 개 가능)"
-                                        onCreate={createCategory}/>
+                            <span className="ml-1 font-medium text-[#B7AF9F]">여러 개 고를 수 있어요</span>
+                        </div>
+                        <CategoryChips categories={categories} selected={selectedCategoryIds}
+                                       onChange={setSelectedCategoryIds} labelledBy="restaurant-categories-label"
+                                       onCreate={createCategory}/>
                     </div>
 
                     <div className="relative">
@@ -173,7 +182,7 @@ export default function Page() {
                             autoComplete="off"
                             className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                         />
-                        <p className="mt-1.5 text-[11.5px] text-[#B7AF9F]">지점은 리뷰를 남길 때 골라요. 이름에는 브랜드만 적어 주세요.</p>
+                        <p className="mt-1.5 text-[11.5px] text-[#B7AF9F]">이름에는 브랜드만 적고, 지점은 아래에 따로 더해 주세요.</p>
                         {showNameSuggestions && visibleNameSuggestions.length > 0 && (
                             <div
                                 className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
@@ -212,6 +221,13 @@ export default function Page() {
                             maxLength={100}
                             className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors resize-none leading-relaxed placeholder:text-[#B7AF9F]"
                         />
+                    </div>
+
+                    <div>
+                        <div className="text-[12.5px] font-bold text-[#8A8172] mb-2">
+                            지점 <span className="font-medium text-[#B7AF9F]">(선택) 메뉴는 같고 맛이 다른 곳</span>
+                        </div>
+                        <BranchManager branches={branches} onCreate={addBranch} onRemove={removeBranch}/>
                     </div>
 
                     <button

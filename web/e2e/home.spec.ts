@@ -53,8 +53,8 @@ test.describe("홈과 설정", () => {
 
         // 음식점 등록 화면에서 만든 카테고리는 다른 장소에서도 보인다
         await page.goto("/restaurant/add")
-        await page.getByRole("button", {name: /^카테고리/}).click()
-        await page.getByLabel("새 카테고리").fill("샐러드")
+        await page.getByRole("button", {name: "+ 새 카테고리"}).click()
+        await page.getByLabel("새 카테고리 이름").fill("샐러드")
         await page.getByRole("button", {name: "추가", exact: true}).click()
         await expect(page.getByText("'샐러드' 카테고리를 만들었어요.")).toBeVisible()
 

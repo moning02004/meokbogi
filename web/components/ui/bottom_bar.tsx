@@ -1,11 +1,17 @@
 "use client"
 
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { menuItems } from "@/constants/menus";
 
 export function Bottombar() {
     const router = useRouter();
     const pathname = usePathname();
+
+    // 탭을 누르고 나서야 그 화면 코드를 받으면 휴대폰에서 한 박자 늦게 넘어간다. 미리 받아 둔다.
+    useEffect(() => {
+        menuItems.forEach((item) => router.prefetch(item.path));
+    }, [router]);
 
     return (
         <div className="flex items-center justify-around px-2 bg-white border-t border-[#E7E0CF] h-[8vh]">

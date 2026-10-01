@@ -37,6 +37,9 @@ test.describe("지점", () => {
         await expect(page.getByText("'역삼점' 지점을 추가했어요.")).toBeVisible()
         await record(page, {newBranch: "본점", menu: "허니콤보", point: "실망"})
 
+        // 지점 없이 남긴 리뷰가 없으면 "지점 없음"은 고를 게 없어 숨긴다
+        await expect(page.getByRole("radiogroup", {name: "지점"}).getByRole("radio", {name: "지점 없음"})).toHaveCount(0)
+
         // 메뉴는 브랜드에 하나
         await expect(page.getByRole("button", {name: /허니콤보.*리뷰 2/})).toBeVisible()
 
@@ -53,7 +56,7 @@ test.describe("지점", () => {
 
         // 리뷰 목록에도 지점이 보인다
         await filter.getByRole("radio", {name: "모든 지점"}).click()
-        await page.getByRole("button", {name: "리뷰 보기"}).click()
+        await page.getByRole("tab", {name: "리뷰 보기"}).click()
         await expect(page.getByText("역삼점", {exact: true}).last()).toBeVisible()
 
         expect((await api.reviews(restaurant.id)).count).toBe(2)
@@ -78,5 +81,33 @@ test.describe("지점", () => {
         const reviews = await api.reviews(restaurant.id)
         expect(reviews.count).toBe(1)
         expect(reviews.results[0]).toMatchObject({branch: null})
+    })
+
+    test("등록 화면에서 지점을 같이 더한다", async ({page, request}) => {
+        const user = createUser()
+        await (await Api.login(request, user)).createZone("우리집")
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto("/restaurant/add")
+        await page.getByRole("group", {name: /^카테고리/}).getByRole("button", {name: "치킨", exact: true}).click()
+        await page.getByLabel(/^이름/).fill("교촌치킨")
+        for (const name of ["역삼점", "본점"]) {
+            await page.getByLabel("추가할 지점 이름").fill(name)
+            await page.getByRole("button", {name: "지점 추가"}).click()
+        }
+        // 띄어쓰기만 다른 같은 지점은 더하지 않는다
+        await page.getByLabel("추가할 지점 이름").fill("역삼 점")
+        await page.getByRole("button", {name: "지점 추가"}).click()
+        await expect(page.getByText("'역삼 점' 지점은 이미 있어요.")).toBeVisible()
+        // 저장 전이니 바로 지워진다
+        await page.getByRole("button", {name: "본점 지점 지우기"}).click()
+        await expect(page.getByRole("button", {name: "본점 지점 지우기"})).toHaveCount(0)
+
+        await page.getByRole("button", {name: "등록", exact: true}).click()
+        await expect(page).toHaveURL(/\/restaurant\/\d+$/)
+        const filter = page.getByRole("radiogroup", {name: "지점"})
+        await expect(filter.getByRole("radio", {name: "역삼점"})).toBeVisible()
+        await expect(filter.getByRole("radio", {name: "본점"})).toHaveCount(0)
     })
 })

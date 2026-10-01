@@ -19,7 +19,7 @@ from apps.zone.serializers import (CategoryManageSerializer, ZoneDashboardSerial
 
 
 # 이 기간보다 오래 안 간 만족스러운 음식점을 "오랜만에 가볼 만한 곳"으로 보여준다
-FORGOTTEN_AFTER_DAYS = 60
+FORGOTTEN_AFTER_DAYS = 30
 
 
 class ZoneViewSet(viewsets.ModelViewSet):

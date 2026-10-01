@@ -13,16 +13,19 @@ import NotFound from "next/dist/client/components/builtin/not-found";
 import {MenuSummaryType, RestaurantReviewType, RestaurantType} from "@/types/restaurant";
 import {FaArrowLeft, FaChevronRight} from "react-icons/fa";
 import {FiArrowUpLeft} from "react-icons/fi";
-import {LuEllipsisVertical, LuPencilLine} from "react-icons/lu";
+import {LuEllipsisVertical, LuPencilLine, LuPlus} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
-import {Modal} from "@/components/ui/modal";
-import {useCategoryStore} from "@/store/category";
-import {CategoryChips} from "@/components/restaurant/category_chips";
-import {BranchManager} from "@/components/restaurant/branch_manager";
+import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
 import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
-import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
+import type {ReviewDraft} from "@/components/review/review_sheet";
+import dynamic from "next/dynamic";
+
+// 리뷰 시트는 달력(react-datepicker·date-fns, 200KB 가까이) 때문에 무겁다.
+// 상세 화면을 열 때 같이 받으면 화면이 늦게 뜨므로 따로 떼어 두고, 화면이 뜬 뒤 한가할 때 미리 받는다.
+const loadReviewSheet = () => import("@/components/review/review_sheet")
+const ReviewSheet = dynamic(() => loadReviewSheet().then((module) => module.ReviewSheet), {ssr: false})
 
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
@@ -62,18 +65,15 @@ export default function Page() {
     const {id: restaurantId} = useParams<{ id: string }>()
     const {token} = useAuthStore.getState()
     const router = useRouter()
-    const categories = useCategoryStore(state => state.categories)
 
     const [restaurant, setRestaurant] = useState<RestaurantType | null>(null)
     // 없는 음식점·지워진 음식점이면 로딩 화면에서 멈추지 않고 안내를 보여준다
     const [loadError, setLoadError] = useState<string | null>(null)
     const [menuSummaries, setMenuSummaries] = useState<MenuSummaryType[]>([])
 
-    // 음식점 수정
+    // 음식점 수정 시트. 열 때마다 seq를 올려 폼을 새로 만든다.
     const [isEditingRestaurant, setIsEditingRestaurant] = useState(false)
-    const [editCategoryIds, setEditCategoryIds] = useState<number[]>([])
-    const [editName, setEditName] = useState("")
-    const [editDescription, setEditDescription] = useState("")
+    const [editSeq, setEditSeq] = useState(0)
 
     // 지점 거르기: null = 전체, "none" = 지점 없이 남긴 리뷰, 숫자 = 그 지점
     const [selectedBranch, setSelectedBranch] = useState<number | "none" | null>(null)
@@ -116,6 +116,16 @@ export default function Page() {
     useEffect(() => {
         fetchRestaurant()
     }, [fetchRestaurant])
+
+    useEffect(() => {
+        const preload = () => void loadReviewSheet()
+        if ("requestIdleCallback" in window) {
+            const handle = window.requestIdleCallback(preload, {timeout: 2000})
+            return () => window.cancelIdleCallback(handle)
+        }
+        const timer = setTimeout(preload, 500)
+        return () => clearTimeout(timer)
+    }, [])
 
     // 리뷰 목록 조회 (menu 필터 / 페이지)
     const fetchReviews = useCallback((menu: string | null, page: number, append: boolean,
@@ -173,37 +183,10 @@ export default function Page() {
 
     const openMenuReviews = (menu: string) => showReviews(menu)
 
-    // 현재 값으로 폼을 채운 뒤 수정 모달을 연다
+    // 현재 값으로 폼을 채운 수정 시트를 연다
     const editRestaurant = () => {
-        if (!restaurant) return
-        setEditCategoryIds(restaurant.categories.map((category) => category.id))
-        setEditName(restaurant.name)
-        setEditDescription(restaurant.description ?? "")
+        setEditSeq((prev) => prev + 1)
         setIsEditingRestaurant(true)
-    }
-
-    const saveRestaurant = () => {
-        if (!editName.trim() || editCategoryIds.length === 0) {
-            toast.error("음식점 이름과 카테고리를 하나 이상 골라주세요.")
-            return;
-        }
-
-        const restaurantUpdate = RESTAURANT_API.update
-        apiRequest[restaurantUpdate.method](restaurantUpdate.endpoint({
-            restaurant: Number(restaurantId)
-        }), {
-            body: JSON.stringify({
-                category_ids: editCategoryIds,
-                name: editName.trim(),
-                description: editDescription.trim(),
-            })
-        }).then(() => {
-            setIsEditingRestaurant(false)
-            fetchRestaurant()
-            toast.success("음식점 정보를 고쳤어요.")
-        }).catch((error) => {
-            toast.error(errorMessage(error, "수정에 실패했어요. 잠시 후 다시 시도해주세요."))
-        })
     }
 
     const deleteRestaurant = () => {
@@ -297,6 +280,10 @@ export default function Page() {
     )
     if (!restaurant) return <LoadingPage/>
 
+    // 상세의 리뷰 수는 지점 거르기와 상관없는 전체 수다
+    const noBranchReviewCount = restaurant.review_count
+        - restaurant.branches.reduce((sum, branch) => sum + branch.review_count, 0)
+
     return (
         <Suspense fallback={<LoadingPage/>}>
             <div className="min-h-[100%] bg-white pb-28">
@@ -362,18 +349,40 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* ---- 탭: 지점 칩(동그란 버튼)과 헷갈리지 않게 밑줄 탭으로 ---- */}
+                <div role="tablist" aria-label="보기" className="flex mx-5 mb-3 border-b border-[#E7E0CF]">
+                    {([["menu", "메뉴별 보기"], ["all", "리뷰 보기"]] as const).map(([tab, label]) => {
+                        const active = activeTab === tab
+                        return (
+                            <button key={tab} role="tab" aria-selected={active}
+                                    onClick={() => {
+                                        if (tab === "all") return showReviews(null)
+                                        setActiveTab("menu")
+                                        setMenuFilter(null)
+                                    }}
+                                    className={`flex-1 -mb-px py-2.5 text-[14px] font-bold border-b-2 cursor-pointer transition-colors ${
+                                        active ? "text-[#24564A] border-[#24564A]" : "text-[#B7AF9F] border-transparent sm:hover:text-[#8A8172]"
+                                    }`}>
+                                {label}
+                            </button>
+                        )
+                    })}
+                </div>
+
                 {/* ---- 지점 거르기 (지점이 있을 때만) ---- */}
                 {restaurant.branches.length > 0 && (
                     <div role="radiogroup" aria-label="지점"
                          className="flex gap-1.5 overflow-x-auto px-5 mb-3 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                         {[{id: null as number | "none" | null, label: "모든 지점"},
                             ...restaurant.branches.map((b) => ({id: b.id as number | "none" | null, label: b.name})),
-                            {id: "none" as const, label: "지점 없음"}].map((option) => {
+                            // 지점 없이 남긴 리뷰가 없으면 고를 게 없으니 숨긴다 (보고 있는 중이면 남겨 둔다)
+                            ...(noBranchReviewCount > 0 || selectedBranch === "none"
+                                ? [{id: "none" as const, label: "지점 없음"}] : [])].map((option) => {
                             const active = selectedBranch === option.id
                             return (
                                 <button key={String(option.id)} role="radio" aria-checked={active}
                                         onClick={() => chooseBranch(option.id)}
-                                        className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
+                                        className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12.5px] font-semibold border cursor-pointer transition-colors ${
                                             active ? "bg-[#211D17] text-white border-[#211D17]"
                                                 : "bg-white text-[#8A8172] border-[#E7E0CF]"
                                         }`}>
@@ -383,33 +392,6 @@ export default function Page() {
                         })}
                     </div>
                 )}
-
-                {/* ---- 탭 ---- */}
-                <div className="flex gap-1.5 px-5 mb-3">
-                    <button
-                        onClick={() => {
-                            setActiveTab("menu");
-                            setMenuFilter(null)
-                        }}
-                        className={`px-4 py-2 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
-                            activeTab === "menu"
-                                ? "bg-[#24564A] text-white border-[#24564A]"
-                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
-                        }`}
-                    >
-                        메뉴별 보기
-                    </button>
-                    <button
-                        onClick={() => showReviews(null)}
-                        className={`px-4 py-2 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
-                            activeTab === "all"
-                                ? "bg-[#24564A] text-white border-[#24564A]"
-                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
-                        }`}
-                    >
-                        리뷰 보기
-                    </button>
-                </div>
 
                 {/* ---- 필터 표시 ---- */}
                 {activeTab === "all" && menuFilter && (
@@ -449,13 +431,15 @@ export default function Page() {
                                                 className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
                                             <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
                                         </button>
+                                        {/* "또 먹었어요" 글자 버튼은 길어서 메뉴 이름이 잘렸다. 아이콘만 둔다 */}
                                         {menu && (
                                             <button
                                                 onClick={() => startRecording(summary)}
                                                 aria-label={`${menu} 또 먹었어요`}
-                                                className="shrink-0 text-[11.5px] font-bold text-[#D2571E] bg-[#FDEBE1] rounded-full px-2.5 py-1.5 cursor-pointer sm:hover:bg-[#FBDCCB] transition-colors"
+                                                title="또 먹었어요"
+                                                className="shrink-0 w-8 h-8 flex items-center justify-center text-[#D2571E] bg-[#FDEBE1] rounded-full cursor-pointer sm:hover:bg-[#FBDCCB] transition-colors"
                                             >
-                                                또 먹었어요
+                                                <LuPlus size={16} strokeWidth={2.75}/>
                                             </button>
                                         )}
                                     </div>
@@ -559,66 +543,17 @@ export default function Page() {
                 </div>
 
                 {/* ---- 음식점 수정 ---- */}
-                <Modal
-                    title="음식점 수정"
+                <RestaurantEditSheet
+                    key={editSeq}
                     open={isEditingRestaurant}
                     onOpenChange={setIsEditingRestaurant}
-                >
-                    <div className="flex flex-col gap-3">
-                        <div>
-                            <div id="edit-categories-label" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                카테고리 <span className="text-[#D2571E]">*</span>
-                            </div>
-                            <CategoryChips categories={categories} selected={editCategoryIds}
-                                           onChange={setEditCategoryIds} labelledBy="edit-categories-label"/>
-                        </div>
-
-                        <div>
-                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                이름 <span className="text-[#D2571E]">*</span>
-                            </label>
-                            <input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                maxLength={100}
-                                placeholder="예: 미뜨레피자"
-                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="edit-description" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">설명</label>
-                            <textarea
-                                id="edit-description"
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
-                                maxLength={100}
-                                rows={2}
-                                placeholder="예: 양념은 따로 달라고 하기"
-                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none leading-relaxed"
-                            />
-                        </div>
-
-                        <div>
-                            <div className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                지점 <span className="font-medium text-[#B7AF9F]">메뉴는 같고 맛이 다른 곳</span>
-                            </div>
-                            <BranchManager restaurantId={restaurant.id} branches={restaurant.branches}
-                                           onCreate={createBranch} onChanged={() => {
-                                // 지운 지점으로 거르고 있었다면 전체로 돌린다
-                                setSelectedBranch(null)
-                                fetchRestaurant()
-                            }}/>
-                        </div>
-
-                        <button
-                            onClick={saveRestaurant}
-                            className="w-full text-[13.5px] font-bold text-white bg-[#24564A] rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-[#1c443a] transition-colors"
-                        >
-                            수정하기
-                        </button>
-                    </div>
-                </Modal>
+                    restaurant={restaurant}
+                    onChanged={(change) => {
+                        // 지운 지점으로 거르고 있었다면 전체로 돌린다
+                        if (change === "branches") setSelectedBranch(null)
+                        fetchRestaurant()
+                    }}
+                />
             </div>
         </Suspense>
     )

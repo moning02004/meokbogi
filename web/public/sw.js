@@ -15,7 +15,9 @@ self.addEventListener("push", (event) => {
     event.waitUntil(self.registration.showNotification(data.title || "먹보기", {
         body: data.body || "",
         icon: "/icons/icon-192.png",
-        badge: "/icons/icon-192.png",
+        // 배지는 안드로이드가 알파 채널만 써서 한 가지 색으로 칠한다.
+        // 불투명한 앱 아이콘을 주면 하얀 원만 보이므로, 투명 바탕에 포크·숟가락만 있는 그림을 쓴다.
+        badge: "/icons/badge-96.png",
         lang: "ko",
         data: {url: data.url || "/home"},
     }))
