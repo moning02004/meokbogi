@@ -29,7 +29,13 @@ interface ActionDrawerProps {
     triggerLabel?: string
 }
 
-export function ActionDrawer({trigger, items, closeLabel = "취소", extraButton, triggerLabel = "더보기"}: ActionDrawerProps) {
+export function ActionDrawer({
+                                 trigger,
+                                 items,
+                                 closeLabel = "취소",
+                                 extraButton,
+                                 triggerLabel = "더보기"
+                             }: ActionDrawerProps) {
     const [open, setOpen] = useState(false)
     const [pending, setPending] = useState<ActionDrawerItem | null>(null)
 
@@ -59,7 +65,10 @@ export function ActionDrawer({trigger, items, closeLabel = "취소", extraButton
                 <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40"/>
 
                 <Drawer.Content
-                    className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:w-[50vw] bg-white outline-none">
+                    className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:w-[50vw] bg-white outline-none rounded-t-lg shadow-lg">
+                    <div className="shrink-0 flex flex-col items-center pt-2.5">
+                        <div className="w-10 h-1 rounded-full bg-[#E7E0CF]" aria-hidden/>
+                    </div>
                     {pending?.confirm ? (
                         <div className="flex flex-col gap-3 p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]">
                             <Drawer.Title className="text-[15px] font-extrabold text-[#211D17]">
@@ -101,7 +110,8 @@ export function ActionDrawer({trigger, items, closeLabel = "취소", extraButton
                                 </button>
                             ))}
                             {closeLabel &&
-                                <Drawer.Close className="w-full p-3 hover:bg-[#efefef] rounded cursor-pointer text-left">
+                                <Drawer.Close
+                                    className="w-full p-3 hover:bg-[#efefef] rounded cursor-pointer text-left">
                                     {closeLabel}
                                 </Drawer.Close>
                             }
