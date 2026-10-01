@@ -18,6 +18,7 @@ export function Bottombar() {
                         <button
                             key={item.name}
                             onClick={() => router.push(item.path)}
+                            aria-label={item.name}
                             className="flex items-center justify-center
                                        -translate-y-4
                                        w-13 h-13 rounded-full

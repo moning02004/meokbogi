@@ -60,3 +60,44 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_API_HOST: http://localhost:8000
+
+  # 실제 API(SQLite)와 웹 빌드를 띄우고 모바일 크기 Chromium으로 돈다 (web/e2e)
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: api/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: |
+          pip install -r ../api/requirements.txt
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: E2E
+        run: npm run e2e
+
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 7

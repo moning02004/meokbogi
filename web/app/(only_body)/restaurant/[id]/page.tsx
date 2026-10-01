@@ -294,6 +294,8 @@ export default function Page() {
 
         // 기록 버튼을 연타하면 같은 리뷰가 여러 개 생기던 문제
         setIsSubmittingReview(true)
+        // 터치로 버튼을 누르면 메뉴 입력칸의 포커스가 빠지지 않아 제안 목록이 열린 채 한줄평을 가렸다 (E2E에서 발견)
+        setShowMenuSuggestions(false)
 
         const reviewAdd = RESTAURANT_REVIEW_API.add
         apiRequest[reviewAdd.method]<RestaurantReviewType>(reviewAdd.endpoint({

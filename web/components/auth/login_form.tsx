@@ -61,8 +61,9 @@ export const LoginForm = () => {
 
             {/* 폼 */}
             <div className="px-6 pb-10">
-                <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">아이디</label>
+                <label htmlFor="login-username" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">아이디</label>
                 <input
+                    id="login-username"
                     type="text"
                     value={username}
                     onKeyUp={handleKeyup}
@@ -73,8 +74,9 @@ export const LoginForm = () => {
                     className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3 bg-[#FBFAF6] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#C4BCA8]"
                 />
 
-                <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5 mt-4">비밀번호</label>
+                <label htmlFor="login-password" className="block text-[12px] font-bold text-[#8A8172] mb-1.5 mt-4">비밀번호</label>
                 <input
+                    id="login-password"
                     type="password"
                     value={password}
                     onKeyUp={handleKeyup}
