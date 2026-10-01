@@ -4,11 +4,13 @@ import {Suspense, useEffect, useState} from "react"
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {USER_API} from "@/constants/routeUrl";
-import {apiRequest} from "@/lib/api";
+import {apiRequest, errorMessage} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
 import {Modal} from "@/components/ui/modal";
 import {ZoneManager} from "@/components/settings/zone_manager";
+import {ArchiveManager} from "@/components/settings/archive_manager";
+import {syncZones} from "@/lib/zone";
 
 interface UserType {
     username: string;
@@ -23,6 +25,8 @@ interface UserType {
 
 export default function Page() {
     const [user, setUser] = useState<UserType | null>(null)
+    // 가져오기 뒤 존 관리 목록을 새로 읽게 하려고 key로 다시 만든다
+    const [zoneListKey, setZoneListKey] = useState(0)
 
     // 이름 수정
     const [isEditingName, setIsEditingName] = useState(false)
@@ -57,8 +61,8 @@ export default function Page() {
         }).then(() => {
             setIsEditingName(false)
             fetchUserInfo()
-        }).catch(() => {
-            toast.error("이름 수정에 실패했어요. 잠시 후 다시 시도해주세요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "이름 수정에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
@@ -89,8 +93,9 @@ export default function Page() {
         }).then(() => {
             toast.success("비밀번호가 변경되었어요.")
             closePasswordForm()
-        }).catch(() => {
-            toast.error("비밀번호 변경에 실패했어요. 현재 비밀번호를 확인해주세요.")
+        }).catch((error) => {
+            // "현재 비밀번호가 올바르지 않습니다", "비밀번호가 너무 짧습니다" 등 서버가 준 사유를 보여준다
+            toast.error(errorMessage(error, "비밀번호 변경에 실패했어요."))
         })
     }
 
@@ -117,6 +122,7 @@ export default function Page() {
                                     }}
                                     autoFocus
                                     placeholder="이름"
+                                    maxLength={150}
                                     className="flex-1 min-w-0 text-[15px] font-bold text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2 outline-none focus:border-[#24564A] transition-colors"
                                 />
                                 <button
@@ -186,10 +192,25 @@ export default function Page() {
                 <div className="px-5 pt-5">
                     <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">존 관리</div>
                     <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
-                        <ZoneManager/>
+                        <ZoneManager key={zoneListKey}/>
                     </div>
                     <p className="text-[11.5px] text-[#B7AF9F] mt-2 leading-relaxed">
                         존을 선택하면 카테고리를 추가하거나 지울 수 있어요.
+                    </p>
+                </div>
+
+                {/* ---- 내 기록 ---- */}
+                <div className="px-5 pt-5">
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">내 기록</div>
+                    <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
+                        <ArchiveManager onImported={() => {
+                            fetchUserInfo()
+                            syncZones().catch(() => null)
+                            setZoneListKey((key) => key + 1)
+                        }}/>
+                    </div>
+                    <p className="text-[11.5px] text-[#B7AF9F] mt-2 leading-relaxed">
+                        서버를 옮기거나 업데이트하기 전에 백업 파일을 받아 두세요.
                     </p>
                 </div>
 

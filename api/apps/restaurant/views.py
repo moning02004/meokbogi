@@ -1,11 +1,35 @@
-from django.db.models import Count, Max, OuterRef, Prefetch, Subquery, Sum, Avg
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
-from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
+import json
 
+from django.db.models import Avg, Count, F, Max, Prefetch, Sum
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import viewsets
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.restaurant.archive import ARCHIVE_FORMAT, ArchiveSerializer, build_archive, build_csv, import_archive
+from apps.restaurant.menus import canonical_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.picking import pick_restaurant
 from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
 from apps.zone.models import Category
+
+
+# 목록 정렬 (?sort=). 방문·리뷰가 없는 음식점은 어느 정렬에서든 뒤로 보낸다.
+RESTAURANT_SORTS = {
+    "recent": (F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "rating": (F("review_avg").desc(nulls_last=True), F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "visits": ("-ordered_count", F("latest_ordered_at").desc(nulls_last=True), "-id"),
+    "name": ("name", "id"),
+}
+
+
+def sort_restaurants(queryset, sort):
+    return queryset.order_by(*RESTAURANT_SORTS.get(sort, RESTAURANT_SORTS["recent"]))
 
 
 def annotate_restaurants(queryset):
@@ -20,14 +44,33 @@ def annotate_restaurants(queryset):
 
 class AllRestaurantsListAPIView(ListAPIView):
     serializer_class = RestaurantListSerializer
+    # ?search= 로 이름 검색 (음식점 등록 화면의 중복 확인에 쓴다)
+    search_fields = ["name"]
 
     def get_queryset(self):
         queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
                                              category__zone_id=self.kwargs["zone_pk"])
         category_id = self.request.query_params.get("category")
-        if category_id:
+        # 숫자가 아닌 값이 오면 filter()가 ValueError로 500을 내므로 무시한다
+        if category_id and category_id.isdigit():
             queryset = queryset.filter(category_id=category_id)
-        return annotate_restaurants(queryset)
+        return sort_restaurants(annotate_restaurants(queryset), self.request.query_params.get("sort"))
+
+
+class RestaurantPickAPIView(APIView):
+    """한 카테고리(없으면 장소 전체)에서 음식점 하나를 가중치를 줘서 뽑는다."""
+
+    def get(self, request, *args, **kwargs):
+        queryset = Restaurant.objects.filter(category__zone__user_id=request.user.id,
+                                             category__zone_id=self.kwargs["zone_pk"])
+        category_id = request.query_params.get("category")
+        if category_id and category_id.isdigit():
+            queryset = queryset.filter(category_id=category_id)
+        # 기본은 실망한 곳을 뺀다. exclude_disappointing=0 이면 포함
+        exclude = request.query_params.get("exclude_disappointing", "1") != "0"
+
+        picked = pick_restaurant(list(annotate_restaurants(queryset)), timezone.localdate(), exclude)
+        return Response({"restaurant": RestaurantListSerializer(picked).data if picked else None})
 
 
 class RestaurantListViewSet(viewsets.ModelViewSet):
@@ -37,7 +80,7 @@ class RestaurantListViewSet(viewsets.ModelViewSet):
         queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id,
                                              category__zone_id=self.kwargs["zone_pk"],
                                              category_id=self.kwargs["category_pk"])
-        return annotate_restaurants(queryset)
+        return sort_restaurants(annotate_restaurants(queryset), "recent")
 
     def perform_create(self, serializer):
         # get_queryset은 조회에만 적용되므로 생성 시에는 카테고리 소유 여부를 따로 확인해야 한다
@@ -55,10 +98,11 @@ class RestaurantInfoViewSet(viewsets.ModelViewSet):
         queryset = Restaurant.objects.filter(category__zone__user_id=self.request.user.id)
         queryset = queryset.prefetch_related(
             Prefetch("review_set",
-                     queryset=RestaurantReview.objects.all().order_by("-ordered_at"))
+                     queryset=RestaurantReview.objects.all().order_by("-ordered_at", "-id"))
         )
         queryset = annotate_restaurants(queryset)
-        return queryset.get(pk=self.kwargs["restaurant_pk"])
+        # 남의 음식점이거나 없는 id면 500이 아니라 404
+        return get_object_or_404(queryset, pk=self.kwargs["restaurant_pk"])
 
 
 class RestaurantReviewViewSet(viewsets.ModelViewSet):
@@ -70,19 +114,79 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
         menu = self.request.query_params.get("menu")
         if menu is not None:
             queryset = queryset.filter(menu=menu)
-        return queryset
+        return queryset.order_by("-ordered_at", "-id")
 
     def perform_create(self, serializer):
         # get_queryset은 조회에만 적용되므로 생성 시에는 음식점 소유 여부를 따로 확인해야 한다
         restaurant = get_object_or_404(Restaurant,
                                        pk=self.kwargs["restaurant_pk"],
                                        category__zone__user_id=self.request.user.id)
-        serializer.save(user=self.request.user, restaurant=restaurant)
+        menu = canonical_menu(restaurant, serializer.validated_data.get("menu", ""))
+        serializer.save(user=self.request.user, restaurant=restaurant, menu=menu)
 
 
-class RestaurantReviewDeleteAPIView(DestroyAPIView):
+class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
+    # 이름은 예전 그대로 두지만 수정(PATCH)도 받는다
+    serializer_class = RestaurantReviewSerializer
+
+    def perform_update(self, serializer):
+        if "menu" not in serializer.validated_data:
+            serializer.save()
+            return
+        menu = canonical_menu(serializer.instance.restaurant, serializer.validated_data["menu"],
+                              exclude_review_id=serializer.instance.pk)
+        serializer.save(menu=menu)
+
     def get_object(self):
         return get_object_or_404(RestaurantReview,
                                  restaurant__category__zone__user_id=self.request.user.id,
                                  restaurant_id=self.kwargs["restaurant_pk"],
                                  pk=self.kwargs["review_pk"])
+
+
+class ArchiveExportAPIView(APIView):
+    """내 기록 전체를 파일로 내려준다. ?type=csv 면 엑셀용 CSV, 아니면 다시 가져올 수 있는 JSON.
+
+    (DRF가 ?format= 을 응답 형식 지정에 쓰므로 type으로 받는다)
+    """
+
+    def get(self, request, *args, **kwargs):
+        stamp = timezone.localdate().strftime("%Y%m%d")
+        if request.query_params.get("type") == "csv":
+            response = HttpResponse(build_csv(request.user), content_type="text/csv; charset=utf-8")
+            filename = f"meokbogi-{stamp}.csv"
+        else:
+            response = HttpResponse(json.dumps(build_archive(request.user), ensure_ascii=False, indent=2),
+                                    content_type="application/json; charset=utf-8")
+            filename = f"meokbogi-{stamp}.json"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ArchiveImportAPIView(APIView):
+    """내보낸 JSON 파일을 합쳐서 가져온다. ?dry_run=1 이면 바꾸지 않고 결과만 미리 본다.
+
+    요청 본문 크기 제한(2.5MB)을 피하려고 multipart 파일(file)로 받는다.
+    """
+    parser_classes = [MultiPartParser]
+    MAX_BYTES = 20 * 1024 * 1024
+
+    def post(self, request, *args, **kwargs):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "가져올 파일을 골라주세요."})
+        if upload.size > self.MAX_BYTES:
+            raise ValidationError({"file": "파일이 너무 커요. 20MB까지 가져올 수 있어요."})
+        try:
+            data = json.loads(upload.read().decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ValidationError({"file": "JSON 파일을 읽지 못했어요. 먹보기에서 내보낸 .json 파일인지 확인해주세요."})
+        # 필드별 "필수 항목" 오류보다 "어떤 파일인지"를 먼저 알려준다
+        if not isinstance(data, dict) or data.get("format") != ARCHIVE_FORMAT:
+            raise ValidationError({"file": "먹보기에서 내보낸 백업 파일이 아니에요."})
+
+        serializer = ArchiveSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        dry_run = request.query_params.get("dry_run") == "1"
+        summary = import_archive(request.user, serializer.validated_data, dry_run=dry_run)
+        return Response({**summary, "dry_run": dry_run})

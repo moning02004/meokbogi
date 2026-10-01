@@ -27,6 +27,7 @@ class CategoryManageSerializer(serializers.ModelSerializer):
 
 class ZoneListSerializer(serializers.ModelSerializer):
     category = CategoryListSerializer(source="category_set", many=True, read_only=True)
+    name = serializers.CharField(max_length=100, trim_whitespace=True)
 
     class Meta:
         model = Zone
@@ -55,11 +56,12 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
     monthly_visited_count = serializers.IntegerField(read_only=True)
     delicious_restaurants = serializers.SerializerMethodField(read_only=True)
     recent_restaurants = serializers.SerializerMethodField(read_only=True)
+    forgotten_restaurants = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Zone
         fields = ["id", "name", "category", "restaurant_count", "review_count", "monthly_visited_count",
-                  "delicious_restaurants", "recent_restaurants"]
+                  "delicious_restaurants", "recent_restaurants", "forgotten_restaurants"]
 
     def create(self, validated_data):
         validated_data["user_id"] = self.context["request"].user.id
@@ -80,3 +82,12 @@ class ZoneDashboardSerializer(serializers.ModelSerializer):
 
         restaurants.sort(key=lambda r: r.latest_ordered_at, reverse=True)
         return RestaurantListSerializer(restaurants[:3], many=True).data
+
+    def get_forgotten_restaurants(self, value):
+        restaurants = []
+        for category in value.category_set.all():
+            restaurants.extend(category.forgotten_restaurants)
+
+        # 가장 오래 안 간 곳부터
+        restaurants.sort(key=lambda r: (r.latest_ordered_at, -r.review_avg))
+        return RestaurantListSerializer(restaurants[:5], many=True).data

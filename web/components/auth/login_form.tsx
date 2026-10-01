@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {apiRequest} from "@/lib/api";
+import {ApiError, apiRequest} from "@/lib/api";
 import {useAuthStore} from "@/store/auth";
 import {useRouter} from "next/navigation";
 
@@ -8,21 +8,29 @@ export const LoginForm = () => {
     const [username, setUsername] = useState<string>("")
     const [password, setPassword] = useState<string>("")
     const [errorMessage, setErrorMessage] = useState<string>("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const {setAuth} = useAuthStore.getState();
 
     const handleLogin = async () => {
+        if (isSubmitting) return
         if (!username || !password) {
             setErrorMessage("아이디와 비밀번호를 모두 입력하세요.")
             return;
         }
+
+        setIsSubmitting(true)
 
         await apiRequest.post<{ access_token: string, user_id: string }>("/auth/obtain-token",
             {body: JSON.stringify({username: username, password: password})}
         ).then((response: { access_token: string, user_id: string }) => {
             setAuth(response.access_token, response.user_id)
             router.push("/home")
-        }).catch(() => {
-            setErrorMessage("계정을 찾을 수 없습니다.")
+        }).catch((error) => {
+            // 401만 "계정 정보 틀림"이고, 429(시도 과다)·네트워크 오류는 서버가 준 메시지를 그대로 보여준다
+            setErrorMessage(error instanceof ApiError && error.status === 401
+                ? "아이디 또는 비밀번호가 올바르지 않아요."
+                : (error as Error).message)
+            setIsSubmitting(false)
         })
     }
 
@@ -53,22 +61,27 @@ export const LoginForm = () => {
 
             {/* 폼 */}
             <div className="px-6 pb-10">
-                <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">아이디</label>
+                <label htmlFor="login-username" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">아이디</label>
                 <input
+                    id="login-username"
                     type="text"
                     value={username}
                     onKeyUp={handleKeyup}
                     onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                    autoCapitalize="none"
                     placeholder="아이디를 입력하세요"
                     className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3 bg-[#FBFAF6] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#C4BCA8]"
                 />
 
-                <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5 mt-4">비밀번호</label>
+                <label htmlFor="login-password" className="block text-[12px] font-bold text-[#8A8172] mb-1.5 mt-4">비밀번호</label>
                 <input
+                    id="login-password"
                     type="password"
                     value={password}
                     onKeyUp={handleKeyup}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3 bg-[#FBFAF6] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#C4BCA8]"
                 />
@@ -79,9 +92,10 @@ export const LoginForm = () => {
 
                 <button
                     onClick={handleLogin}
-                    className="w-full mt-6 py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] active:scale-[0.99] transition-all"
+                    disabled={isSubmitting}
+                    className="w-full mt-6 py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] active:scale-[0.99] transition-all disabled:opacity-60"
                 >
-                    로그인
+                    {isSubmitting ? "로그인 중…" : "로그인"}
                 </button>
             </div>
         </div>

@@ -50,8 +50,12 @@ export interface RestaurantListItemType {
     review_avg: number | null;
 }
 
+export type RestaurantSort = "recent" | "rating" | "visits" | "name"
+
 export interface MenuSummaryType {
     menu: string;
     review_count: number;
     review_avg: number;      // -1 | 0 | 1 (서버에서 계산한 통합 만족도)
+    last_point: number;      // 이 메뉴의 가장 최근 만족도 ("또 먹었어요"에 그대로 쓴다)
+    last_ordered_at: string;
 }

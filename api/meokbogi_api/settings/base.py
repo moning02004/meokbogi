@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     "rest_framework",
+    # 로그아웃·토큰 회전 시 이전 refresh 토큰을 무효화한다 (만료된 기록은 flushexpiredtokens로 정리)
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",  # CORS 처리 시 필요 (프론트엔드 분리 시 권장)
 
     "apps.zone",
@@ -105,9 +107,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ko-kr'
 
-TIME_ZONE = 'UTC'
+# 사용자가 한국 기준이므로 "이번 달" 같은 날짜 경계도 KST로 잡는다
+TIME_ZONE = 'Asia/Seoul'
 
 USE_I18N = True
 
@@ -166,9 +169,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
+    # 앱을 열 때마다 refresh-token(익명)이 한 번씩 나가므로 anon을 일 단위로 묶으면
+    # 같은 공유기 뒤 사용자 몇 명만으로도 자동로그인이 429로 막힌다. 분 단위로 잡고,
+    # 무차별 대입은 로그인 전용 scope(login)로 따로 막는다.
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
-        "user": "1000/day",
+        "anon": "60/min",
+        "user": "120/min",
+        "login": "10/min",
     },
 
     # 날짜/시간 포맷
@@ -178,7 +185,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=15),
-    "ROTATE_REFRESH_TOKENS": True
+    "ROTATE_REFRESH_TOKENS": True,
+    # 회전된 refresh 토큰은 바로 쓸 수 없게 한다. 그렇지 않으면 유출된 예전 쿠키가 15일간 유효하다.
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # ------------------------------------------------------------------------------
@@ -186,6 +195,8 @@ SIMPLE_JWT = {
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [origin for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
 CORS_ALLOW_CREDENTIALS = True
+# 내보내기 파일 이름을 브라우저 스크립트가 읽을 수 있게 한다 (다른 출처 응답은 기본으로 숨겨진다)
+CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
 # ------------------------------------------------------------------------------
 # refresh 토큰 쿠키

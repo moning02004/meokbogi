@@ -1,54 +1,25 @@
 "use client"
 
-import {forwardRef, Suspense, useCallback, useEffect, useState} from "react"
+import {Suspense, useCallback, useEffect, useState} from "react"
 import {useParams, useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
-import {apiRequest} from "@/lib/api";
+import {ApiError, apiRequest, errorMessage} from "@/lib/api";
+import {today} from "@/lib/date";
 import NotFound from "next/dist/client/components/builtin/not-found";
-import {MdSentimentNeutral, MdSentimentSatisfiedAlt, MdSentimentVeryDissatisfied} from "react-icons/md";
 import {MenuSummaryType, RestaurantReviewType, RestaurantType} from "@/types/restaurant";
-import DatePicker from "react-datepicker"
-import "react-datepicker/dist/react-datepicker.css"
 import {FaArrowLeft, FaChevronRight} from "react-icons/fa";
 import {FiArrowUpLeft} from "react-icons/fi";
-import {LuCalendar, LuEllipsisVertical} from "react-icons/lu";
+import {LuEllipsisVertical, LuPencilLine} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {Modal} from "@/components/ui/modal";
 import {useCategoryStore} from "@/store/category";
 import {CategoryType} from "@/types/zone";
-
-const SENTIMENTS = {
-    1: {icon: MdSentimentSatisfiedAlt, color: "#24564A", bg: "bg-[#B5E3C4]", text: "text-[#24564A]", label: "만족"},
-    0: {icon: MdSentimentNeutral, color: "#8A8172", bg: "bg-[#D6D2CC]", text: "text-[#8A8172]", label: "보통"},
-    [-1]: {
-        icon: MdSentimentVeryDissatisfied,
-        color: "#C23B1E",
-        bg: "bg-[#EBB9A2]",
-        text: "text-[#C23B1E]",
-        label: "실망"
-    },
-} as const
-
-type SentimentKey = 1 | 0 | -1
-
-const DateChipButton = forwardRef<HTMLButtonElement, { value?: string; onClick?: () => void }>(
-    ({value, onClick}, ref) => (
-        <button
-            type="button"
-            onClick={onClick}
-            ref={ref}
-            className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#5B5548] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2 cursor-pointer sm:hover:bg-[#F1EDE2] transition-colors w-full"
-        >
-            <LuCalendar size={13}/>
-            {value || "오늘"}
-        </button>
-    )
-)
-DateChipButton.displayName = "DateChipButton"
+import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
+import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
 
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
@@ -88,9 +59,10 @@ export default function Page() {
     const {token} = useAuthStore.getState()
     const router = useRouter()
     const categories = useCategoryStore(state => state.categories)
-    const maxDate = new Date();
 
     const [restaurant, setRestaurant] = useState<RestaurantType | null>(null)
+    // 없는 음식점·지워진 음식점이면 로딩 화면에서 멈추지 않고 안내를 보여준다
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [menuSummaries, setMenuSummaries] = useState<MenuSummaryType[]>([])
 
     // 음식점 수정
@@ -100,12 +72,9 @@ export default function Page() {
     const [editDescription, setEditDescription] = useState("")
     const [editAddress, setEditAddress] = useState("")
 
-    // 리뷰 폼
-    const [reviewPoint, setReviewPoint] = useState<SentimentKey>(1)
-    const [orderedAt, setOrderedAt] = useState("")
-    const [reviewMenu, setReviewMenu] = useState("")
-    const [reviewContent, setReviewContent] = useState("")
-    const [showMenuSuggestions, setShowMenuSuggestions] = useState(false)
+    // 리뷰 쓰기·고치기 시트. 열 때마다 seq를 올려 폼을 새로 만든다.
+    const [sheet, setSheet] = useState<{ review: RestaurantReviewType | null; initial: ReviewDraft; seq: number } | null>(null)
+    const [isSheetOpen, setIsSheetOpen] = useState(false)
 
     // 리뷰 목록 (별도 페이지네이션)
     const [activeTab, setActiveTab] = useState<"menu" | "all">("menu")
@@ -115,15 +84,6 @@ export default function Page() {
     const [reviewPage, setReviewPage] = useState(1)
     const [hasMoreReviews, setHasMoreReviews] = useState(false)
     const [isReviewLoading, setIsReviewLoading] = useState(false)
-
-    const orderedAtDate = orderedAt ? new Date(orderedAt) : null
-
-    const formatDate = (date: Date) => {
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, "0")
-        const day = String(date.getDate()).padStart(2, "0")
-        return `${year}-${month}-${day}`
-    }
 
     useEffect(() => {
         if (!token) router.replace("/login")
@@ -138,6 +98,10 @@ export default function Page() {
             setRestaurant(response)
             setMenuSummaries(response.menu_summaries ?? [])
             setReviewCount(response.review_count ?? 0)
+        }).catch((error) => {
+            setLoadError(error instanceof ApiError && error.status === 404
+                ? "음식점을 찾을 수 없어요. 삭제되었거나 다른 계정의 음식점이에요."
+                : errorMessage(error, "음식점 정보를 불러오지 못했어요."))
         })
     }, [restaurantId])
 
@@ -164,19 +128,20 @@ export default function Page() {
             setReviewCount(res.count)
             setHasMoreReviews(Boolean(res.next))
             setReviewPage(page)
+        }).catch((error) => {
+            toast.error(errorMessage(error, "리뷰를 불러오지 못했어요."))
         }).finally(() => setIsReviewLoading(false))
     }, [restaurantId])
 
-    // 전체 리뷰 탭으로 들어가거나 필터가 바뀌면 1페이지부터 다시 요청
-    useEffect(() => {
-        if (activeTab !== "all") return
-        fetchReviews(menuFilter, 1, false)
-    }, [activeTab, menuFilter, fetchReviews])
-
-    const openMenuReviews = (menu: string) => {
+    // 전체 리뷰 탭으로 들어가거나 필터가 바뀌면 1페이지부터 다시 요청한다.
+    // effect로 하면 렌더 → effect → setState가 연쇄되므로 탭/필터를 바꾸는 이벤트에서 바로 부른다.
+    const showReviews = (menu: string | null) => {
         setMenuFilter(menu)
         setActiveTab("all")
+        fetchReviews(menu, 1, false)
     }
+
+    const openMenuReviews = (menu: string) => showReviews(menu)
 
     // 현재 값으로 폼을 채운 뒤 수정 모달을 연다
     const editRestaurant = () => {
@@ -207,62 +172,69 @@ export default function Page() {
         }).then(() => {
             setIsEditingRestaurant(false)
             fetchRestaurant()
-        }).catch(() => {
-            toast.error("수정에 실패했어요. 잠시 후 다시 시도해주세요.")
+            toast.success("음식점 정보를 고쳤어요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "수정에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
     const deleteRestaurant = () => {
-        if (!confirm("음식점을 삭제하시겠습니까?")) return
         const deleteRestaurantAPI = RESTAURANT_API.delete
         apiRequest[deleteRestaurantAPI.method](deleteRestaurantAPI.endpoint({restaurant: Number(restaurantId)}))
             .then(() => {
                 toast.success("음식점이 삭제되었습니다.")
                 router.replace("/restaurant")
             })
+            .catch((error) => toast.error(errorMessage(error, "삭제에 실패했어요.")))
     }
 
-    // 입력한 텍스트로 시작하는 기존 메뉴 (없으면 새 메뉴로 기록됨)
-    const keyword = reviewMenu.trim()
-    const menuSuggestions = keyword
-        ? menuSummaries.filter((summary) => summary.menu && summary.menu.includes(keyword))
-        : menuSummaries.filter((summary) => summary.menu)
-
-    const selectMenuSuggestion = (menu: string) => {
-        setReviewMenu(menu)
-        setShowMenuSuggestions(false)
+    const openSheet = (review: RestaurantReviewType | null, initial: Partial<ReviewDraft> = {}) => {
+        setSheet((prev) => ({
+            review,
+            initial: {ordered_at: today(), menu: "", point: 1, content: "", ...initial},
+            seq: (prev?.seq ?? 0) + 1,
+        }))
+        setIsSheetOpen(true)
     }
 
-    const registerReview = () => {
-        if (!reviewMenu.trim()) {
-            toast.error("드신 메뉴를 입력해주세요.")
-            return;
-        }
+    // 새 기록. "또 먹었어요"는 그 메뉴와 지난번 만족도를 채워서 연다.
+    const startRecording = (summary?: MenuSummaryType) => {
+        openSheet(null, summary ? {menu: summary.menu, point: summary.last_point as SentimentKey} : {})
+    }
 
-        const reviewAdd = RESTAURANT_REVIEW_API.add
-        apiRequest[reviewAdd.method]<RestaurantReviewType>(reviewAdd.endpoint({
-            restaurant: Number(restaurantId)
-        }), {
-            body: JSON.stringify({
-                menu: reviewMenu.trim(),
-                content: reviewContent,
-                ordered_at: orderedAt || formatDate(new Date()),
-                point: reviewPoint
-            })
-        }).then(() => {
-            setReviewMenu("")
-            setReviewContent("")
-            setOrderedAt("")
-            setReviewPoint(1)
-
-            // 요약/카운트가 서버에서 재계산되므로 상세를 다시 불러온다
-            fetchRestaurant()
-            if (activeTab === "all") fetchReviews(menuFilter, 1, false)
-        }).catch(() => {
-            toast.error("기록에 실패했어요. 잠시 후 다시 시도해주세요.")
+    const startEditingReview = (review: RestaurantReviewType) => {
+        openSheet(review, {
+            ordered_at: review.ordered_at,
+            menu: review.menu ?? "",
+            point: review.point as SentimentKey,
+            content: review.content ?? "",
         })
     }
 
+    const submitReview = (draft: ReviewDraft) => {
+        const editing = sheet?.review
+        const request = editing
+            ? apiRequest[RESTAURANT_REVIEW_API.update.method]<RestaurantReviewType>(RESTAURANT_REVIEW_API.update.endpoint({
+                restaurant: Number(restaurantId),
+                review: editing.id,
+            }), {body: JSON.stringify(draft)})
+            : apiRequest[RESTAURANT_REVIEW_API.add.method]<RestaurantReviewType>(RESTAURANT_REVIEW_API.add.endpoint({
+                restaurant: Number(restaurantId)
+            }), {body: JSON.stringify(draft)})
+
+        return request.then((saved) => {
+            setIsSheetOpen(false)
+            if (editing) setReviews((prev) => prev.map((review) => review.id === saved.id ? saved : review))
+            // 요약/카운트가 서버에서 재계산되므로 상세를 다시 불러온다
+            fetchRestaurant()
+            if (!editing && activeTab === "all") fetchReviews(menuFilter, 1, false)
+            toast.success(editing ? "리뷰를 고쳤어요." : "기록했어요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, editing ? "리뷰를 고치지 못했어요." : "기록에 실패했어요. 잠시 후 다시 시도해주세요."))
+        })
+    }
+
+    // 확인은 리뷰 메뉴 시트 안의 확인 단계가 맡는다
     const deleteReview = (reviewId: number) => {
         const reviewDelete = RESTAURANT_REVIEW_API.delete
         apiRequest[reviewDelete.method](reviewDelete.endpoint({
@@ -271,23 +243,33 @@ export default function Page() {
         })).then(() => {
             setReviews((prev) => prev.filter((review) => review.id !== reviewId))
             setReviewCount((prev) => Math.max(prev - 1, 0))
-
             // 메뉴 요약/평균이 서버에서 재계산되므로 상세를 다시 불러온다
             fetchRestaurant()
-        }).catch(() => {
-            toast.error("삭제에 실패했어요. 잠시 후 다시 시도해주세요.")
+            toast.success("리뷰를 삭제했어요.")
+        }).catch((error) => {
+            toast.error(errorMessage(error, "삭제에 실패했어요. 잠시 후 다시 시도해주세요."))
         })
     }
 
     if (!restaurantId) return <NotFound/>
+    if (loadError) return (
+        <div className="flex flex-col items-center justify-center gap-4 h-full px-6 text-center">
+            <p className="text-[14px] font-semibold text-[#8A8172] leading-relaxed">{loadError}</p>
+            <button
+                onClick={() => router.replace("/restaurant")}
+                className="text-[13.5px] font-bold text-white bg-[#24564A] rounded-xl px-5 py-3 cursor-pointer sm:hover:bg-[#1c443a] transition-colors">
+                음식점 목록으로
+            </button>
+        </div>
+    )
     if (!restaurant) return <LoadingPage/>
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="min-h-[100%] bg-white mb-10">
+            <div className="min-h-[100%] bg-white pb-28">
 
                 <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
-                    <button className="text-[#211D17] cursor-pointer" onClick={() => router.back()}>
+                    <button aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5" onClick={() => router.back()}>
                         <FaArrowLeft size={16}/>
                     </button>
                     <div className="text-[15px] font-bold text-[#211D17]">음식점</div>
@@ -313,6 +295,7 @@ export default function Page() {
                         </div>
                         <div className="ml-auto">
                             <ActionDrawer
+                                triggerLabel="음식점 메뉴 열기"
                                 items={[{
                                     label: "음식점 수정",
                                     onClick: () => editRestaurant(),
@@ -320,6 +303,11 @@ export default function Page() {
                                     label: "음식점 삭제",
                                     danger: true,
                                     onClick: () => deleteRestaurant(),
+                                    confirm: {
+                                        title: `'${restaurant.name}'을(를) 삭제할까요?`,
+                                        description: `리뷰 ${restaurant.review_count}개도 함께 사라지고 되돌릴 수 없어요.`,
+                                        confirmLabel: "삭제",
+                                    },
                                 }]}
                             />
                         </div>
@@ -332,83 +320,6 @@ export default function Page() {
                     <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
                         방문 {restaurant.ordered_count}회 · 최근 방문 {restaurant.latest_ordered_at || "-"} · 전체
                         리뷰 {restaurant.review_count} 개
-                    </div>
-                </div>
-
-                {/* ---- 기록 폼: 날짜 / 메뉴+만족도 / 한줄평+등록 ---- */}
-                <div className="mx-5 mb-5 border border-[#E7E0CF] rounded-2xl px-4 py-3.5">
-                    <div className="mb-3 border-[#F0EBDD] w-full">
-                        <DatePicker
-                            wrapperClassName="w-full"
-                            selected={orderedAtDate}
-                            onChange={(date: Date | null) => setOrderedAt(date ? formatDate(date) : "")}
-                            maxDate={maxDate}
-                            dateFormat="yyyy-MM-dd"
-                            customInput={<DateChipButton/>}
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2.5 mb-3">
-                        <div className="relative flex-1 min-w-0">
-                            <input
-                                value={reviewMenu}
-                                onChange={(e) => setReviewMenu(e.target.value)}
-                                onFocus={() => setShowMenuSuggestions(true)}
-                                onBlur={() => setTimeout(() => setShowMenuSuggestions(false), 150)}
-                                placeholder="오늘 뭐 드셨어요?"
-                                className="w-full text-[13px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
-                            />
-                            {showMenuSuggestions && menuSuggestions.length > 0 && (
-                                <div
-                                    className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-lg shadow-md max-h-48 overflow-y-auto">
-                                    {menuSuggestions.map((summary) => (
-                                        <button
-                                            key={summary.menu}
-                                            type="button"
-                                            onMouseDown={() => selectMenuSuggestion(summary.menu)}
-                                            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#211D17] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
-                                        >
-                                            <span className="truncate">{summary.menu}</span>
-                                            <span
-                                                className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {summary.review_count}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex bg-[#F6F3EC] rounded-xl p-[3px] gap-[2px] shrink-0">
-                            {([1, 0, -1] as SentimentKey[]).map((value) => {
-                                const {icon: Icon} = SENTIMENTS[value]
-                                const active = reviewPoint === value
-                                return (
-                                    <button
-                                        key={value}
-                                        onClick={() => setReviewPoint(value)}
-                                        className={`w-[32px] h-[32px] rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
-                                            active ? "bg-[#24564A]" : ""
-                                        }`}
-                                    >
-                                        <Icon size={18} color={active ? "#FFFFFF" : "#B7AF9F"}/>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <textarea
-                            value={reviewContent}
-                            onChange={(e) => setReviewContent(e.target.value)}
-                            placeholder="한줄평 (선택)"
-                            className="flex-1 min-w-0 text-[13px] text-[#211D17] bg-[#F6F3EC] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none"
-                            rows={2}
-                        />
-                        <button
-                            onClick={registerReview}
-                            className="text-[13px] font-extrabold px-4 py-2.5 bg-[#D2571E] text-white rounded-lg shrink-0 cursor-pointer sm:hover:bg-[#b84a19] transition-colors"
-                        >
-                            기록
-                        </button>
                     </div>
                 </div>
 
@@ -428,10 +339,7 @@ export default function Page() {
                         메뉴별 보기
                     </button>
                     <button
-                        onClick={() => {
-                            setActiveTab("all");
-                            setMenuFilter(null)
-                        }}
+                        onClick={() => showReviews(null)}
                         className={`px-4 py-2 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
                             activeTab === "all"
                                 ? "bg-[#24564A] text-white border-[#24564A]"
@@ -446,7 +354,7 @@ export default function Page() {
                 {activeTab === "all" && menuFilter && (
                     <div className="px-5 mb-2.5">
                         <button
-                            onClick={() => setMenuFilter(null)}
+                            onClick={() => showReviews(null)}
                             className="inline-flex items-center gap-2 bg-[#E4EEEA] text-[#24564A] text-[12px] font-bold px-3.5 py-1.5 rounded-full cursor-pointer"
                         >
                             {menuFilter != "" ? menuFilter : "메뉴 미기재"}
@@ -461,23 +369,35 @@ export default function Page() {
                         menuSummaries.length === 0 ? (
                             <p className="text-[13px] text-[#B7AF9F] text-center py-8">아직 기록된 메뉴가 없어요.</p>
                         ) : (
-                            menuSummaries.map(({menu, review_count, review_avg}: MenuSummaryType, index) => {
+                            menuSummaries.map((summary: MenuSummaryType, index) => {
+                                const {menu, review_count, review_avg} = summary
                                 const reviewTextBox = getReviewTextBox(review_avg)
 
                                 return (
-                                    <button
-                                        key={index}
-                                        onClick={() => openMenuReviews(menu)}
-                                        className="w-full flex items-center gap-3 py-3.5 border-b border-[#F0EBDD] last:border-0 cursor-pointer text-left"
-                                    >
-                                        <div
-                                            className="flex-1 min-w-0 font-extrabold text-[#211D17] truncate">{menu || "메뉴 미기재"}
-                                        </div>
-                                        <div>{reviewTextBox}</div>
-                                        <div
-                                            className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
-                                        <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
-                                    </button>
+                                    <div key={index}
+                                         className="flex items-center gap-2 border-b border-[#F0EBDD] last:border-0">
+                                        <button
+                                            onClick={() => openMenuReviews(menu)}
+                                            className="flex-1 min-w-0 flex items-center gap-3 py-3.5 cursor-pointer text-left"
+                                        >
+                                            <div
+                                                className="flex-1 min-w-0 font-extrabold text-[#211D17] truncate">{menu || "메뉴 미기재"}
+                                            </div>
+                                            <div>{reviewTextBox}</div>
+                                            <div
+                                                className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
+                                            <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
+                                        </button>
+                                        {menu && (
+                                            <button
+                                                onClick={() => startRecording(summary)}
+                                                aria-label={`${menu} 또 먹었어요`}
+                                                className="shrink-0 text-[11.5px] font-bold text-[#D2571E] bg-[#FDEBE1] rounded-full px-2.5 py-1.5 cursor-pointer sm:hover:bg-[#FBDCCB] transition-colors"
+                                            >
+                                                또 먹었어요
+                                            </button>
+                                        )}
+                                    </div>
                                 )
                             })
                         )
@@ -512,14 +432,23 @@ export default function Page() {
                                             <ActionDrawer
                                                 trigger={
                                                     <button
-                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-1 -m-1">
+                                                        aria-label="리뷰 메뉴 열기"
+                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-3 -m-3">
                                                         <LuEllipsisVertical size={16}/>
                                                     </button>
                                                 }
                                                 items={[{
+                                                    label: "리뷰 수정",
+                                                    onClick: () => startEditingReview(review),
+                                                }, {
                                                     label: "리뷰 삭제",
                                                     danger: true,
                                                     onClick: () => deleteReview(review.id),
+                                                    confirm: {
+                                                        title: "이 리뷰를 삭제할까요?",
+                                                        description: `${review.ordered_at} · ${review.menu?.trim() || "메뉴 미기재"}`,
+                                                        confirmLabel: "삭제",
+                                                    },
                                                 }]}
                                             />
                                         </div>
@@ -538,6 +467,31 @@ export default function Page() {
                             )}
                         </>
                     )}
+                </div>
+
+                {/* ---- 리뷰 쓰기·고치기 시트 ---- */}
+                {sheet && (
+                    <ReviewSheet
+                        key={sheet.seq}
+                        open={isSheetOpen}
+                        onOpenChange={setIsSheetOpen}
+                        title={sheet.review ? "리뷰 수정" : sheet.initial.menu ? `${sheet.initial.menu} 또 먹었어요` : "먹은 메뉴 기록"}
+                        submitLabel={sheet.review ? "수정하기" : "기록하기"}
+                        initial={sheet.initial}
+                        menus={menuSummaries.filter((summary) => summary.menu)}
+                        onSubmit={submitReview}
+                    />
+                )}
+
+                {/* ---- 화면 아래 고정 기록 버튼 ---- */}
+                <div className="fixed bottom-0 left-0 right-0 z-30 mx-auto w-full sm:w-[70%] bg-white/95 backdrop-blur border-t border-[#E7E0CF] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+                    <button
+                        onClick={() => startRecording()}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] transition-colors"
+                    >
+                        <LuPencilLine size={17}/>
+                        먹은 메뉴 기록하기
+                    </button>
                 </div>
 
                 {/* ---- 음식점 수정 ---- */}
@@ -576,6 +530,7 @@ export default function Page() {
                             <input
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
+                                maxLength={100}
                                 placeholder="예: 미뜨레피자"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
@@ -586,6 +541,7 @@ export default function Page() {
                             <input
                                 value={editDescription}
                                 onChange={(e) => setEditDescription(e.target.value)}
+                                maxLength={100}
                                 placeholder="이 음식점에 대한 짧은 메모"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
@@ -596,6 +552,7 @@ export default function Page() {
                             <input
                                 value={editAddress}
                                 onChange={(e) => setEditAddress(e.target.value)}
+                                maxLength={255}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && !e.nativeEvent.isComposing) saveRestaurant()
                                 }}

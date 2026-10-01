@@ -35,7 +35,7 @@ export const Topbar = () => {
 
             <ActionDrawer
                 trigger={
-                    <button className="w-8 h-8 rounded-full bg-[#E4EEEA] text-[#24564A] flex items-center justify-center cursor-pointer sm:hover:bg-[#d7e6df] transition-colors">
+                    <button aria-label="장소 바꾸기" className="w-10 h-10 rounded-full bg-[#E4EEEA] text-[#24564A] flex items-center justify-center cursor-pointer sm:hover:bg-[#d7e6df] transition-colors">
                         <FaAngleDown size={15}/>
                     </button>
                 }

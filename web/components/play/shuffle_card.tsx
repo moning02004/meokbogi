@@ -9,6 +9,8 @@ export interface FoodCardShuffleProps {
     items: string[];
     trayColor?: string;
     setSelectedCategory: (value: number | null) => void;
+    // 섞는 동안 부모가 카테고리 목록을 바꾸지 못하게 하려고 알린다
+    onBusyChange?: (busy: boolean) => void;
 }
 
 type Pos = { x: number; y: number };
@@ -18,6 +20,7 @@ export default function FoodCardShuffle({
                                             items,
                                             trayColor = '#17372F',
                                             setSelectedCategory,
+                                            onBusyChange,
                                         }: FoodCardShuffleProps) {
     const n = items.length;
     const cols = Math.min(4, n);
@@ -30,9 +33,23 @@ export default function FoodCardShuffle({
     const rankTopRefs = useRef<(HTMLSpanElement | null)[]>([]);
     const rankBottomRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
-    const [busy, setBusy] = useState(false);
+    const [busy, setBusyState] = useState(false);
     const [result, setResult] = useState('');
     const [hasPlayed, setHasPlayed] = useState(false);
+
+    function setBusy(value: boolean) {
+        setBusyState(value);
+        onBusyChange?.(value);
+    }
+
+    // 뺄 카테고리를 고르면 카드 구성이 바뀐다. 지난 결과는 지운다.
+    const itemsKey = items.join('\u0000');
+    const [trackedItemsKey, setTrackedItemsKey] = useState(itemsKey);
+    if (itemsKey !== trackedItemsKey) {
+        setTrackedItemsKey(itemsKey);
+        setResult('');
+        setHasPlayed(false);
+    }
     const boxH = rows * CARD_H + (rows - 1) * 16 + 40;
 
     function getBoxW() {
@@ -99,10 +116,16 @@ export default function FoodCardShuffle({
     }
 
     useEffect(() => {
+        // 카드 구성이 바뀌면 강조·순번·뒤집힘을 처음 상태로 돌리고 다시 배치한다
         const pos = gridPositions();
-        pos.forEach((p, i) => place(i, p.x, p.y, 0, 1, 1));
+        pos.forEach((p, i) => {
+            resetBorder(i);
+            flip(i, true);
+            setRank(i, i + 1);
+            place(i, p.x, p.y, 0, 1, 1);
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [boxH, n]);
+    }, [boxH, n, itemsKey]);
 
     useEffect(() => {
         function onResize() {
