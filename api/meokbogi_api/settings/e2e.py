@@ -13,6 +13,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.environ.get("E2E_DB_PATH", BASE_DIR / "e2e.sqlite3"),
+        # 화면 하나가 쓰기 요청 두 개를 동시에 보내면(예: 내정보의 알림 설정) SQLite 기본 모드에서는
+        # "database is locked"로 500이 난다. 운영(PostgreSQL)과 같게 동시 쓰기를 기다리게 한다.
+        "OPTIONS": {"transaction_mode": "IMMEDIATE", "timeout": 20},
     }
 }
 

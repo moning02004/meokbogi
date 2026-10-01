@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import {Modal} from "@/components/ui/modal";
 import {ZoneManager} from "@/components/settings/zone_manager";
 import {ArchiveManager} from "@/components/settings/archive_manager";
+import {PushManager} from "@/components/settings/push_manager";
 import {syncZones} from "@/lib/zone";
 
 interface UserType {
@@ -197,6 +198,14 @@ export default function Page() {
                     <p className="text-[11.5px] text-[#B7AF9F] mt-2 leading-relaxed">
                         존을 선택하면 카테고리를 추가하거나 지울 수 있어요.
                     </p>
+                </div>
+
+                {/* ---- 알림 ---- */}
+                <div className="px-5 pt-5">
+                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">알림</div>
+                    <div className="bg-white border border-[#E7E0CF] rounded-2xl overflow-hidden">
+                        <PushManager/>
+                    </div>
                 </div>
 
                 {/* ---- 내 기록 ---- */}

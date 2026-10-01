@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
 
     "apps.zone",
     "apps.restaurant",
+    "apps.push",
 ]
 
 MIDDLEWARE = [
@@ -182,6 +184,11 @@ REST_FRAMEWORK = {
     "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
 }
 
+# 테스트는 1분 안에 같은 사용자로 수백 번 요청해서 기본 요청 한도(user 120/min)에 걸린다.
+# 테스트 실행 중에만 기본 한도를 끈다. 로그인 한도(ScopedRateThrottle)는 뷰에 직접 달려 있어 그대로 검사된다.
+if len(sys.argv) > 1 and sys.argv[1] == "test":
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=15),
@@ -207,3 +214,12 @@ CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 REFRESH_COOKIE_NAME = "refreshtoken"
 REFRESH_COOKIE_SAMESITE = os.environ.get("REFRESH_COOKIE_SAMESITE", "Lax")
 REFRESH_COOKIE_SECURE = os.environ.get("REFRESH_COOKIE_SECURE", "false").lower() == "true"
+
+# ------------------------------------------------------------------------------
+# 웹 푸시
+# ------------------------------------------------------------------------------
+# 외부 스케줄러(n8n)가 POST /push/send 를 부를 때 쓰는 토큰은 환경변수 PUSH_API_TOKEN 에서 읽는다.
+# 비어 있으면 /push/send 는 503으로 막힌다. install.sh 가 .env 에 만들어 둔다.
+# 서명 키(VAPID_PRIVATE_KEY)는 비워 두면 처음 쓸 때 만들어 DB에 저장한다.
+# sub 값은 비워 두면 PUBLIC_WEB_ORIGIN(https일 때)을 쓴다. 애플은 mailto: 나 https: 만 받는다.
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "")

@@ -10,4 +10,6 @@ uvicorn[standard]>=0.27.1
 psycopg2-binary>=2.9,<3
 
 whitenoise>=6.6.0
+# 웹 푸시 (VAPID 서명 + 페이로드 암호화)
+pywebpush>=2.5,<3
 django-debug-toolbar
