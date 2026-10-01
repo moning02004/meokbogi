@@ -195,6 +195,8 @@ SIMPLE_JWT = {
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [origin for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if origin]
 CORS_ALLOW_CREDENTIALS = True
+# 내보내기 파일 이름을 브라우저 스크립트가 읽을 수 있게 한다 (다른 출처 응답은 기본으로 숨겨진다)
+CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
 # ------------------------------------------------------------------------------
 # refresh 토큰 쿠키

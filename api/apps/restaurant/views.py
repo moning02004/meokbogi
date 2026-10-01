@@ -11,7 +11,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.restaurant.archive import ArchiveSerializer, build_archive, build_csv, import_archive
+from apps.restaurant.archive import ARCHIVE_FORMAT, ArchiveSerializer, build_archive, build_csv, import_archive
 from apps.restaurant.menus import canonical_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
 from apps.restaurant.picking import pick_restaurant
@@ -181,8 +181,9 @@ class ArchiveImportAPIView(APIView):
             data = json.loads(upload.read().decode("utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise ValidationError({"file": "JSON 파일을 읽지 못했어요. 먹보기에서 내보낸 .json 파일인지 확인해주세요."})
-        if not isinstance(data, dict):
-            raise ValidationError({"file": "먹보기에서 내보낸 파일이 아니에요."})
+        # 필드별 "필수 항목" 오류보다 "어떤 파일인지"를 먼저 알려준다
+        if not isinstance(data, dict) or data.get("format") != ARCHIVE_FORMAT:
+            raise ValidationError({"file": "먹보기에서 내보낸 백업 파일이 아니에요."})
 
         serializer = ArchiveSerializer(data=data)
         serializer.is_valid(raise_exception=True)

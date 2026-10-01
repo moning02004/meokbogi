@@ -9,7 +9,7 @@ import json
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.restaurant.menus import canonical_menu, normalize_menu
@@ -704,6 +704,12 @@ class ArchiveTestCase(TestCase):
         # 리뷰가 없는 음식점도 한 줄
         self.assertIn("우리집,피자,미뜨레피자,,,,,,", rows)
 
+    @override_settings(CORS_ALLOWED_ORIGINS=["http://localhost:3000"])
+    def test_export_filename_is_readable_cross_origin(self):
+        # 웹과 API가 다른 출처라 노출하지 않으면 브라우저가 파일 이름을 읽지 못한다
+        response = self.client.get(reverse("archive-export"), HTTP_ORIGIN="http://localhost:3000")
+        self.assertIn("content-disposition", response.get("Access-Control-Expose-Headers", "").lower())
+
     def test_export_requires_login(self):
         self.client.logout()
         self.assertEqual(self._export().status_code, 401)
@@ -780,8 +786,10 @@ class ArchiveTestCase(TestCase):
         self.assertIn("JSON", response.json()["file"])
 
     def test_rejects_other_format(self):
-        response = self._import({"format": "something-else", "version": 1, "zones": []})
-        self.assertEqual(response.status_code, 400)
+        for payload in ({"format": "something-else", "version": 1, "zones": []}, {"hello": "world"}, [1, 2]):
+            response = self._import(payload)
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["file"], "먹보기에서 내보낸 백업 파일이 아니에요.")
 
     def test_rejects_newer_version(self):
         response = self._import({"format": "meokbogi-archive", "version": 99, "zones": []})

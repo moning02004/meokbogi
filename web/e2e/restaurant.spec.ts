@@ -24,7 +24,7 @@ test.describe("음식점과 리뷰", () => {
         // 저장 버튼은 시트 맨 아래, 화면 안에 있다
         await expect(sheet.getByRole("button", {name: "기록하기"})).toBeInViewport()
 
-        await sheet.getByRole("textbox", {name: /^메뉴/}).fill("허니콤보")
+        await sheet.getByRole("combobox", {name: /^메뉴/}).fill("허니콤보")
         await sheet.getByRole("radio", {name: "만족"}).click()
         await sheet.getByLabel("한줄평").fill("바삭함")
         await sheet.getByRole("button", {name: "기록하기"}).click()
@@ -48,9 +48,9 @@ test.describe("음식점과 리뷰", () => {
         await page.getByRole("button", {name: "레드콤보 또 먹었어요"}).click()
 
         const sheet = page.getByRole("dialog", {name: "레드콤보 또 먹었어요"})
-        await expect(sheet.getByRole("textbox", {name: /^메뉴/})).toHaveValue("레드콤보")
+        await expect(sheet.getByRole("combobox", {name: /^메뉴/})).toHaveValue("레드콤보")
         await expect(sheet.getByRole("radio", {name: "보통"})).toHaveAttribute("aria-checked", "true")
-        await expect(sheet.getByRole("button", {name: "오늘"})).toHaveAttribute("aria-pressed", "true")
+        await expect(sheet.getByRole("button", {name: /먹은 날 오늘/})).toBeVisible()
 
         // 이번엔 만족으로 바꿔서 저장
         await sheet.getByRole("radio", {name: "만족"}).click()
@@ -86,7 +86,7 @@ test.describe("음식점과 리뷰", () => {
 
         await page.goto(`/restaurant/${restaurant.id}`)
         await page.getByRole("button", {name: "먹은 메뉴 기록하기"}).click()
-        await page.getByRole("dialog").getByRole("textbox", {name: /^메뉴/}).fill("후라이드")
+        await page.getByRole("dialog").getByRole("combobox", {name: /^메뉴/}).fill("후라이드")
         await page.getByRole("dialog").getByRole("button", {name: "기록하기"}).dblclick()
         await expect(page.getByText("기록했어요.")).toBeVisible()
         expect((await api.reviews(restaurant.id)).count).toBe(1)
@@ -137,9 +137,11 @@ test.describe("음식점과 리뷰", () => {
         await page.goto(`/restaurant/${restaurant.id}`)
         await page.getByRole("button", {name: "먹은 메뉴 기록하기"}).click()
         const sheet = page.getByRole("dialog")
-        // 전에 먹은 메뉴가 칩으로 보인다
-        await expect(sheet.getByRole("button", {name: "간장치킨"})).toBeVisible()
-        await sheet.getByRole("textbox", {name: /^메뉴/}).fill("간장 치킨")
+        // 메뉴가 미리 나열되지는 않고, 메뉴 칸을 눌러야 고를 수 있는 상자가 열린다
+        await expect(sheet.getByRole("listbox", {name: "메뉴 고르기"})).toHaveCount(0)
+        await sheet.getByRole("combobox", {name: /^메뉴/}).click()
+        await expect(sheet.getByRole("option", {name: /간장치킨/})).toBeVisible()
+        await sheet.getByRole("combobox", {name: /^메뉴/}).fill("간장 치킨")
         await expect(sheet.getByText("‘간장치킨’(으)로 합쳐서 기록돼요.")).toBeVisible()
         await sheet.getByRole("button", {name: "기록하기"}).click()
         await expect(page.getByRole("button", {name: /간장치킨.*리뷰 2/})).toBeVisible()
@@ -183,5 +185,47 @@ test.describe("음식점과 리뷰", () => {
         await page.getByLabel("음식점 이름으로 찾기").fill("최고")
         await expect(names).toHaveText(["가 최고"])
         await expect(page.getByText("총 1곳")).toBeVisible()
+    })
+
+    test("메뉴는 상자에서 고르거나 새로 입력하고, 날짜는 달력에서 고른다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        const zone = await api.createZone("우리집")
+        const restaurant = await api.createRestaurant(zone.id, category(zone, "치킨").id, "교촌치킨")
+        await api.createReview(restaurant.id, {menu: "허니콤보", point: 1, ordered_at: daysAgo(5)})
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto(`/restaurant/${restaurant.id}`)
+        await page.getByRole("button", {name: "먹은 메뉴 기록하기"}).click()
+        const sheet = page.getByRole("dialog")
+        const menu = sheet.getByRole("combobox", {name: /^메뉴/})
+
+        // 기존 메뉴 고르기
+        await menu.click()
+        await sheet.getByRole("option", {name: /허니콤보/}).click()
+        await expect(menu).toHaveValue("허니콤보")
+        await expect(sheet.getByRole("listbox")).toHaveCount(0)
+
+        // 직접 입력하면 그 메뉴를 쓴다
+        await menu.fill("반반콤보")
+        await expect(sheet.getByRole("option", {name: /반반콤보.*새 메뉴로 쓰기/})).toBeVisible()
+        await sheet.getByRole("option", {name: /반반콤보/}).click()
+        await expect(menu).toHaveValue("반반콤보")
+
+        // 날짜는 버튼을 누르면 달력이 바로 열린다. 지난달 15일을 고른다.
+        await sheet.getByRole("button", {name: /먹은 날 오늘/}).click()
+        await sheet.getByRole("button", {name: "이전 달"}).click()
+        await sheet.locator(".react-datepicker__day--015:not(.react-datepicker__day--outside-month)").click()
+        const lastMonth = new Date()
+        lastMonth.setDate(1)
+        lastMonth.setMonth(lastMonth.getMonth() - 1)
+        await expect(sheet.getByRole("button", {name: new RegExp(`먹은 날 ${lastMonth.getMonth() + 1}월 15일`)})).toBeVisible()
+
+        await sheet.getByRole("button", {name: "기록하기"}).click()
+        await expect(page.getByText("기록했어요.")).toBeVisible()
+        const saved = (await api.reviews(restaurant.id)).results.find((review) => review.menu === "반반콤보")
+        const pad = (n: number) => String(n).padStart(2, "0")
+        expect(saved).toMatchObject({ordered_at: `${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}-15`})
     })
 })

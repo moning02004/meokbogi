@@ -59,7 +59,6 @@ export default function Page() {
     const {token} = useAuthStore.getState()
     const router = useRouter()
     const categories = useCategoryStore(state => state.categories)
-    const maxDate = new Date();
 
     const [restaurant, setRestaurant] = useState<RestaurantType | null>(null)
     // 없는 음식점·지워진 음식점이면 로딩 화면에서 멈추지 않고 안내를 보여준다
@@ -479,7 +478,7 @@ export default function Page() {
                         title={sheet.review ? "리뷰 수정" : sheet.initial.menu ? `${sheet.initial.menu} 또 먹었어요` : "먹은 메뉴 기록"}
                         submitLabel={sheet.review ? "수정하기" : "기록하기"}
                         initial={sheet.initial}
-                        menus={menuSummaries.map((summary) => summary.menu).filter(Boolean)}
+                        menus={menuSummaries.filter((summary) => summary.menu)}
                         onSubmit={submitReview}
                     />
                 )}

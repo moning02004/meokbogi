@@ -54,7 +54,7 @@ export class Api {
     }
 
     reviews(restaurantId: number) {
-        return this.call<{ count: number; results: { id: number; menu: string; point: number }[] }>(
+        return this.call<{ count: number; results: { id: number; menu: string; point: number; ordered_at: string }[] }>(
             "get", `/restaurants/${restaurantId}/reviews`)
     }
 
