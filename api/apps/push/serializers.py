@@ -1,9 +1,31 @@
+import base64
+import binascii
+
 from rest_framework import serializers
+
+
+def _decode_b64url(value):
+    try:
+        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except (ValueError, binascii.Error):
+        return b""
 
 
 class SubscriptionKeysSerializer(serializers.Serializer):
     p256dh = serializers.CharField(max_length=200)
     auth = serializers.CharField(max_length=100)
+
+    # 키가 깨져 있으면 보낼 때 암호화에서 터진다. 받을 때 모양을 확인한다.
+    def validate_p256dh(self, value):
+        raw = _decode_b64url(value)
+        if len(raw) != 65 or raw[0] != 4:
+            raise serializers.ValidationError("올바른 구독 키가 아니에요.")
+        return value
+
+    def validate_auth(self, value):
+        if len(_decode_b64url(value)) != 16:
+            raise serializers.ValidationError("올바른 구독 키가 아니에요.")
+        return value
 
 
 class SubscriptionSerializer(serializers.Serializer):

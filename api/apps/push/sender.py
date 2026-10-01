@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
+from requests import RequestException
 
 from apps.push.models import PushSubscription, VapidKey
 
@@ -70,6 +71,15 @@ def send_to_user(user, title, content, url="/home"):
             else:
                 logger.warning("푸시 전송 실패 (%s): %s", status, error)
                 result["failed"] += 1
+            continue
+        except RequestException as error:
+            # 푸시 서비스에 닿지 못한 기기 하나 때문에 나머지 기기까지 못 받지 않게 한다
+            logger.warning("푸시 서비스 연결 실패: %s", error)
+            result["failed"] += 1
+            continue
+        except Exception:  # noqa: BLE001 - 기기 하나의 이상한 구독 정보(암호화 실패 등)가 전체 전송을 막지 않게
+            logger.exception("푸시 전송 중 오류 (구독 %s)", subscription.pk)
+            result["failed"] += 1
             continue
         subscription.last_sent_at = timezone.now()
         subscription.save(update_fields=["last_sent_at"])

@@ -86,6 +86,13 @@ class SubscriptionTestCase(PushTestBase):
                                     content_type="application/json")
         self.assertEqual(response.status_code, 400)
 
+        _, _, info = fake_browser_subscription()
+        for broken in ({**info["keys"], "p256dh": "AAAA"}, {**info["keys"], "auth": "!!not-base64!!"}):
+            response = self.client.post(reverse("push-subscriptions"), content_type="application/json",
+                                        data={"endpoint": info["endpoint"], "keys": broken})
+            self.assertEqual(response.status_code, 400)
+        self.assertFalse(PushSubscription.objects.exists())
+
     def test_requires_login(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("push-config")).status_code, 401)
@@ -135,6 +142,37 @@ class SenderTestCase(PushTestBase):
         self.assertEqual(result, {"sent": 1, "removed": 1, "failed": 1})
         self.assertEqual(sorted(PushSubscription.objects.values_list("endpoint", flat=True)),
                          sorted([alive.endpoint, "https://push.example.com/flaky"]))
+
+    def test_unreachable_push_service_does_not_stop_others(self):
+        self.subscribe("https://push.example.com/down")
+        self.subscribe("https://push.example.com/ok")
+
+        def fake_webpush(info, **kwargs):
+            if info["endpoint"].endswith("down"):
+                raise __import__("requests").ConnectionError("no route")
+
+        with mock.patch("apps.push.sender.webpush", side_effect=fake_webpush):
+            result = send_to_user(self.user, "제목", "내용")
+        self.assertEqual(result, {"sent": 1, "removed": 0, "failed": 1})
+        self.assertEqual(PushSubscription.objects.count(), 2)  # 일시적 실패는 지우지 않는다
+
+    def test_broken_subscription_does_not_stop_others(self):
+        broken = self.subscribe("https://push.example.com/broken")
+        broken.p256dh = "AAAA"  # 예전에 검증 없이 저장된 구독이라고 가정
+        broken.save()
+        self.subscribe("https://push.example.com/ok")
+
+        sent_to = []
+
+        def fake_webpush(info, **kwargs):
+            if info["keys"]["p256dh"] == "AAAA":
+                raise ValueError("Invalid EC key")
+            sent_to.append(info["endpoint"])
+
+        with mock.patch("apps.push.sender.webpush", side_effect=fake_webpush):
+            result = send_to_user(self.user, "제목", "내용")
+        self.assertEqual(result, {"sent": 1, "removed": 0, "failed": 1})
+        self.assertEqual(sent_to, ["https://push.example.com/ok"])
 
     def test_sends_only_to_that_users_devices(self):
         other = User.objects.create_user(username="other", password="123")

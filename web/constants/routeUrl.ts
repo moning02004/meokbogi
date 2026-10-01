@@ -130,3 +130,13 @@ export const USER_API = {
         endpoint: `/users/me/import`
     },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+export const PUSH_API = {
+    config: {method: "get", endpoint: `/push/config`},
+    subscribe: {method: "post", endpoint: `/push/subscriptions`},
+    unsubscribe: {method: "delete", endpoint: `/push/subscriptions`},
+    test: {method: "post", endpoint: `/push/test`},
+    apiKey: {method: "get", endpoint: `/push/api-key`},
+    rotateApiKey: {method: "post", endpoint: `/push/api-key`},
+    send: {method: "post", endpoint: `/push/send`},
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
