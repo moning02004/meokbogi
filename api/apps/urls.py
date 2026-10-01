@@ -46,6 +46,10 @@ urlpatterns = [
              "delete": "destroy",
          }), name="restaurant-info"),
 
+    path("restaurants/<int:restaurant_pk>/branches", restaurant_views.BranchListAPIView.as_view(),
+         name="branches"),
+    path("restaurants/<int:restaurant_pk>/branches/<int:branch_pk>", restaurant_views.BranchDetailAPIView.as_view(),
+         name="branch-detail"),
     path("restaurants/<int:restaurant_pk>/reviews",
          restaurant_views.RestaurantReviewViewSet.as_view({
              "get": "list",

@@ -11,7 +11,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.restaurant.menus import get_or_create_menu, normalize_menu
-from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.restaurant.testing import make_restaurant, make_review
 from apps.restaurant.picking import pick_restaurant, pick_weight
 from apps.zone.models import Zone, Category
@@ -724,7 +724,7 @@ class ArchiveTestCase(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         archive = json.loads(response.content)
 
-        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 2))
+        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 3))
         zone = archive["zones"][0]
         self.assertEqual(zone["categories"], ["치킨", "피자"])
         kyochon = zone["restaurants"][0]
@@ -746,10 +746,10 @@ class ArchiveTestCase(TestCase):
         text = response.content.decode("utf-8")
         self.assertTrue(text.startswith("\ufeff"))  # 엑셀이 UTF-8로 읽도록
         rows = text.lstrip("\ufeff").strip().splitlines()
-        self.assertEqual(rows[0], "장소,카테고리,음식점,주소,설명,먹은 날,메뉴,만족도,한줄평")
-        self.assertIn("우리집,치킨,교촌치킨,역 앞,,2026-01-01,레드콤보,실망,", rows)
+        self.assertEqual(rows[0], "장소,카테고리,음식점,주소,설명,먹은 날,지점,메뉴,만족도,한줄평")
+        self.assertIn("우리집,치킨,교촌치킨,역 앞,,2026-01-01,,레드콤보,실망,", rows)
         # 리뷰가 없는 음식점도 한 줄
-        self.assertIn("우리집,피자,미뜨레피자,,,,,,", rows)
+        self.assertIn("우리집,피자,미뜨레피자,,,,,,,", rows)
 
     @override_settings(CORS_ALLOWED_ORIGINS=["http://localhost:3000"])
     def test_export_filename_is_readable_cross_origin(self):
@@ -853,3 +853,139 @@ class ArchiveTestCase(TestCase):
 
     def test_requires_file(self):
         self.assertEqual(self.client.post(reverse("archive-import"), {}).status_code, 400)
+
+
+class BranchTestCase(TestCase):
+    """같은 브랜드는 메뉴가 같고, 맛은 지점마다 다르다. 리뷰는 지점별로."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.restaurant = make_restaurant(category=Category.objects.create(zone=self.zone, keyword="치킨"),
+                                          name="교촌치킨")
+        self.client.login(username="owner", password="123")
+        self.branches_url = reverse("branches", kwargs={"restaurant_pk": self.restaurant.pk})
+        self.reviews_url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
+        self.info_url = reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
+
+    def _branch(self, name):
+        response = self.client.post(self.branches_url, data={"name": name}, content_type="application/json")
+        return response
+
+    def _review(self, menu, point, branch=None, day="2026-01-01"):
+        response = self.client.post(self.reviews_url, content_type="application/json",
+                                    data={"ordered_at": day, "menu": menu, "point": point, "branch": branch})
+        self.assertEqual(response.status_code, 201, response.content)
+        return response.json()
+
+    def test_create_list_and_reject_duplicate(self):
+        self.assertEqual(self._branch("역삼점").status_code, 201)
+        self.assertEqual(self._branch("  본점 ").json()["name"], "본점")
+        response = self._branch("역삼 점")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("이미 있어요", response.json()["name"])
+        self.assertEqual([b["name"] for b in self.client.get(self.branches_url).json()], ["역삼점", "본점"])
+
+    def test_review_per_branch_and_menu_summary_filter(self):
+        yeoksam = self._branch("역삼점").json()["id"]
+        main = self._branch("본점").json()["id"]
+        self._review("허니콤보", 1, yeoksam, "2026-01-01")
+        self._review("허니콤보", -1, main, "2026-01-02")
+        self._review("허니콤보", 1, None, "2026-01-03")
+
+        # 메뉴는 브랜드에 하나
+        self.assertEqual(self.restaurant.menus.count(), 1)
+
+        def summary(branch=None):
+            params = {"branch": branch} if branch is not None else {}
+            return self.client.get(self.info_url, params).json()["menu_summaries"]
+
+        self.assertEqual(summary()[0]["review_count"], 3)
+        # 지점으로 걸러도 시트에서 고를 메뉴 목록은 브랜드 전체
+        only_main = self.client.get(self.info_url, {"branch": main}).json()
+        self.assertEqual(only_main["menus"], [{"menu": "허니콤보", "review_count": 3}])
+        self.assertEqual(summary(yeoksam)[0]["review_avg"], 1)
+        self.assertEqual(summary(main)[0]["review_avg"], -1)
+        self.assertEqual(summary("none")[0]["review_count"], 1)
+        # 지난번(가장 최근) 리뷰의 지점: 또 먹었어요에서 미리 고른다
+        self.assertEqual(summary()[0]["last_branch"], None)
+        self.assertEqual(summary(main)[0]["last_branch"], main)
+
+        branches = {b["name"]: b["review_count"] for b in self.client.get(self.info_url).json()["branches"]}
+        self.assertEqual(branches, {"역삼점": 1, "본점": 1})
+
+        reviews = self.client.get(self.reviews_url, {"branch": yeoksam}).json()["results"]
+        self.assertEqual([(r["branch"], r["branch_name"], r["point"]) for r in reviews], [(yeoksam, "역삼점", 1)])
+        self.assertEqual(self.client.get(self.reviews_url, {"branch": "none"}).json()["count"], 1)
+
+    def test_cannot_use_branch_of_another_restaurant(self):
+        other = make_restaurant(category=self.restaurant.categories.first(), name="BBQ")
+        other_branch = Branch.objects.create(restaurant=other, name="강남점", name_key="강남점")
+        response = self.client.post(self.reviews_url, content_type="application/json",
+                                    data={"ordered_at": "2026-01-01", "menu": "후라이드", "point": 1,
+                                          "branch": other_branch.pk})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(RestaurantReview.objects.exists())
+
+        # 수정으로 바꿔 끼울 수도 없다
+        review = self._review("후라이드", 1)
+        url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review["id"]})
+        response = self.client.patch(url, data={"branch": other_branch.pk}, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_other_user_cannot_touch_branches(self):
+        branch = self._branch("역삼점").json()["id"]
+        User.objects.create_user(username="attacker", password="123")
+        attacker = self.client_class()
+        attacker.login(username="attacker", password="123")
+
+        self.assertEqual(attacker.get(self.branches_url).status_code, 404)
+        self.assertEqual(attacker.post(self.branches_url, data={"name": "침입점"},
+                                       content_type="application/json").status_code, 404)
+        detail = reverse("branch-detail", kwargs={"restaurant_pk": self.restaurant.pk, "branch_pk": branch})
+        self.assertEqual(attacker.delete(detail).status_code, 404)
+        self.assertTrue(Branch.objects.filter(pk=branch).exists())
+
+    def test_rename_and_delete_keep_reviews(self):
+        branch = self._branch("역삼점").json()["id"]
+        review = self._review("허니콤보", 1, branch)
+        detail = reverse("branch-detail", kwargs={"restaurant_pk": self.restaurant.pk, "branch_pk": branch})
+
+        response = self.client.patch(detail, data={"name": "역삼역점"}, content_type="application/json")
+        self.assertEqual(response.json()["name"], "역삼역점")
+
+        self.assertEqual(self.client.delete(detail).status_code, 204)
+        kept = RestaurantReview.objects.get(pk=review["id"])
+        self.assertIsNone(kept.branch_id)
+
+    def test_archive_round_trip_with_branches(self):
+        branch = self._branch("역삼점").json()["id"]
+        self._review("허니콤보", 1, branch)
+        self._review("허니콤보", 0)
+        archive = json.loads(self.client.get(reverse("archive-export")).content)
+        restaurant = archive["zones"][0]["restaurants"][0]
+        self.assertEqual(restaurant["branches"], ["역삼점"])
+        self.assertEqual(sorted(r["branch"] for r in restaurant["reviews"]), ["", "역삼점"])
+
+        User.objects.create_user(username="newbie", password="123")
+        newbie = self.client_class()
+        newbie.login(username="newbie", password="123")
+        body = json.dumps(archive, ensure_ascii=False).encode()
+        newbie.post(reverse("archive-import"), {"file": SimpleUploadedFile("a.json", body)})
+        again = json.loads(newbie.get(reverse("archive-export")).content)
+        self.assertEqual(_strip_volatile(again), _strip_volatile(archive))
+
+        # 같은 파일을 다시 가져와도 지점이 다른 리뷰를 같은 것으로 보지 않는다 → 아무것도 늘지 않음
+        summary = newbie.post(reverse("archive-import"), {"file": SimpleUploadedFile("a.json", body)}).json()
+        self.assertEqual((summary["reviews_created"], summary["reviews_skipped"]), (0, 2))
+
+    def test_imports_version_2_file_without_branches(self):
+        payload = {"format": "meokbogi-archive", "version": 2, "zones": [{
+            "name": "본가", "categories": ["한식"],
+            "restaurants": [{"name": "엄마밥", "categories": ["한식"],
+                             "reviews": [{"ordered_at": "2026-01-01", "menu": "김치찌개", "point": 1}]}],
+        }]}
+        body = json.dumps(payload, ensure_ascii=False).encode()
+        response = self.client.post(reverse("archive-import"), {"file": SimpleUploadedFile("v2.json", body)})
+        self.assertEqual(response.json()["reviews_created"], 1)
+        self.assertIsNone(RestaurantReview.objects.get(restaurant__name="엄마밥").branch)

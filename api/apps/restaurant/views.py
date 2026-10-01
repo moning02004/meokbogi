@@ -12,10 +12,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.restaurant.archive import ARCHIVE_FORMAT, ArchiveSerializer, build_archive, build_csv, import_archive
-from apps.restaurant.menus import normalize_menu
-from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.menus import normalize_menu, tidy_menu
+from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.restaurant.picking import pick_restaurant
-from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
+from apps.restaurant.serializers import (BranchSerializer, RestaurantInfoSerializer, RestaurantListSerializer,
+                                         RestaurantReviewSerializer)
 from apps.zone.models import Category, Zone
 
 
@@ -109,7 +110,8 @@ class RestaurantInfoViewSet(viewsets.ModelViewSet):
     def get_object(self):
         queryset = my_restaurants(self.request).prefetch_related(
             Prefetch("review_set",
-                     queryset=RestaurantReview.objects.select_related("menu").order_by("-ordered_at", "-id"))
+                     queryset=RestaurantReview.objects.select_related("menu", "branch").order_by("-ordered_at", "-id")),
+            "branches",
         )
         queryset = annotate_restaurants(queryset)
         # 남의 음식점이거나 없는 id면 500이 아니라 404
@@ -122,7 +124,7 @@ class RestaurantInfoViewSet(viewsets.ModelViewSet):
 
 
 def my_reviews(request, restaurant_id):
-    return RestaurantReview.objects.select_related("menu").filter(
+    return RestaurantReview.objects.select_related("menu", "branch").filter(
         restaurant__zone__user_id=request.user.id, restaurant_id=restaurant_id)
 
 
@@ -136,6 +138,11 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
             # 빈 값은 "메뉴 미기재", 아니면 공백·대소문자를 무시하고 같은 메뉴
             queryset = queryset.filter(menu__isnull=True) if not menu.strip() \
                 else queryset.filter(menu__name_key=normalize_menu(menu))
+        branch = self.request.query_params.get("branch")
+        if branch == "none":
+            queryset = queryset.filter(branch__isnull=True)
+        elif branch and branch.isdigit():
+            queryset = queryset.filter(branch_id=branch)
         return queryset.order_by("-ordered_at", "-id")
 
     def perform_create(self, serializer):
@@ -151,6 +158,51 @@ class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         return get_object_or_404(my_reviews(self.request, self.kwargs["restaurant_pk"]), pk=self.kwargs["review_pk"])
+
+
+def my_restaurant_or_404(request, restaurant_id):
+    return get_object_or_404(Restaurant, pk=restaurant_id, zone__user_id=request.user.id)
+
+
+def ensure_unique_branch(restaurant, name, exclude_pk=None):
+    # "역삼점"과 "역삼 점"처럼 공백·대소문자만 다른 지점이 생기지 않게 한다
+    if Branch.objects.filter(restaurant=restaurant, name_key=normalize_menu(name)).exclude(pk=exclude_pk).exists():
+        raise ValidationError({"name": f"'{name}' 지점은 이미 있어요."})
+
+
+class BranchListAPIView(ListCreateAPIView):
+    """음식점의 지점 목록(GET)과 추가(POST {name})."""
+    serializer_class = BranchSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return Branch.objects.filter(restaurant=my_restaurant_or_404(self.request, self.kwargs["restaurant_pk"])) \
+            .annotate(review_count=Count("reviews")).order_by("id")
+
+    def perform_create(self, serializer):
+        restaurant = my_restaurant_or_404(self.request, self.kwargs["restaurant_pk"])
+        name = tidy_menu(serializer.validated_data["name"])
+        ensure_unique_branch(restaurant, name)
+        serializer.save(restaurant=restaurant, name=name, name_key=normalize_menu(name))
+
+
+class BranchDetailAPIView(RetrieveUpdateDestroyAPIView):
+    """지점 이름 바꾸기(PATCH)와 지우기(DELETE). 지우면 그 지점 리뷰는 남고 지점만 비워진다."""
+    serializer_class = BranchSerializer
+    lookup_url_kwarg = "branch_pk"
+
+    def get_queryset(self):
+        return Branch.objects.filter(restaurant__zone__user_id=self.request.user.id,
+                                     restaurant_id=self.kwargs["restaurant_pk"])
+
+    def perform_update(self, serializer):
+        name = serializer.validated_data.get("name")
+        if name is None:
+            serializer.save()
+            return
+        name = tidy_menu(name)
+        ensure_unique_branch(serializer.instance.restaurant, name, exclude_pk=serializer.instance.pk)
+        serializer.save(name=name, name_key=normalize_menu(name))
 
 
 class ArchiveExportAPIView(APIView):

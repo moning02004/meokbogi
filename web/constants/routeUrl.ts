@@ -89,6 +89,25 @@ export const RESTAURANT_API = {
     },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
+export const BRANCH_API = {
+    list: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/branches`
+    },
+    add: {
+        method: "post",
+        endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/branches`
+    },
+    update: {
+        method: "patch",
+        endpoint: (args: EndpointArgs & { branch?: number }) => `/restaurants/${args.restaurant}/branches/${args.branch}`
+    },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs & { branch?: number }) => `/restaurants/${args.restaurant}/branches/${args.branch}`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
 export const RESTAURANT_REVIEW_API = {
     list: {
         method: "get",

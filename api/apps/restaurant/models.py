@@ -32,6 +32,22 @@ class Menu(models.Model):
         ]
 
 
+class Branch(models.Model):
+    """음식점(브랜드)의 지점. 메뉴는 브랜드에 하나지만 맛은 지점마다 달라서 리뷰는 지점별로 남긴다.
+
+    지점이 없는 동네 가게는 지점 없이 기록한다 (리뷰의 branch가 비어 있음).
+    """
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="branches")
+    name = models.CharField(max_length=100)
+    name_key = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["restaurant", "name_key"], name="unique_branch_per_restaurant"),
+        ]
+
+
 class RestaurantReview(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='review_set')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -39,6 +55,8 @@ class RestaurantReview(models.Model):
     ordered_at = models.DateField()
     # 비어 있으면 "메뉴 미기재"
     menu = models.ForeignKey(Menu, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviews")
+    # 비어 있으면 지점 구분 없음. 지점을 지우면 리뷰는 남고 지점만 비워진다.
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviews")
     content = models.CharField(max_length=255, blank=True)
     point = models.IntegerField(default=0, choices=[(1, 1), (0, 0), (-1, -1)])
 
@@ -47,3 +65,7 @@ class RestaurantReview(models.Model):
     @property
     def menu_name(self):
         return self.menu.name if self.menu_id else ""
+
+    @property
+    def branch_name(self):
+        return self.branch.name if self.branch_id else ""

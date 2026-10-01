@@ -6,7 +6,7 @@ import {Suspense, useCallback, useEffect, useState} from "react"
 import {useParams, useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
+import {BRANCH_API, RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
 import {ApiError, apiRequest, errorMessage} from "@/lib/api";
 import {today} from "@/lib/date";
 import NotFound from "next/dist/client/components/builtin/not-found";
@@ -20,6 +20,7 @@ import {ActionDrawer} from "@/components/ui/action_drawer";
 import {Modal} from "@/components/ui/modal";
 import {useCategoryStore} from "@/store/category";
 import {CategoryChips} from "@/components/restaurant/category_chips";
+import {BranchManager} from "@/components/restaurant/branch_manager";
 import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
 import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
 
@@ -73,6 +74,9 @@ export default function Page() {
     const [editName, setEditName] = useState("")
     const [editDescription, setEditDescription] = useState("")
 
+    // 지점 거르기: null = 전체, "none" = 지점 없이 남긴 리뷰, 숫자 = 그 지점
+    const [selectedBranch, setSelectedBranch] = useState<number | "none" | null>(null)
+
     // 리뷰 쓰기·고치기 시트. 열 때마다 seq를 올려 폼을 새로 만든다.
     const [sheet, setSheet] = useState<{ review: RestaurantReviewType | null; initial: ReviewDraft; seq: number } | null>(null)
     const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -91,11 +95,13 @@ export default function Page() {
     }, [token])
 
     // 상세 조회 (메뉴별 요약 포함)
+    // 상세 조회 (메뉴별 요약은 고른 지점 기준)
     const fetchRestaurant = useCallback(() => {
         const retrieve = RESTAURANT_API.retrieve
-        apiRequest[retrieve.method]<RestaurantType>(retrieve.endpoint({
+        const qs = selectedBranch !== null ? `?branch=${selectedBranch}` : ""
+        return apiRequest[retrieve.method]<RestaurantType>(`${retrieve.endpoint({
             restaurant: Number(restaurantId)
-        })).then((response: RestaurantType) => {
+        })}${qs}`).then((response: RestaurantType) => {
             setRestaurant(response)
             setMenuSummaries(response.menu_summaries ?? [])
             setReviewCount(response.review_count ?? 0)
@@ -104,19 +110,21 @@ export default function Page() {
                 ? "음식점을 찾을 수 없어요. 삭제되었거나 다른 계정의 음식점이에요."
                 : errorMessage(error, "음식점 정보를 불러오지 못했어요."))
         })
-    }, [restaurantId])
+    }, [restaurantId, selectedBranch])
 
     useEffect(() => {
         fetchRestaurant()
     }, [fetchRestaurant])
 
     // 리뷰 목록 조회 (menu 필터 / 페이지)
-    const fetchReviews = useCallback((menu: string | null, page: number, append: boolean) => {
+    const fetchReviews = useCallback((menu: string | null, page: number, append: boolean,
+                                      branch: number | "none" | null = selectedBranch) => {
         const reviewList = RESTAURANT_REVIEW_API.list
         setIsReviewLoading(true)
 
         const params = new URLSearchParams()
         if (menu != null) params.set("menu", menu)
+        if (branch !== null) params.set("branch", String(branch))
         if (page && page > 1) params.set("page", String(page))
         const qs = params.toString()
 
@@ -132,7 +140,27 @@ export default function Page() {
         }).catch((error) => {
             toast.error(errorMessage(error, "리뷰를 불러오지 못했어요."))
         }).finally(() => setIsReviewLoading(false))
-    }, [restaurantId])
+    }, [restaurantId, selectedBranch])
+
+    // 지점 칩을 누르면 요약(fetchRestaurant가 selectedBranch에 따라 다시 읽음)과 리뷰 목록을 그 지점 기준으로
+    const chooseBranch = (branch: number | "none" | null) => {
+        setSelectedBranch(branch)
+        if (activeTab === "all") fetchReviews(menuFilter, 1, false, branch)
+    }
+
+    const createBranch = (name: string) => {
+        const add = BRANCH_API.add
+        return apiRequest[add.method]<{ id: number; name: string }>(add.endpoint({restaurant: Number(restaurantId)}), {
+            body: JSON.stringify({name}),
+        }).then((branch) => {
+            fetchRestaurant()
+            toast.success(`'${branch.name}' 지점을 추가했어요.`)
+            return branch
+        }).catch((error) => {
+            toast.error(errorMessage(error, "지점을 추가하지 못했어요."))
+            throw error
+        })
+    }
 
     // 전체 리뷰 탭으로 들어가거나 필터가 바뀌면 1페이지부터 다시 요청한다.
     // effect로 하면 렌더 → effect → setState가 연쇄되므로 탭/필터를 바꾸는 이벤트에서 바로 부른다.
@@ -190,15 +218,19 @@ export default function Page() {
     const openSheet = (review: RestaurantReviewType | null, initial: Partial<ReviewDraft> = {}) => {
         setSheet((prev) => ({
             review,
-            initial: {ordered_at: today(), menu: "", point: 1, content: "", ...initial},
+            initial: {ordered_at: today(), branch: null, menu: "", point: 1, content: "", ...initial},
             seq: (prev?.seq ?? 0) + 1,
         }))
         setIsSheetOpen(true)
     }
 
-    // 새 기록. "또 먹었어요"는 그 메뉴와 지난번 만족도를 채워서 연다.
+    // 새 기록. "또 먹었어요"는 그 메뉴와 지난번 만족도·지점을 채워서 연다.
+    // 지점을 골라 보고 있는 중이면 그 지점이 먼저다.
     const startRecording = (summary?: MenuSummaryType) => {
-        openSheet(null, summary ? {menu: summary.menu, point: summary.last_point as SentimentKey} : {})
+        const branch = typeof selectedBranch === "number" ? selectedBranch : summary?.last_branch ?? null
+        openSheet(null, summary
+            ? {menu: summary.menu, point: summary.last_point as SentimentKey, branch}
+            : {branch})
     }
 
     const startEditingReview = (review: RestaurantReviewType) => {
@@ -207,6 +239,7 @@ export default function Page() {
             menu: review.menu ?? "",
             point: review.point as SentimentKey,
             content: review.content ?? "",
+            branch: review.branch ?? null,
         })
     }
 
@@ -326,6 +359,28 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* ---- 지점 거르기 (지점이 있을 때만) ---- */}
+                {restaurant.branches.length > 0 && (
+                    <div role="radiogroup" aria-label="지점"
+                         className="flex gap-1.5 overflow-x-auto px-5 mb-3 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                        {[{id: null as number | "none" | null, label: "모든 지점"},
+                            ...restaurant.branches.map((b) => ({id: b.id as number | "none" | null, label: b.name})),
+                            {id: "none" as const, label: "지점 없음"}].map((option) => {
+                            const active = selectedBranch === option.id
+                            return (
+                                <button key={String(option.id)} role="radio" aria-checked={active}
+                                        onClick={() => chooseBranch(option.id)}
+                                        className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors ${
+                                            active ? "bg-[#211D17] text-white border-[#211D17]"
+                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                        }`}>
+                                    {option.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+
                 {/* ---- 탭 ---- */}
                 <div className="flex gap-1.5 px-5 mb-3">
                     <button
@@ -429,8 +484,9 @@ export default function Page() {
                                                 <ReviewContent content={review.content || "내용 없음"}/>
                                             </div>
                                             <div
-                                                className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0">
+                                                className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0 text-right">
                                                 {review.ordered_at}
+                                                {review.branch_name && <div className="text-[#8A8172]">{review.branch_name}</div>}
                                             </div>
                                             <ActionDrawer
                                                 trigger={
@@ -481,7 +537,9 @@ export default function Page() {
                         title={sheet.review ? "리뷰 수정" : sheet.initial.menu ? `${sheet.initial.menu} 또 먹었어요` : "먹은 메뉴 기록"}
                         submitLabel={sheet.review ? "수정하기" : "기록하기"}
                         initial={sheet.initial}
-                        menus={menuSummaries.filter((summary) => summary.menu)}
+                        menus={restaurant.menus}
+                        branches={restaurant.branches}
+                        onCreateBranch={createBranch}
                         onSubmit={submitReview}
                     />
                 )}
@@ -537,6 +595,18 @@ export default function Page() {
                                 placeholder="예: 양념은 따로 달라고 하기"
                                 className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                             />
+                        </div>
+
+                        <div>
+                            <div className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                지점 <span className="font-medium text-[#B7AF9F]">메뉴는 같고 맛이 다른 곳</span>
+                            </div>
+                            <BranchManager restaurantId={restaurant.id} branches={restaurant.branches}
+                                           onCreate={createBranch} onChanged={() => {
+                                // 지운 지점으로 거르고 있었다면 전체로 돌린다
+                                setSelectedBranch(null)
+                                fetchRestaurant()
+                            }}/>
                         </div>
 
                         <button
