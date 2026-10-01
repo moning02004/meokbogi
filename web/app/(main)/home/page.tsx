@@ -65,6 +65,12 @@ export default function Page() {
         if (!token) window.location.href = "/login"
     }, [token])
 
+    // 상세 화면 코드를 미리 받아 두어 누르면 바로 넘어가게 한다 (어느 음식점이든 같은 코드)
+    const firstRestaurantId = (recentRegisteredRestaurants[0] ?? deliciousRestaurants[0] ?? forgottenRestaurants[0])?.id
+    useEffect(() => {
+        if (firstRestaurantId) router.prefetch(RESTAURANT_PAGE.detail(firstRestaurantId))
+    }, [firstRestaurantId, router])
+
     const gotoRestaurant = (_id: number) => {
         router.push(RESTAURANT_PAGE.detail(_id))
     }

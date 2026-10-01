@@ -19,7 +19,13 @@ import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
 import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
-import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
+import type {ReviewDraft} from "@/components/review/review_sheet";
+import dynamic from "next/dynamic";
+
+// 리뷰 시트는 달력(react-datepicker·date-fns, 200KB 가까이) 때문에 무겁다.
+// 상세 화면을 열 때 같이 받으면 화면이 늦게 뜨므로 따로 떼어 두고, 화면이 뜬 뒤 한가할 때 미리 받는다.
+const loadReviewSheet = () => import("@/components/review/review_sheet")
+const ReviewSheet = dynamic(() => loadReviewSheet().then((module) => module.ReviewSheet), {ssr: false})
 
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
@@ -110,6 +116,16 @@ export default function Page() {
     useEffect(() => {
         fetchRestaurant()
     }, [fetchRestaurant])
+
+    useEffect(() => {
+        const preload = () => void loadReviewSheet()
+        if ("requestIdleCallback" in window) {
+            const handle = window.requestIdleCallback(preload, {timeout: 2000})
+            return () => window.cancelIdleCallback(handle)
+        }
+        const timer = setTimeout(preload, 500)
+        return () => clearTimeout(timer)
+    }, [])
 
     // 리뷰 목록 조회 (menu 필터 / 페이지)
     const fetchReviews = useCallback((menu: string | null, page: number, append: boolean,
