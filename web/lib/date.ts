@@ -11,3 +11,11 @@ export const daysSince = (value: string) => {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     return Math.round((today.getTime() - parseLocalDate(value).getTime()) / 86_400_000)
 }
+
+// Date → "YYYY-MM-DD" (로컬 날짜 기준)
+export const formatDate = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+export const today = () => formatDate(new Date())
