@@ -5,10 +5,9 @@ import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import FoodCardShuffle from "@/components/play/shuffle_card";
-import {CATEGORY_API, RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
+import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {useCategoryStore} from "@/store/category";
 import {RecentRegisteredRestaurant, RestaurantListItemType} from "@/types/restaurant";
-import {ManagedCategoryType} from "@/types/zone";
 import {apiRequest, errorMessage} from "@/lib/api";
 import {PaginatedResponse, pickRestaurant} from "@/lib/restaurant";
 import {useZoneStore} from "@/store/zone";
@@ -33,17 +32,14 @@ export default function Page() {
     const selectedZoneId = selectedZone?.id
     const categories = useCategoryStore(state => state.categories)
 
-    // 카테고리별 음식점 수 (빈 카테고리를 기본으로 빼기 위해)
-    const [counts, setCounts] = useState<{ zoneId: number; byId: Record<number, number> } | null>(null)
-    const restaurantCounts = counts && counts.zoneId === selectedZoneId ? counts.byId : null
-
     const [excluded, setExcluded] = useState<number[]>([])
-    const [onlyWithRestaurants, setOnlyWithRestaurants] = useState(true)
     const [isPickerOpen, setIsPickerOpen] = useState(false)
     const [isShuffling, setIsShuffling] = useState(false)
 
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
-    const [restaurants, setRestaurants] = useState<RecentRegisteredRestaurant[]>([])
+    // 뽑힌 카테고리의 음식점. 어느 카테고리 것인지 함께 들고 있어서, 새로 뽑았을 때 이전 목록이 잠깐 보이지 않는다
+    const [loaded, setLoaded] = useState<{ categoryId: number; rows: RecentRegisteredRestaurant[] } | null>(null)
+    const restaurants = loaded && loaded.categoryId === selectedCategory ? loaded.rows : null
 
     const [picked, setPicked] = useState<RestaurantListItemType | null>(null)
     const [pickEmpty, setPickEmpty] = useState(false)
@@ -55,7 +51,7 @@ export default function Page() {
     if (selectedZoneId !== trackedZoneId) {
         setTrackedZoneId(selectedZoneId)
         setSelectedCategory(null)
-        setRestaurants([])
+        setLoaded(null)
         setExcluded([])
         setPicked(null)
         setPickEmpty(false)
@@ -70,23 +66,6 @@ export default function Page() {
     }
 
     useEffect(() => {
-        if (!selectedZoneId) return
-        let ignore = false
-        const list = CATEGORY_API.list
-        apiRequest[list.method]<ManagedCategoryType[]>(list.endpoint({zone: selectedZoneId}))
-            .then((rows) => {
-                if (!ignore) setCounts({
-                    zoneId: selectedZoneId,
-                    byId: Object.fromEntries(rows.map((row) => [row.id, row.restaurant_count]))
-                })
-            })
-            .catch(() => null)
-        return () => {
-            ignore = true
-        }
-    }, [selectedZoneId])
-
-    useEffect(() => {
         if (!selectedZoneId || !selectedCategory) return;
         let ignore = false
 
@@ -94,9 +73,9 @@ export default function Page() {
         apiRequest[restaurantList.method]<PaginatedResponse<RecentRegisteredRestaurant>>(
             `${restaurantList.endpoint({zone: selectedZoneId})}?category=${selectedCategory}`
         ).then((response) => {
-            if (!ignore) setRestaurants(response.results)
+            if (!ignore) setLoaded({categoryId: selectedCategory, rows: response.results})
         }).catch(() => {
-            if (!ignore) setRestaurants([])
+            if (!ignore) setLoaded({categoryId: selectedCategory, rows: []})
         })
         return () => {
             ignore = true
@@ -107,13 +86,9 @@ export default function Page() {
         if (!token) window.location.href = "/login"
     }, [token])
 
-    // 섞을 카드: 직접 뺀 것 제외, (켜져 있으면) 음식점 없는 카테고리 제외.
-    // 음식점이 하나도 없는 새 장소라면 빈 판이 되므로 그때는 전부 보여준다.
-    const hasAnyRestaurant = restaurantCounts !== null && categories.some((c) => (restaurantCounts[c.id] ?? 0) > 0)
-    const filterEmpty = onlyWithRestaurants && hasAnyRestaurant
-    const deck = categories.filter((category) =>
-        !excluded.includes(category.id) && (!filterEmpty || (restaurantCounts![category.id] ?? 0) > 0)
-    )
+    // 섞을 카드: 모든 카테고리에서 직접 뺀 것만 제외한다.
+    // 아직 안 먹어본 카테고리가 나와도 "이거 먹어봐야겠네"가 되도록 일부러 거르지 않는다.
+    const deck = categories.filter((category) => !excluded.includes(category.id))
     const categoryInfo = Object.fromEntries(deck.map((item) => [item.keyword, item.id]))
     const selectedCategoryName = categories.find((category) => category.id === selectedCategory)?.keyword ?? ""
 
@@ -166,31 +141,16 @@ export default function Page() {
 
                     {isPickerOpen && (
                         <div className="flex flex-col gap-2.5 pb-2">
-                            {hasAnyRestaurant && (
-                                <label className="flex items-center gap-2 text-[12.5px] text-[#5B5548] font-semibold cursor-pointer">
-                                    <input
-                                        id="only-with-restaurants"
-                                        type="checkbox"
-                                        checked={onlyWithRestaurants}
-                                        disabled={isShuffling}
-                                        onChange={(e) => setOnlyWithRestaurants(e.target.checked)}
-                                        className="accent-[#24564A] w-4 h-4"
-                                    />
-                                    등록한 음식점이 있는 카테고리만
-                                </label>
-                            )}
                             <p className="text-[11.5px] text-[#B7AF9F]">눌러서 이번 판에서 빼거나 다시 넣어요.</p>
                             <div className="flex flex-wrap gap-1.5">
                                 {categories.map((category) => {
-                                    const isEmpty = filterEmpty && (restaurantCounts![category.id] ?? 0) === 0
-                                    const isOut = excluded.includes(category.id) || isEmpty
+                                    const isOut = excluded.includes(category.id)
                                     return (
                                         <button
                                             key={category.id}
                                             onClick={() => toggleExcluded(category.id)}
-                                            disabled={isShuffling || isEmpty}
+                                            disabled={isShuffling}
                                             aria-pressed={!isOut}
-                                            title={isEmpty ? "등록한 음식점이 없어요" : undefined}
                                             className={`px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors disabled:cursor-not-allowed ${
                                                 isOut
                                                     ? "bg-white text-[#C9C1AF] border-[#EFEAE0] line-through"
@@ -207,10 +167,10 @@ export default function Page() {
                 </div>
 
                 {/* ---- 결과가 나온 뒤에만 목록 영역 표시 ---- */}
-                {selectedCategory && (
+                {selectedCategory && restaurants !== null && (
                     <div className="px-5 mt-4 flex flex-col gap-3">
-                        {/* 음식점까지 뽑기 */}
-                        <div className="rounded-2xl border border-[#F6C9B2] bg-[#FDF6F1] px-4 py-3.5 flex flex-col gap-2.5">
+                        {/* 음식점까지 뽑기: 등록한 곳이 있을 때만 */}
+                        {restaurants.length > 0 && <div className="rounded-2xl border border-[#F6C9B2] bg-[#FDF6F1] px-4 py-3.5 flex flex-col gap-2.5">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-[13px] font-extrabold text-[#211D17]">
                                     {selectedCategoryName}, 어디서 시킬까요?
@@ -259,7 +219,7 @@ export default function Page() {
                             <p className="text-[11px] text-[#B7AF9F] leading-relaxed">
                                 오래 안 간 곳, 만족도가 높았던 곳일수록 잘 뽑혀요.
                             </p>
-                        </div>
+                        </div>}
 
                         <div className="flex items-center gap-2">
                             <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase">
@@ -272,16 +232,19 @@ export default function Page() {
 
                         {restaurants.length === 0 ? (
                             <div className="bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-5 py-6 text-center">
+                                <div className="text-[15px] font-extrabold text-[#211D17] mb-1.5">
+                                    오늘은 {selectedCategoryName} 도전!
+                                </div>
                                 <div className="text-[13px] text-[#8A8172] font-semibold leading-relaxed mb-4">
-                                    앗, 아직 등록된 {selectedCategoryName} 음식점이 없어요.<br/>
-                                    이번 기회에 한 곳 추가해볼까요?
+                                    아직 기록한 {selectedCategoryName} 음식점이 없어요.<br/>
+                                    시켜 먹어 보고 맛있었던 곳을 남겨 두세요.
                                 </div>
                                 <button
                                     onClick={() => router.push(RESTAURANT_PAGE.add)}
                                     className="inline-flex items-center gap-1.5 text-[12.5px] font-extrabold text-white bg-[#D2571E] rounded-xl px-4 py-2.5 cursor-pointer active:scale-[0.98] transition-transform"
                                 >
                                     <FiArrowUpRight size={15}/>
-                                    음식점 추가하기
+                                    {selectedCategoryName} 음식점 등록하기
                                 </button>
                             </div>
                         ) : (
