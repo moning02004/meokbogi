@@ -1,5 +1,14 @@
-import {expect, test} from "@playwright/test";
+import {expect, Page, test} from "@playwright/test";
 import {Api, category, createUser, daysAgo, loginUi} from "./helpers";
+
+// 음식점 등록 화면의 카테고리 칸: 누르면 목록이 열리고 여러 개를 체크한 뒤 "완료"
+async function pickCategories(page: Page, keywords: string[]) {
+    await page.getByRole("button", {name: /^카테고리/}).click()
+    const list = page.getByRole("listbox")
+    for (const keyword of keywords) await list.getByRole("option", {name: keyword, exact: true}).click()
+    await page.getByRole("button", {name: "완료"}).click()
+    await expect(list).toHaveCount(0)
+}
 
 test.describe("음식점과 리뷰", () => {
     test("음식점을 등록하고, 아래 기록 버튼으로 시트를 열어 리뷰를 남긴다", async ({page, request}) => {
@@ -10,7 +19,7 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("우리집 기록")).toBeVisible()
 
         await page.getByRole("button", {name: "음식점등록"}).click()
-        await page.getByRole("group", {name: /카테고리/}).getByRole("button", {name: "치킨", exact: true}).click()
+        await pickCategories(page, ["치킨"])
         await page.getByPlaceholder("예: 미뜨레피자").fill("교촌치킨")
         await page.getByRole("button", {name: "등록", exact: true}).click()
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
@@ -157,8 +166,10 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("우리집 기록")).toBeVisible()
 
         await page.goto("/restaurant/add")
+        // 다른 카테고리를 골라도 이름 검색은 장소 전체에서 한다
+        await pickCategories(page, ["피자"])
         await page.getByPlaceholder("예: 미뜨레피자").fill("숨은")
-        await expect(page.getByText("이미 등록된 음식점이에요", {exact: false})).toBeVisible()
+        await expect(page.getByText("이름이 비슷한 음식점이 이미 있어요", {exact: false})).toBeVisible()
         await expect(page.getByRole("button", {name: /숨은맛집/})).toBeVisible()
     })
 
@@ -236,10 +247,9 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("우리집 기록")).toBeVisible()
 
         await page.getByRole("button", {name: "음식점등록"}).click()
-        const chips = page.getByRole("group", {name: /카테고리/})
-        await chips.getByRole("button", {name: "분식", exact: true}).click()
-        await chips.getByRole("button", {name: "돈까스", exact: true}).click()
-        await expect(chips.getByRole("button", {name: "분식", exact: true})).toHaveAttribute("aria-pressed", "true")
+        await pickCategories(page, ["분식", "돈까스"])
+        // 입력칸에는 목록 순서대로 이어서 보인다
+        await expect(page.getByRole("button", {name: /^카테고리/})).toContainText("분식, 돈까스")
         await page.getByPlaceholder("예: 미뜨레피자").fill("김밥천국")
         await page.getByRole("button", {name: "등록", exact: true}).click()
 
@@ -254,5 +264,37 @@ test.describe("음식점과 리뷰", () => {
         }
         await page.getByRole("button", {name: "한식", exact: true}).click()
         await expect(page.getByText("총 0곳")).toBeVisible()
+    })
+
+    test("카테고리를 골라야 이름을 쓸 수 있고, 이름 칸을 누르면 그 카테고리의 음식점이 바로 보인다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        const zone = await api.createZone("우리집")
+        await api.createRestaurant(zone.id, category(zone, "치킨").id, "교촌치킨")
+        await api.createRestaurant(zone.id, category(zone, "치킨").id, "BBQ")
+        await api.createRestaurant(zone.id, category(zone, "피자").id, "미뜨레피자")
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto("/restaurant/add")
+        const name = page.getByLabel(/^이름/)
+        await expect(name).toBeDisabled()
+        await expect(name).toHaveAttribute("placeholder", "카테고리를 먼저 골라주세요")
+
+        await pickCategories(page, ["치킨"])
+        await expect(name).toBeEnabled()
+
+        // 아무것도 안 쳐도 누르면 바로 목록
+        await name.click()
+        await expect(page.getByText("이 카테고리에 등록된 음식점이에요", {exact: false})).toBeVisible()
+        await expect(page.getByRole("button", {name: /교촌치킨/})).toBeVisible()
+        await expect(page.getByRole("button", {name: /BBQ/})).toBeVisible()
+        await expect(page.getByRole("button", {name: /미뜨레피자/})).toHaveCount(0)
+
+        // 이름을 치면 장소 전체에서 비슷한 이름 (다른 카테고리여도 중복 등록을 막는다)
+        await name.fill("미뜨레")
+        await expect(page.getByText("이름이 비슷한 음식점이 이미 있어요", {exact: false})).toBeVisible()
+        await page.getByRole("button", {name: /미뜨레피자/}).click()
+        await expect(page).toHaveURL(/\/restaurant\/\d+$/)
     })
 })

@@ -31,7 +31,7 @@ export default function Page() {
     const [deliciousRestaurants, setDeliciousRestaurants] = useState<DeliciousRestaurant[]>([])
     const [recentRegisteredRestaurants, setRecentRegisteredRestaurants] = useState<RecentRegisteredRestaurant[]>([])
     const [forgottenRestaurants, setForgottenRestaurants] = useState<RecentRegisteredRestaurant[]>([])
-    const [activeTab, setActiveTab] = useState<"delicious" | "recent" | "forgotten">("delicious")
+    const [activeTab, setActiveTab] = useState<"delicious" | "recent" | "forgotten">("recent")
 
     // 홈에 올 때마다 존 목록을 새로 맞춘다. 다른 기기에서 지운 존이 선택돼 있으면 첫 번째 존으로 바뀐다.
     useEffect(() => {
@@ -70,8 +70,9 @@ export default function Page() {
     }
 
     const RESTAURANT_TABS = [
-        {key: "delicious" as const, label: "믿고 먹는 음식점"},
-        {key: "recent" as const, label: "최근 먹었던 음식점"},
+        // 가장 자주 보는 탭이 앞. 이름은 짧게 해서 한 줄에 다 들어오게 한다
+        {key: "recent" as const, label: "최근 먹은"},
+        {key: "delicious" as const, label: "믿고 먹는"},
         {key: "forgotten" as const, label: "오랜만에 가볼 곳"},
     ]
 
@@ -120,7 +121,7 @@ export default function Page() {
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-full text-[13.5px] font-semibold border cursor-pointer transition-colors ${
+                            className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold border cursor-pointer transition-colors ${
                                 activeTab === tab.key
                                     ? "bg-[#24564A] text-white border-[#24564A]"
                                     : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"

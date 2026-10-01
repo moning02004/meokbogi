@@ -320,6 +320,18 @@ class RestaurantWriteTestCase(TestCase):
             names = [r["name"] for r in self.client.get(self.create_url, {"category": category.pk}).json()["results"]]
             self.assertIn("김밥천국", names)
 
+    def test_filter_by_several_categories_without_double_counting(self):
+        snack = Category.objects.create(zone=self.zone, keyword="분식")
+        both = make_restaurant(categories=[self.chicken, snack], zone=self.zone, name="김밥천국")
+        make_review(restaurant=both, user=self.user, ordered_at="2026-01-01", menu="김밥", point=1)
+        make_restaurant(category=self.pizza, name="미뜨레피자")
+
+        rows = self.client.get(self.create_url, {"category": [self.chicken.pk, snack.pk]}).json()["results"]
+        names = sorted(row["name"] for row in rows)
+        self.assertEqual(names, ["교촌치킨", "김밥천국"])
+        # 카테고리 두 개가 다 맞아도 한 줄, 리뷰 수도 그대로
+        self.assertEqual(next(row for row in rows if row["name"] == "김밥천국")["review_count"], 1)
+
     def test_move_to_another_category_in_my_zone(self):
         response = self._patch(self.info_url, {"category_ids": [self.pizza.pk]})
         self.assertEqual(response.status_code, 200)

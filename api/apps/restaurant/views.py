@@ -52,11 +52,17 @@ def my_restaurants(request, zone_id=None):
     return queryset.filter(zone_id=zone_id) if zone_id is not None else queryset
 
 
-def filter_by_category(queryset, category_id):
-    # 숫자가 아닌 값이 오면 filter()가 ValueError로 500을 내므로 무시한다
-    if category_id and category_id.isdigit():
-        return queryset.filter(categories__id=category_id)
-    return queryset
+def filter_by_category(queryset, category_ids):
+    """?category=1&category=2 → 그중 하나라도 붙은 음식점.
+
+    태그 테이블과 바로 조인하면 카테고리가 여러 개 맞는 음식점이 여러 줄이 되어 리뷰 집계가 부풀므로
+    음식점 id 하위 쿼리로 거른다. 숫자가 아닌 값은 무시한다 (filter()가 ValueError로 500을 낸다).
+    """
+    ids = [value for value in category_ids if value.isdigit()]
+    if not ids:
+        return queryset
+    tagged = Restaurant.categories.through.objects.filter(category_id__in=ids).values("restaurant_id")
+    return queryset.filter(id__in=tagged)
 
 
 class AllRestaurantsListAPIView(ListCreateAPIView):
@@ -67,7 +73,7 @@ class AllRestaurantsListAPIView(ListCreateAPIView):
 
     def get_queryset(self):
         queryset = filter_by_category(my_restaurants(self.request, self.kwargs["zone_pk"]),
-                                      self.request.query_params.get("category"))
+                                      self.request.query_params.getlist("category"))
         return sort_restaurants(annotate_restaurants(queryset), self.request.query_params.get("sort"))
 
     def get_zone(self):
@@ -89,7 +95,7 @@ class RestaurantPickAPIView(APIView):
 
     def get(self, request, *args, **kwargs):
         queryset = filter_by_category(my_restaurants(request, self.kwargs["zone_pk"]),
-                                      request.query_params.get("category"))
+                                      request.query_params.getlist("category"))
         # 기본은 실망한 곳을 뺀다. exclude_disappointing=0 이면 포함
         exclude = request.query_params.get("exclude_disappointing", "1") != "0"
 

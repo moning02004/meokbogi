@@ -4,7 +4,7 @@ import {Suspense, useEffect, useState} from "react"
 import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {CategoryChips} from "@/components/restaurant/category_chips";
+import {CategoryPicker} from "@/components/restaurant/category_picker";
 import {FaArrowLeft} from "react-icons/fa";
 import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
@@ -35,6 +35,9 @@ export default function Page() {
     const [showNameSuggestions, setShowNameSuggestions] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const keyword = name.trim()
+    // 이름 칸을 누르면 바로 보여줄, 고른 카테고리의 등록된 음식점
+    const [categoryRestaurants, setCategoryRestaurants] = useState<RestaurantListItemType[]>([])
+    const categoryKey = selectedCategoryIds.join(",")
 
     useEffect(() => {
         if (!token) router.replace("/login")
@@ -56,11 +59,25 @@ export default function Page() {
         }
     }, [selectedZoneId, keyword])
 
+    useEffect(() => {
+        if (!selectedZoneId || !categoryKey) return
+        let ignore = false
+        fetchZoneRestaurants(selectedZoneId, {categoryIds: categoryKey.split(",").map(Number), sort: "name"})
+            .then((res) => {
+                if (!ignore) setCategoryRestaurants(res.results)
+            })
+            .catch(() => null)
+        return () => {
+            ignore = true
+        }
+    }, [selectedZoneId, categoryKey])
+
     if (!selectedZone) return <LoadingPage/>
 
 
-    // 입력이 비었을 때는 "이미 등록된 음식점" 안내를 띄우지 않는다
-    const visibleNameSuggestions = keyword ? nameSuggestions : []
+    // 입력 전: 고른 카테고리의 음식점 목록 / 입력 중: 장소 전체에서 이름이 비슷한 음식점 (중복 등록 방지)
+    const hasCategory = selectedCategoryIds.length > 0
+    const visibleNameSuggestions = !hasCategory ? [] : keyword ? nameSuggestions : categoryRestaurants
 
     const goToExistingRestaurant = (_id: number) => {
         setShowNameSuggestions(false)
@@ -111,16 +128,16 @@ export default function Page() {
                 <div className="px-5 pt-6 flex flex-col gap-5">
 
                     <div>
-                        <div id="restaurant-categories-label" className="text-[12.5px] font-bold text-[#8A8172] mb-2">
+                        <label htmlFor="restaurant-categories" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
                             카테고리 <span className="text-[#D2571E]">*</span>
-                            <span className="font-medium text-[#B7AF9F]"> 여러 개 고를 수 있어요</span>
-                        </div>
-                        <CategoryChips categories={categories} selected={selectedCategoryIds}
-                                       onChange={setSelectedCategoryIds} labelledBy="restaurant-categories-label"/>
+                        </label>
+                        <CategoryPicker id="restaurant-categories" categories={categories}
+                                        selected={selectedCategoryIds} onChange={setSelectedCategoryIds}
+                                        placeholder="카테고리를 골라주세요 (여러 개 가능)"/>
                     </div>
 
                     <div className="relative">
-                        <label className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
+                        <label htmlFor="restaurant-name" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
                             이름 <span className="text-[#D2571E]">*</span>
                         </label>
                         <input
@@ -129,15 +146,21 @@ export default function Page() {
                             onFocus={() => setShowNameSuggestions(true)}
                             onBlur={() => setTimeout(() => setShowNameSuggestions(false), 150)}
                             type="text"
-                            placeholder="예: 미뜨레피자"
+                            id="restaurant-name"
+                            // 카테고리를 하나 이상 골라야 이름을 쓸 수 있다
+                            disabled={!hasCategory}
+                            placeholder={hasCategory ? "예: 미뜨레피자" : "카테고리를 먼저 골라주세요"}
                             maxLength={100}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
+                            autoComplete="off"
+                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors disabled:bg-[#F6F3EC] disabled:cursor-not-allowed placeholder:text-[#B7AF9F]"
                         />
                         {showNameSuggestions && visibleNameSuggestions.length > 0 && (
                             <div
                                 className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
                                 <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-[#B7AF9F]">
-                                    이미 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요.
+                                    {keyword
+                                        ? "이름이 비슷한 음식점이 이미 있어요. 눌러서 바로 이동할 수 있어요."
+                                        : "이 카테고리에 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."}
                                 </p>
                                 {visibleNameSuggestions.map((restaurant) => (
                                     <button
