@@ -59,7 +59,10 @@ test.describe("홈과 설정", () => {
         await expect(page.getByText("'샐러드' 카테고리를 만들었어요.")).toBeVisible()
 
         await page.goto("/my-info")
-        // 내정보에서는 카테고리를 추가하지 않는다 (찾기만)
+        // 내정보에는 한 줄만 있고 별도 페이지로 간다
+        await page.getByRole("button", {name: /카테고리별 음식점/}).click()
+        await expect(page).toHaveURL(/\/categories$/)
+        // 카테고리를 추가하지 않는다 (찾기만)
         await expect(page.getByPlaceholder(/카테고리 찾기 · 추가/)).toHaveCount(0)
         await page.getByLabel("카테고리 찾기").fill("치킨")
         const row = page.getByRole("button", {name: /치킨.*우리집 2 · 회사 1/})
@@ -74,7 +77,7 @@ test.describe("홈과 설정", () => {
         await page.goto("/home")
         await expect(page.getByText("회사 기록")).toBeVisible()
 
-        await page.goto("/my-info")
+        await page.goto("/categories")
         await page.getByLabel("카테고리 찾기").fill("샐러드")
         await expect(page.getByRole("button", {name: /샐러드.*등록한 음식점 없음/})).toBeVisible()
     })

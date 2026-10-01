@@ -1,6 +1,8 @@
 "use client"
 
 import {Suspense, useEffect, useState} from "react"
+import {useRouter} from "next/navigation"
+import {LuChevronRight} from "react-icons/lu";
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {USER_API} from "@/constants/routeUrl";
@@ -11,7 +13,6 @@ import {Modal} from "@/components/ui/modal";
 import {ZoneManager} from "@/components/settings/zone_manager";
 import {ArchiveManager} from "@/components/settings/archive_manager";
 import {PushManager} from "@/components/settings/push_manager";
-import {CategoryManager} from "@/components/settings/category_manager";
 import {syncZones} from "@/lib/zone";
 
 interface UserType {
@@ -26,6 +27,7 @@ interface UserType {
 }
 
 export default function Page() {
+    const router = useRouter()
     const [user, setUser] = useState<UserType | null>(null)
     // 가져오기 뒤 존 관리 목록을 새로 읽게 하려고 key로 다시 만든다
     const [zoneListKey, setZoneListKey] = useState(0)
@@ -190,15 +192,18 @@ export default function Page() {
                     </div>
                 </div>
 
-                {/* ---- 카테고리 (장소와 상관없이 한 벌) ---- */}
+                {/* ---- 카테고리별 음식점: 길어서 별도 페이지 ---- */}
                 <div className="px-5 pt-5">
-                    <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">카테고리별 음식점</div>
-                    <div className="bg-white border border-[#E7E0CF] rounded-2xl p-4">
-                        <CategoryManager onCategoriesChange={(_, mutated) => {
-                            // 상단바·음식점 필터·뽑기가 쓰는 전역 카테고리 목록도 맞춘다
-                            if (mutated) syncZones().catch(() => null)
-                        }}/>
-                    </div>
+                    <button
+                        onClick={() => router.push("/categories")}
+                        className="w-full flex items-center justify-between bg-white border border-[#E7E0CF] rounded-2xl px-4 py-3.5 cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                    >
+                        <span className="text-left">
+                            <span className="block text-[14px] font-semibold text-[#211D17]">카테고리별 음식점</span>
+                            <span className="block text-[12px] text-[#8A8172]">어느 장소에 어떤 음식점이 있는지, 이름 바꾸기·지우기</span>
+                        </span>
+                        <LuChevronRight size={16} className="shrink-0 text-[#B7AF9F]"/>
+                    </button>
                 </div>
 
                 {/* ---- 존 관리 ---- */}
