@@ -324,4 +324,26 @@ test.describe("음식점과 리뷰", () => {
         await expect(page).toHaveURL(/\/restaurant\/\d+$/)
         await expect(page.getByText("샐러드", {exact: true})).toBeVisible()
     })
+
+    test("설명은 여러 줄로 쓰고, 상세에서는 두 줄까지 보이다가 더보기로 펼친다", async ({page, request}) => {
+        const user = createUser()
+        await (await Api.login(request, user)).createZone("우리집")
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto("/restaurant/add")
+        await pickCategories(page, ["치킨"])
+        await page.getByLabel(/^이름/).fill("교촌치킨")
+        const description = page.getByLabel(/^설명/)
+        await expect(description).toHaveAttribute("rows", "2")
+        await description.fill("양념은 따로\n순살은 역삼점이 더 바삭\n콜라는 큰 걸로\n소스 추가")
+        await page.getByRole("button", {name: "등록", exact: true}).click()
+        await expect(page).toHaveURL(/\/restaurant\/\d+$/)
+
+        await expect(page.getByText("양념은 따로", {exact: false})).toBeVisible()
+        const more = page.getByRole("button", {name: "더보기"})
+        await expect(more).toBeVisible()
+        await more.click()
+        await expect(page.getByRole("button", {name: "접기"})).toBeVisible()
+    })
 })

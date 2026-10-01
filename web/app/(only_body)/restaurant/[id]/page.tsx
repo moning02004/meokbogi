@@ -26,7 +26,10 @@ import {ReviewDraft, ReviewSheet} from "@/components/review/review_sheet";
 
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
-function ReviewContent({content}: { content: string }) {
+function ReviewContent({content, className = "text-[13px] text-[#8A8172] mt-0.5 leading-snug"}: {
+    content: string
+    className?: string
+}) {
     const [isExpanded, setIsExpanded] = useState(false)
     const [isOverflowing, setIsOverflowing] = useState(false)
 
@@ -39,9 +42,7 @@ function ReviewContent({content}: { content: string }) {
         <>
             <div
                 ref={measureRef}
-                className={`text-[13px] text-[#8A8172] mt-0.5 leading-snug whitespace-pre-wrap ${
-                    isExpanded ? "" : "line-clamp-2"
-                }`}
+                className={`${className} whitespace-pre-wrap ${isExpanded ? "" : "line-clamp-2"}`}
             >
                 {content}
             </div>
@@ -349,8 +350,10 @@ export default function Page() {
                     </div>
                     {/* 설명은 쓴 경우에만 보여준다 (비어 있으면 "소개 없음" 칸이 자리만 차지했다) */}
                     {restaurant.description && (
-                        <div className="text-[12.5px] text-[#5B5548] mt-2 leading-relaxed bg-white px-3 py-1.5 rounded border border-[#E7E0CF] whitespace-pre-wrap">
-                            {restaurant.description}
+                        // 두 줄까지 보여주고 넘치면 "더보기". 수정하면 내용이 바뀌므로 key로 다시 재게 한다
+                        <div className="mt-2 bg-white px-3 py-1.5 rounded border border-[#E7E0CF]">
+                            <ReviewContent key={restaurant.description} content={restaurant.description}
+                                           className="text-[12.5px] text-[#5B5548] leading-relaxed"/>
                         </div>
                     )}
                     <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
@@ -584,16 +587,15 @@ export default function Page() {
                         </div>
 
                         <div>
-                            <label className="block text-[12px] font-bold text-[#8A8172] mb-1.5">설명</label>
-                            <input
+                            <label htmlFor="edit-description" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">설명</label>
+                            <textarea
+                                id="edit-description"
                                 value={editDescription}
                                 onChange={(e) => setEditDescription(e.target.value)}
                                 maxLength={100}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.nativeEvent.isComposing) saveRestaurant()
-                                }}
+                                rows={2}
                                 placeholder="예: 양념은 따로 달라고 하기"
-                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                                className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none leading-relaxed"
                             />
                         </div>
 

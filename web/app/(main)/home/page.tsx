@@ -173,7 +173,7 @@ export default function Page() {
                             >
                                 <div>
                                     <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
+                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
                                     <div className="flex flex-row mt-1 text-[12.5px] text-[#8A8172]">
                                         <span>방문 {restaurant.ordered_count} 회</span>
                                         <span className="inline-block mx-2">·</span>

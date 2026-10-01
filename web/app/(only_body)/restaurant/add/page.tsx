@@ -203,14 +203,14 @@ export default function Page() {
                         <label htmlFor="restaurant-description" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
                             설명 <span className="font-medium text-[#B7AF9F]">(선택)</span>
                         </label>
-                        <input
+                        <textarea
                             id="restaurant-description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            type="text"
+                            rows={2}
                             placeholder="예: 양념은 따로 달라고 하기"
                             maxLength={100}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors"
+                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors resize-none leading-relaxed placeholder:text-[#B7AF9F]"
                         />
                     </div>
 
