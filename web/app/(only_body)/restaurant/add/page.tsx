@@ -35,7 +35,7 @@ export default function Page() {
     const [showNameSuggestions, setShowNameSuggestions] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const keyword = name.trim()
-    // 이름 칸을 누르면 바로 보여줄, 고른 카테고리의 등록된 음식점
+    // 이름 칸을 누르면 바로 보여줄 등록된 음식점 (카테고리를 골랐으면 그 카테고리 것만)
     const [categoryRestaurants, setCategoryRestaurants] = useState<RestaurantListItemType[]>([])
     const categoryKey = selectedCategoryIds.join(",")
 
@@ -60,9 +60,10 @@ export default function Page() {
     }, [selectedZoneId, keyword])
 
     useEffect(() => {
-        if (!selectedZoneId || !categoryKey) return
+        if (!selectedZoneId) return
         let ignore = false
-        fetchZoneRestaurants(selectedZoneId, {categoryIds: categoryKey.split(",").map(Number), sort: "name"})
+        const categoryIds = categoryKey ? categoryKey.split(",").map(Number) : undefined
+        fetchZoneRestaurants(selectedZoneId, {categoryIds, sort: "name"})
             .then((res) => {
                 if (!ignore) setCategoryRestaurants(res.results)
             })
@@ -75,9 +76,9 @@ export default function Page() {
     if (!selectedZone) return <LoadingPage/>
 
 
-    // 입력 전: 고른 카테고리의 음식점 목록 / 입력 중: 장소 전체에서 이름이 비슷한 음식점 (중복 등록 방지)
+    // 입력 전: 등록된 음식점 목록(카테고리를 골랐으면 그 카테고리) / 입력 중: 장소 전체에서 이름이 비슷한 음식점
     const hasCategory = selectedCategoryIds.length > 0
-    const visibleNameSuggestions = !hasCategory ? [] : keyword ? nameSuggestions : categoryRestaurants
+    const visibleNameSuggestions = keyword ? nameSuggestions : categoryRestaurants
 
     const goToExistingRestaurant = (_id: number) => {
         setShowNameSuggestions(false)
@@ -144,15 +145,17 @@ export default function Page() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             onFocus={() => setShowNameSuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowNameSuggestions(false), 150)}
+                            // 이미 포커스가 있어도 누르면 다시 연다
+                            onClick={() => setShowNameSuggestions(true)}
+                            // 목록 항목은 mousedown에서 이동하므로 지연 없이 닫는다.
+                            // (예전처럼 150ms 뒤에 닫으면, 다른 곳을 눌렀다 바로 다시 누를 때 새로 연 목록을 그 타이머가 닫았다)
+                            onBlur={() => setShowNameSuggestions(false)}
                             type="text"
                             id="restaurant-name"
-                            // 카테고리를 하나 이상 골라야 이름을 쓸 수 있다
-                            disabled={!hasCategory}
-                            placeholder={hasCategory ? "예: 미뜨레피자" : "카테고리를 먼저 골라주세요"}
+                            placeholder="예: 미뜨레피자"
                             maxLength={100}
                             autoComplete="off"
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors disabled:bg-[#F6F3EC] disabled:cursor-not-allowed placeholder:text-[#B7AF9F]"
+                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
                         />
                         {showNameSuggestions && visibleNameSuggestions.length > 0 && (
                             <div
@@ -160,7 +163,9 @@ export default function Page() {
                                 <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-[#B7AF9F]">
                                     {keyword
                                         ? "이름이 비슷한 음식점이 이미 있어요. 눌러서 바로 이동할 수 있어요."
-                                        : "이 카테고리에 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."}
+                                        : hasCategory
+                                            ? "이 카테고리에 등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."
+                                            : "등록된 음식점이에요. 눌러서 바로 이동할 수 있어요."}
                                 </p>
                                 {visibleNameSuggestions.map((restaurant) => (
                                     <button

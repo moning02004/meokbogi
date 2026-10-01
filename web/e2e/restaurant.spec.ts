@@ -266,7 +266,7 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("총 0곳")).toBeVisible()
     })
 
-    test("카테고리를 골라야 이름을 쓸 수 있고, 이름 칸을 누르면 그 카테고리의 음식점이 바로 보인다", async ({page, request}) => {
+    test("이름 칸을 누르면 등록된 음식점이 바로 보이고, 카테고리를 고르면 그 카테고리로 좁혀진다", async ({page, request}) => {
         const user = createUser()
         const api = await Api.login(request, user)
         const zone = await api.createZone("우리집")
@@ -277,18 +277,20 @@ test.describe("음식점과 리뷰", () => {
         await expect(page.getByText("우리집 기록")).toBeVisible()
 
         await page.goto("/restaurant/add")
+        // 카테고리를 고르기 전에도 이름을 쓸 수 있고, 누르면 장소 전체 목록
         const name = page.getByLabel(/^이름/)
-        await expect(name).toBeDisabled()
-        await expect(name).toHaveAttribute("placeholder", "카테고리를 먼저 골라주세요")
-
-        await pickCategories(page, ["치킨"])
         await expect(name).toBeEnabled()
+        await name.click()
+        await expect(page.getByText("등록된 음식점이에요. 눌러서", {exact: false})).toBeVisible()
+        for (const restaurant of ["교촌치킨", "BBQ", "미뜨레피자"]) {
+            await expect(page.getByRole("button", {name: new RegExp(restaurant)})).toBeVisible()
+        }
 
-        // 아무것도 안 쳐도 누르면 바로 목록
+        // 카테고리를 고르면 그 카테고리 것만
+        await pickCategories(page, ["치킨"])
         await name.click()
         await expect(page.getByText("이 카테고리에 등록된 음식점이에요", {exact: false})).toBeVisible()
         await expect(page.getByRole("button", {name: /교촌치킨/})).toBeVisible()
-        await expect(page.getByRole("button", {name: /BBQ/})).toBeVisible()
         await expect(page.getByRole("button", {name: /미뜨레피자/})).toHaveCount(0)
 
         // 이름을 치면 장소 전체에서 비슷한 이름 (다른 카테고리여도 중복 등록을 막는다)
