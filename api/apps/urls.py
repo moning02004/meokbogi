@@ -19,15 +19,17 @@ urlpatterns = [
         "get": "list",
         "post": "create"
     }), name="zones"),
-    path("zones/<int:zone_pk>", zone_views.ZoneDeleteAPIView.as_view(), name="zone-delete"),
+    path("zones/<int:zone_pk>", zone_views.ZoneDetailAPIView.as_view(), name="zone-delete"),
     path("zones/<int:zone_pk>/dashboard", zone_views.ZoneDashboardAPIView.as_view(), name="zone-dashboard"),
     path("zones/<int:zone_pk>/category", zone_views.CategoryListAPIView.as_view(), name="category-list"),
-    path("zones/<int:zone_pk>/category/<int:category_pk>", zone_views.CategoryDeleteAPIView.as_view(),
+    path("zones/<int:zone_pk>/category/<int:category_pk>", zone_views.CategoryDetailAPIView.as_view(),
          name="category-delete"),
 
     # restaurants
     path("zones/<int:zone_pk>/restaurants", restaurant_views.AllRestaurantsListAPIView.as_view(),
          name="all-restaurants"),
+    path("zones/<int:zone_pk>/restaurants/pick", restaurant_views.RestaurantPickAPIView.as_view(),
+         name="restaurant-pick"),
     path("zones/<int:zone_pk>/category/<int:category_pk>/restaurants",
          restaurant_views.RestaurantListViewSet.as_view({"get": "list", "post": "create"}), name="restaurants"),
     path("restaurants/<int:restaurant_pk>",

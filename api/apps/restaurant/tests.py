@@ -1,10 +1,17 @@
-from datetime import datetime
+from datetime import date, datetime
+from importlib import import_module
+from types import SimpleNamespace
+from unittest import mock
+
+from django.apps import apps as django_apps
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from apps.restaurant.menus import canonical_menu, normalize_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.picking import pick_restaurant, pick_weight
 from apps.zone.models import Zone, Category
 
 
@@ -489,3 +496,139 @@ class MenuLastPointTestCase(TestCase):
         response = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": restaurant.pk}))
         summary = response.json()["menu_summaries"][0]
         self.assertEqual((summary["last_point"], summary["last_ordered_at"]), (-1, "2026-03-01"))
+
+
+class PickWeightTestCase(TestCase):
+    today = date(2026, 10, 1)
+
+    def test_older_visit_weighs_more(self):
+        self.assertGreater(pick_weight(1, date(2026, 6, 1), self.today), pick_weight(1, date(2026, 9, 30), self.today))
+
+    def test_better_rating_weighs_more(self):
+        visited = date(2026, 9, 1)
+        self.assertGreater(pick_weight(1, visited, self.today), pick_weight(0, visited, self.today))
+
+    def test_idle_days_are_capped(self):
+        self.assertEqual(pick_weight(0, date(2024, 1, 1), self.today), pick_weight(0, date(2025, 1, 1), self.today))
+
+    def test_yesterday_is_still_possible(self):
+        self.assertGreater(pick_weight(-1, self.today, self.today), 0)
+
+    def test_disappointing_excluded_by_default(self):
+        bad = SimpleNamespace(review_avg=-1.0, latest_ordered_at=date(2026, 1, 1))
+        self.assertIsNone(pick_restaurant([bad], self.today))
+        self.assertIs(pick_restaurant([bad], self.today, exclude_disappointing=False), bad)
+
+    def test_passes_weights_to_rng(self):
+        old = SimpleNamespace(review_avg=1.0, latest_ordered_at=date(2026, 1, 1))
+        new = SimpleNamespace(review_avg=1.0, latest_ordered_at=date(2026, 9, 30))
+        rng = mock.Mock()
+        rng.choices.return_value = [old]
+
+        pick_restaurant([old, new], self.today, rng=rng)
+        weights = rng.choices.call_args.kwargs["weights"]
+        self.assertGreater(weights[0], weights[1])
+
+
+class RestaurantPickAPITestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.chicken = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.pizza = Category.objects.create(zone=self.zone, keyword="피자")
+        self.client.login(username="owner", password="123")
+        self.url = reverse("restaurant-pick", kwargs={"zone_pk": self.zone.pk})
+
+    def test_picks_within_category(self):
+        Restaurant.objects.create(category=self.chicken, name="교촌치킨")
+        Restaurant.objects.create(category=self.pizza, name="미뜨레피자")
+
+        for _ in range(5):
+            response = self.client.get(self.url, {"category": self.pizza.pk})
+            self.assertEqual(response.json()["restaurant"]["name"], "미뜨레피자")
+
+    def test_returns_null_when_nothing_to_pick(self):
+        response = self.client.get(self.url, {"category": self.pizza.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["restaurant"])
+
+    def test_skips_disappointing_unless_asked(self):
+        bad = Restaurant.objects.create(category=self.chicken, name="별로")
+        RestaurantReview.objects.create(restaurant=bad, user=self.user, ordered_at="2026-01-01", point=-1)
+
+        self.assertIsNone(self.client.get(self.url, {"category": self.chicken.pk}).json()["restaurant"])
+        response = self.client.get(self.url, {"category": self.chicken.pk, "exclude_disappointing": "0"})
+        self.assertEqual(response.json()["restaurant"]["name"], "별로")
+
+    def test_never_picks_other_users_restaurant(self):
+        other = User.objects.create_user(username="other", password="123")
+        other_zone = Zone.objects.create(user=other, name="남의 집")
+        Restaurant.objects.create(category=Category.objects.create(zone=other_zone, keyword="치킨"), name="남의 가게")
+
+        url = reverse("restaurant-pick", kwargs={"zone_pk": other_zone.pk})
+        self.assertIsNone(self.client.get(url).json()["restaurant"])
+
+
+class MenuSpellingTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        zone = Zone.objects.create(user=self.user, name="우리집")
+        self.restaurant = Restaurant.objects.create(
+            category=Category.objects.create(zone=zone, keyword="치킨"), name="교촌치킨")
+        self.client.login(username="owner", password="123")
+        self.url = reverse("review-create", kwargs={"restaurant_pk": self.restaurant.pk})
+
+    def _post(self, menu):
+        response = self.client.post(self.url, data={"ordered_at": "2026-01-01", "menu": menu, "point": 1})
+        return RestaurantReview.objects.get(pk=response.json()["id"]).menu
+
+    def test_normalize_ignores_spaces_and_case(self):
+        self.assertEqual(normalize_menu(" 간장  치킨 "), normalize_menu("간장치킨"))
+        self.assertEqual(normalize_menu("Pizza"), normalize_menu("pizza"))
+
+    def test_new_review_reuses_first_spelling(self):
+        self._post("간장치킨")
+        self.assertEqual(self._post("간장 치킨"), "간장치킨")
+
+        summaries = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
+                                    ).json()["menu_summaries"]
+        self.assertEqual([(row["menu"], row["review_count"]) for row in summaries], [("간장치킨", 2)])
+
+    def test_extra_spaces_are_tidied(self):
+        self.assertEqual(self._post("  반반   치킨 "), "반반 치킨")
+
+    def test_spelling_is_not_shared_across_restaurants(self):
+        other = Restaurant.objects.create(category=self.restaurant.category, name="BBQ")
+        RestaurantReview.objects.create(restaurant=other, user=self.user, ordered_at="2026-01-01", menu="간장치킨")
+        self.assertEqual(canonical_menu(self.restaurant, "간장 치킨"), "간장 치킨")
+
+    def test_editing_only_review_keeps_new_spelling(self):
+        review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+                                                 ordered_at="2026-01-01", menu="간장치킨")
+        url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
+        self.client.patch(url, data={"menu": "간장 치킨"}, content_type="application/json")
+
+        review.refresh_from_db()
+        self.assertEqual(review.menu, "간장 치킨")
+
+    def test_editing_into_existing_menu_joins_it(self):
+        RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01",
+                                        menu="간장치킨")
+        review = RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user,
+                                                 ordered_at="2026-01-02", menu="양념")
+        url = reverse("review-delete", kwargs={"restaurant_pk": self.restaurant.pk, "review_pk": review.pk})
+        self.client.patch(url, data={"menu": "간장 치킨"}, content_type="application/json")
+
+        review.refresh_from_db()
+        self.assertEqual(review.menu, "간장치킨")
+
+    def test_data_migration_merges_existing_spellings(self):
+        for menu in ("간장치킨", "간장 치킨", "간장  치킨 ", "양념", "  "):
+            RestaurantReview.objects.create(restaurant=self.restaurant, user=self.user, ordered_at="2026-01-01",
+                                            menu=menu)
+
+        migration = import_module("apps.restaurant.migrations.0009_merge_menu_spellings")
+        migration.merge_menu_spellings(django_apps, None)
+
+        menus = list(RestaurantReview.objects.order_by("id").values_list("menu", flat=True))
+        self.assertEqual(menus, ["간장치킨", "간장치킨", "간장치킨", "양념", ""])

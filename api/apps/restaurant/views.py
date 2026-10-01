@@ -1,9 +1,14 @@
 from django.db.models import Avg, Count, F, Max, Prefetch, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from apps.restaurant.menus import canonical_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
+from apps.restaurant.picking import pick_restaurant
 from apps.restaurant.serializers import RestaurantListSerializer, RestaurantInfoSerializer, RestaurantReviewSerializer
 from apps.zone.models import Category
 
@@ -44,6 +49,22 @@ class AllRestaurantsListAPIView(ListAPIView):
         if category_id and category_id.isdigit():
             queryset = queryset.filter(category_id=category_id)
         return sort_restaurants(annotate_restaurants(queryset), self.request.query_params.get("sort"))
+
+
+class RestaurantPickAPIView(APIView):
+    """한 카테고리(없으면 장소 전체)에서 음식점 하나를 가중치를 줘서 뽑는다."""
+
+    def get(self, request, *args, **kwargs):
+        queryset = Restaurant.objects.filter(category__zone__user_id=request.user.id,
+                                             category__zone_id=self.kwargs["zone_pk"])
+        category_id = request.query_params.get("category")
+        if category_id and category_id.isdigit():
+            queryset = queryset.filter(category_id=category_id)
+        # 기본은 실망한 곳을 뺀다. exclude_disappointing=0 이면 포함
+        exclude = request.query_params.get("exclude_disappointing", "1") != "0"
+
+        picked = pick_restaurant(list(annotate_restaurants(queryset)), timezone.localdate(), exclude)
+        return Response({"restaurant": RestaurantListSerializer(picked).data if picked else None})
 
 
 class RestaurantListViewSet(viewsets.ModelViewSet):
@@ -94,12 +115,21 @@ class RestaurantReviewViewSet(viewsets.ModelViewSet):
         restaurant = get_object_or_404(Restaurant,
                                        pk=self.kwargs["restaurant_pk"],
                                        category__zone__user_id=self.request.user.id)
-        serializer.save(user=self.request.user, restaurant=restaurant)
+        menu = canonical_menu(restaurant, serializer.validated_data.get("menu", ""))
+        serializer.save(user=self.request.user, restaurant=restaurant, menu=menu)
 
 
 class RestaurantReviewDeleteAPIView(RetrieveUpdateDestroyAPIView):
     # 이름은 예전 그대로 두지만 수정(PATCH)도 받는다
     serializer_class = RestaurantReviewSerializer
+
+    def perform_update(self, serializer):
+        if "menu" not in serializer.validated_data:
+            serializer.save()
+            return
+        menu = canonical_menu(serializer.instance.restaurant, serializer.validated_data["menu"],
+                              exclude_review_id=serializer.instance.pk)
+        serializer.save(menu=menu)
 
     def get_object(self):
         return get_object_or_404(RestaurantReview,

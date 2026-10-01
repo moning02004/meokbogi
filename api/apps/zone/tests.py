@@ -277,3 +277,81 @@ class ZoneListTestCase(TestCase):
         self.client.delete(reverse("zone-delete", kwargs={"zone_pk": zone.pk}))
         self.assertEqual((Category.objects.count(), Restaurant.objects.count(), RestaurantReview.objects.count()),
                          (0, 0, 0))
+
+
+class ForgottenRestaurantsTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.client.login(username="owner", password="123")
+
+    def _restaurant(self, name, day, point):
+        restaurant = Restaurant.objects.create(category=self.category, name=name)
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=day, point=point)
+
+    def test_good_but_not_visited_for_60_days(self):
+        self._restaurant("잊은 맛집", "2026-07-01", 1)
+        self._restaurant("더 오래 잊은 맛집", "2026-03-01", 1)
+        self._restaurant("최근 맛집", "2026-09-20", 1)
+        self._restaurant("오래된 실망", "2026-03-01", -1)
+
+        with mock.patch("apps.zone.views.timezone.localdate", return_value=date(2026, 10, 1)):
+            response = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": self.zone.pk}))
+        names = [row["name"] for row in response.json()["forgotten_restaurants"]]
+        self.assertEqual(names, ["더 오래 잊은 맛집", "잊은 맛집"])
+
+
+class RenameTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        Category.objects.create(zone=self.zone, keyword="돈까스")
+        self.client.login(username="owner", password="123")
+        self.zone_url = reverse("zone-delete", kwargs={"zone_pk": self.zone.pk})
+        self.category_url = reverse("category-delete", kwargs={"zone_pk": self.zone.pk,
+                                                               "category_pk": self.category.pk})
+
+    def _patch(self, url, body):
+        return self.client.patch(url, data=body, content_type="application/json")
+
+    def test_rename_zone(self):
+        response = self._patch(self.zone_url, {"name": "  새 집 "})
+        self.assertEqual(response.status_code, 200)
+        self.zone.refresh_from_db()
+        self.assertEqual(self.zone.name, "새 집")
+
+    def test_rename_zone_rejects_blank(self):
+        self.assertEqual(self._patch(self.zone_url, {"name": " "}).status_code, 400)
+
+    def test_cannot_rename_other_users_zone(self):
+        User.objects.create_user(username="attacker", password="123")
+        self.client.login(username="attacker", password="123")
+        self.assertEqual(self._patch(self.zone_url, {"name": "뺏음"}).status_code, 404)
+
+    def test_rename_category(self):
+        response = self._patch(self.category_url, {"keyword": "치킨/닭강정"})
+        self.assertEqual(response.status_code, 200)
+        self.category.refresh_from_db()
+        self.assertEqual(self.category.keyword, "치킨/닭강정")
+
+    def test_rename_category_to_same_name_with_spacing_change(self):
+        # 자기 자신과는 중복으로 보지 않는다
+        self.assertEqual(self._patch(self.category_url, {"keyword": "치 킨"}).status_code, 200)
+
+    def test_rename_category_rejects_duplicate(self):
+        response = self._patch(self.category_url, {"keyword": "돈 까스"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("이미 있는", response.json()["keyword"])
+
+    def test_create_category_rejects_duplicate(self):
+        response = self.client.post(reverse("category-list", kwargs={"zone_pk": self.zone.pk}),
+                                    data={"keyword": "돈까스"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_same_keyword_allowed_in_another_zone(self):
+        other_zone = Zone.objects.create(user=self.user, name="회사")
+        response = self.client.post(reverse("category-list", kwargs={"zone_pk": other_zone.pk}),
+                                    data={"keyword": "돈까스"})
+        self.assertEqual(response.status_code, 201)
