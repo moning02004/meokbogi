@@ -6,6 +6,7 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -32,6 +33,8 @@ def _with_refresh_cookie(response: Response) -> Response:
 
 class ObtainTokenAPIView(TokenObtainPairView):
     serializer_class = ObtainTokenSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request: Request, *args, **kwargs) -> Response:
         return _with_refresh_cookie(super().post(request, *args, **kwargs))

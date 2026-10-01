@@ -1,3 +1,6 @@
+from datetime import date
+from unittest import mock
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -47,6 +50,26 @@ class ZoneTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["restaurant_count"], 1)
         self.assertEqual(response.json()["review_count"], 1)
+
+    def test_monthly_count_uses_local_date(self):
+        # 10/1 00:00~09:00 KST는 UTC로 아직 9월이다. "이번 달"은 KST 날짜로 잡아야 한다.
+        zone = Zone.objects.create(user=self.user, name="내 존")
+        category = Category.objects.create(zone=zone, keyword="치킨")
+        restaurant = Restaurant.objects.create(category=category, name="맛집")
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-09-30", point=1)
+        RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at="2026-10-01", point=1)
+
+        with mock.patch("apps.zone.views.timezone.localdate", return_value=date(2026, 10, 1)):
+            response = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": zone.pk}))
+        self.assertEqual(response.json()["monthly_visited_count"], 1)
+
+    def test_categories_keep_creation_order(self):
+        response = self.client.post(reverse("zones"), data={"name": "우리집"})
+        created = [row["keyword"] for row in response.json()["category"]]
+
+        response = self.client.get(reverse("zones"))
+        listed = [row["keyword"] for row in response.json()["results"][0]["category"]]
+        self.assertEqual(listed, created)
 
 
 class CategoryTestCase(TestCase):
@@ -150,9 +173,8 @@ class ZoneAuthorizationTestCase(TestCase):
         self.assertTrue(Zone.objects.filter(pk=self.zone.pk).exists())
 
     def test_cannot_read_other_users_dashboard(self):
-        # 현재는 get_object가 queryset.get()이라 500이 난다. 404로 고쳐도 이 테스트는 통과해야 한다.
         client = Client(raise_request_exception=False)
         client.login(username="attacker", password="123")
 
         response = client.get(reverse("zone-dashboard", kwargs={"zone_pk": self.zone.pk}))
-        self.assertGreaterEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 404)

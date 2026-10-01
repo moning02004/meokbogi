@@ -59,5 +59,5 @@ class RestaurantInfoSerializer(serializers.ModelSerializer):
         queryset = obj.review_set.all().values("menu").annotate(
             review_avg=Cast(Sum("point"), FloatField()) / Count("id"),
             review_count=Count("id"),
-        ).values("menu", "review_avg", "review_count").order_by()
+        ).values("menu", "review_avg", "review_count").order_by("-review_count", "menu")
         return queryset

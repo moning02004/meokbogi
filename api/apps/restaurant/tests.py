@@ -175,12 +175,11 @@ class RestaurantAuthorizationTestCase(TestCase):
         self.assertTrue(RestaurantReview.objects.filter(pk=self.review.pk).exists())
 
     def test_cannot_read_other_users_restaurant_detail(self):
-        # 현재는 get_object가 queryset.get()이라 500이 난다. 404로 고쳐도 이 테스트는 통과해야 한다.
         client = Client(raise_request_exception=False)
         client.login(username="attacker", password="123")
 
         url = reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
-        self.assertGreaterEqual(client.get(url).status_code, 400)
+        self.assertEqual(client.get(url).status_code, 404)
 
     def test_cannot_update_other_users_restaurant(self):
         client = Client(raise_request_exception=False)
@@ -188,5 +187,68 @@ class RestaurantAuthorizationTestCase(TestCase):
 
         url = reverse("restaurant-info", kwargs={"restaurant_pk": self.restaurant.pk})
         response = client.patch(url, data='{"name": "바뀜"}', content_type="application/json")
-        self.assertGreaterEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(Restaurant.objects.get(pk=self.restaurant.pk).name, "비밀맛집")
+
+
+class RestaurantListBehaviorTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.category = Category.objects.create(zone=self.zone, keyword="치킨")
+        self.client.login(username="owner", password="123")
+
+    def _review(self, restaurant, ordered_at, menu="후라이드", point=1):
+        return RestaurantReview.objects.create(restaurant=restaurant, user=self.user, ordered_at=ordered_at,
+                                               menu=menu, point=point)
+
+    def test_restaurants_ordered_by_latest_visit_with_unvisited_last(self):
+        old = Restaurant.objects.create(category=self.category, name="오래전")
+        recent = Restaurant.objects.create(category=self.category, name="최근")
+        unvisited = Restaurant.objects.create(category=self.category, name="미방문")
+        self._review(old, "2026-01-01")
+        self._review(recent, "2026-09-01")
+
+        response = self.client.get(reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk}))
+        names = [row["name"] for row in response.json()["results"]]
+        self.assertEqual(names, [recent.name, old.name, unvisited.name])
+
+    def test_search_by_name(self):
+        Restaurant.objects.create(category=self.category, name="교촌치킨")
+        Restaurant.objects.create(category=self.category, name="미뜨레피자")
+
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        response = self.client.get(url, {"search": "교촌"})
+        self.assertEqual([row["name"] for row in response.json()["results"]], ["교촌치킨"])
+
+    def test_non_numeric_category_filter_is_ignored(self):
+        Restaurant.objects.create(category=self.category, name="교촌치킨")
+
+        url = reverse("all-restaurants", kwargs={"zone_pk": self.zone.pk})
+        response = self.client.get(url, {"category": "abc"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_missing_restaurant_is_404(self):
+        response = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": 999999}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_reviews_ordered_by_ordered_at_desc(self):
+        restaurant = Restaurant.objects.create(category=self.category, name="교촌치킨")
+        first = self._review(restaurant, "2026-01-01")
+        third = self._review(restaurant, "2026-03-01")
+        second = self._review(restaurant, "2026-02-01")
+
+        response = self.client.get(reverse("review-create", kwargs={"restaurant_pk": restaurant.pk}))
+        ids = [row["id"] for row in response.json()["results"]]
+        self.assertEqual(ids, [third.id, second.id, first.id])
+
+    def test_menu_summaries_ordered_by_review_count(self):
+        restaurant = Restaurant.objects.create(category=self.category, name="교촌치킨")
+        self._review(restaurant, "2026-01-01", menu="양념")
+        self._review(restaurant, "2026-01-02", menu="간장")
+        self._review(restaurant, "2026-01-03", menu="간장")
+
+        response = self.client.get(reverse("restaurant-info", kwargs={"restaurant_pk": restaurant.pk}))
+        menus = [row["menu"] for row in response.json()["menu_summaries"]]
+        self.assertEqual(menus, ["간장", "양념"])

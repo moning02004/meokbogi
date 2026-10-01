@@ -105,9 +105,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ko-kr'
 
-TIME_ZONE = 'UTC'
+# 사용자가 한국 기준이므로 "이번 달" 같은 날짜 경계도 KST로 잡는다
+TIME_ZONE = 'Asia/Seoul'
 
 USE_I18N = True
 
@@ -166,9 +167,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
+    # 앱을 열 때마다 refresh-token(익명)이 한 번씩 나가므로 anon을 일 단위로 묶으면
+    # 같은 공유기 뒤 사용자 몇 명만으로도 자동로그인이 429로 막힌다. 분 단위로 잡고,
+    # 무차별 대입은 로그인 전용 scope(login)로 따로 막는다.
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
-        "user": "1000/day",
+        "anon": "60/min",
+        "user": "120/min",
+        "login": "10/min",
     },
 
     # 날짜/시간 포맷

@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import date
 
 from django.db.models import Prefetch, Count, Sum, Max, Q, Value, CharField, Avg
 from django.db.models.functions import Coalesce, Concat
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import DestroyAPIView, ListCreateAPIView, RetrieveAPIView
@@ -12,14 +13,19 @@ from apps.zone.models import Zone, Category
 from apps.zone.serializers import (CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer)
 
 
+# 카테고리는 만든 순서대로 보여준다 (prefetch 순서가 DB 마음대로면 필터 pill 순서가 바뀐다)
+def ordered_categories():
+    return Prefetch("category_set", queryset=Category.objects.order_by("id"))
+
+
 class ZoneViewSet(viewsets.ModelViewSet):
     serializer_class = ZoneListSerializer
 
     def get_queryset(self):
         return Zone.objects.filter(user_id=self.request.user.id).annotate(
             latest_ordered_at=Coalesce(Max("category__restaurant__review_set__ordered_at"),
-                                       datetime.strptime("2000-01-01", "%Y-%m-%d").date())
-        ).order_by("-latest_ordered_at", "id")
+                                       date(2000, 1, 1))
+        ).prefetch_related(ordered_categories()).order_by("-latest_ordered_at", "id")
 
 
 class ZoneDeleteAPIView(DestroyAPIView):
@@ -33,7 +39,8 @@ class ZoneDashboardAPIView(RetrieveAPIView):
     serializer_class = ZoneDashboardSerializer
 
     def get_object(self):
-        current_date = datetime.now().date()
+        # 서버 로컬 시각이 아니라 settings.TIME_ZONE(Asia/Seoul) 기준 날짜로 "이번 달"을 잡는다
+        current_date = timezone.localdate()
 
         queryset = Zone.objects.filter(user_id=self.request.user.id)
         queryset = queryset.annotate(
@@ -53,6 +60,7 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                 distinct=True, ),
         )
         queryset = queryset.prefetch_related(
+            ordered_categories(),
             Prefetch("category_set__restaurant_set",
                      queryset=Restaurant.objects.annotate(
                          review_avg=Coalesce(Avg("review_set__point"), 0.0),
@@ -75,7 +83,7 @@ class ZoneDashboardAPIView(RetrieveAPIView):
                      ).filter(latest_ordered_at__isnull=False).order_by("-latest_ordered_at").distinct(),
                      to_attr='recently_ordered_restaurants'),
         )
-        return queryset.get(pk=self.kwargs['zone_pk'])
+        return get_object_or_404(queryset, pk=self.kwargs['zone_pk'])
 
 
 class CategoryListAPIView(ListCreateAPIView):
