@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.restaurant.testing import make_category, make_restaurant, make_review
-from apps.zone.models import Category, Zone
+from apps.zone.models import Zone
 
 
 class ObtainTokenTestCase(TestCase):

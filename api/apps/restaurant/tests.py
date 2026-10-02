@@ -1,20 +1,18 @@
+import json
 from datetime import date, datetime
 from types import SimpleNamespace
 from unittest import mock
 
-import json
-
-from django.core.files.uploadedfile import SimpleUploadedFile
-
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.restaurant.menus import get_or_create_menu, normalize_menu
 from apps.restaurant.models import Branch, Restaurant, RestaurantReview
-from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.restaurant.picking import pick_restaurant, pick_weight
-from apps.zone.models import Zone, Category
+from apps.restaurant.testing import make_category, make_restaurant, make_review
+from apps.zone.models import Category, Zone
 
 
 class RestaurantTestCase(TestCase):
@@ -22,7 +20,7 @@ class RestaurantTestCase(TestCase):
     def test_get_restaurant(self):
         user = User.objects.create_user(username='test', password='123')
         zone = Zone.objects.create(user=user, name="test")
-        category = make_category(zone, "test")
+        make_category(zone, "test")
 
         self.client.login(username="test", password="123")
         url = reverse("all-restaurants", kwargs={"zone_pk": zone.pk})

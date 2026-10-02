@@ -1,0 +1,4 @@
+# 개발·CI에서만 쓰는 도구. 운영 이미지(Dockerfile)는 requirements.txt만 설치한다.
+-r requirements.txt
+ruff>=0.13,<0.14
+coverage>=7.6,<8

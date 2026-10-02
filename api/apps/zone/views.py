@@ -14,9 +14,8 @@ from apps.restaurant.menus import normalize_menu
 from apps.restaurant.models import Restaurant
 from apps.restaurant.serializers import RestaurantListSerializer
 from apps.restaurant.views import annotate_restaurants, sort_restaurants
-from apps.zone.models import Zone, Category
-from apps.zone.serializers import (CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer)
-
+from apps.zone.models import Category, Zone
+from apps.zone.serializers import CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer
 
 # 이 기간보다 오래 안 간 만족스러운 음식점을 "오랜만에 가볼 만한 곳"으로 보여준다
 FORGOTTEN_AFTER_DAYS = 30

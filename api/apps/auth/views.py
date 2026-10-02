@@ -13,8 +13,12 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.auth.serializers import (ChangePasswordSerializer, ObtainTokenSerializer, RefreshTokenSerializer,
-                                   UserInfoSerializer)
+from apps.auth.serializers import (
+    ChangePasswordSerializer,
+    ObtainTokenSerializer,
+    RefreshTokenSerializer,
+    UserInfoSerializer,
+)
 
 
 @api_view(['GET'])

@@ -22,10 +22,15 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: api/requirements.txt
+          cache-dependency-path: |
+            api/requirements.txt
+            api/requirements-dev.txt
 
       - name: Install
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
 
       # 모델을 바꾸고 마이그레이션을 빠뜨리면 여기서 걸린다
       - name: Migrations are up to date

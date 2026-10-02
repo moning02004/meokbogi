@@ -4,3 +4,8 @@ Makefile
 docker-compose.yaml
 __pycache__
 docker-compose.local.yaml
+.DS_Store
+# install.sh 가 만드는 설정 (비밀번호·시크릿 포함)
+.env
+.env.*
+!.env.example

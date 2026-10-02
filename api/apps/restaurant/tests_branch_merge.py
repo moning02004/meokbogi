@@ -7,7 +7,7 @@ from django.test import TestCase
 from apps.restaurant.branch_merge import find_candidates
 from apps.restaurant.models import Restaurant
 from apps.restaurant.testing import make_category, make_restaurant, make_review
-from apps.zone.models import Category, Zone
+from apps.zone.models import Zone
 
 
 class MergeBranchesTestCase(TestCase):
