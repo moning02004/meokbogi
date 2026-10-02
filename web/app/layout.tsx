@@ -20,7 +20,9 @@ export const metadata: Metadata = {
     },
     appleWebApp: {
         title: "먹보기",
-        statusBarStyle: "black-translucent",
+        // 홈 화면 앱의 상태바. black-translucent 는 페이지를 상태바 밑까지 올리고 시계를 흰 글자로 그려서,
+        // 흰 상단바와 겹치고 글자도 묻혔다. default 는 흰 바탕·검은 글자 상태바 아래에서 페이지를 시작한다.
+        statusBarStyle: "default",
     },
 };
 

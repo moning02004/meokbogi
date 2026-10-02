@@ -5,8 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,10 +15,13 @@ from apps.restaurant.archive import ARCHIVE_FORMAT, ArchiveSerializer, build_arc
 from apps.restaurant.menus import normalize_menu, tidy_menu
 from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.restaurant.picking import pick_restaurant
-from apps.restaurant.serializers import (BranchSerializer, RestaurantInfoSerializer, RestaurantListSerializer,
-                                         RestaurantReviewSerializer)
+from apps.restaurant.serializers import (
+    BranchSerializer,
+    RestaurantInfoSerializer,
+    RestaurantListSerializer,
+    RestaurantReviewSerializer,
+)
 from apps.zone.models import Category, Zone
-
 
 # 목록 정렬 (?sort=). 방문·리뷰가 없는 음식점은 어느 정렬에서든 뒤로 보낸다.
 RESTAURANT_SORTS = {
@@ -241,7 +244,7 @@ class ArchiveImportAPIView(APIView):
         try:
             data = json.loads(upload.read().decode("utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError):
-            raise ValidationError({"file": "JSON 파일을 읽지 못했어요. 먹보기에서 내보낸 .json 파일인지 확인해주세요."})
+            raise ValidationError({"file": "JSON 파일을 읽지 못했어요. 먹보기에서 내보낸 .json 파일인지 확인해주세요."}) from None
         # 필드별 "필수 항목" 오류보다 "어떤 파일인지"를 먼저 알려준다
         if not isinstance(data, dict) or data.get("format") != ARCHIVE_FORMAT:
             raise ValidationError({"file": "먹보기에서 내보낸 백업 파일이 아니에요."})

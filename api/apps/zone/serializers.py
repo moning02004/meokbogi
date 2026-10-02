@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.restaurant.serializers import RestaurantListSerializer
-from apps.zone.models import Zone, Category
+from apps.zone.models import Category, Zone
 
 
 class CategoryListSerializer(serializers.ModelSerializer):

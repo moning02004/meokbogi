@@ -1,15 +1,9 @@
 FROM python:3.13-slim
 
-RUN apt-get update && apt-get install -y \
+# 휠이 없는 아키텍처에서 패키지를 빌드할 때만 필요하다
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
     libffi-dev \
-    shared-mime-info \
-    fonts-dejavu \
-    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

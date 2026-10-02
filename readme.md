@@ -39,15 +39,17 @@ curl -fsSL https://raw.githubusercontent.com/moning02004/meokbogi/main/install.s
 
 | 기능 | 설명 |
 | --- | --- |
-| 장소 관리 | 장소 생성 시 13개 기본 카테고리(치킨/피자/파스타/족발·보쌈/회/찜·탕/중식/분식/돈까스/일식/동남아/카레/햄버거) 자동 생성 |
-| 홈 대시보드 | 등록 음식점 수, 총 리뷰 수, **이번 달 방문 횟수**, 만족도 TOP 5, 최근 방문 3곳 |
-| 음식점 기록 | 등록·수정·삭제, 카테고리 이동, 방문일·메뉴·한줄평·만족도 기록 |
-| 메뉴별 요약 | 같은 가게라도 `간장치킨 최고(3회) / 후라이드 무난(2회)`처럼 메뉴별 집계 |
-| 뽑기 | 카드 셔플로 카테고리를 뽑고, 해당 카테고리의 내 음식점 즉시 리스트업 |
+| 장소 관리 | 집·회사·본가처럼 장소별로 음식점을 나눔. 처음 장소를 만들 때 기본 카테고리 14개(한식/일식/중식/동남아/인도/양식/치킨/피자/햄버거/족발·보쌈/회/찜·탕/분식/돈까스) 생성 |
+| 카테고리 | 사용자에게 한 벌. 어느 장소에서든 같은 카테고리를 쓰고, 음식점 하나에 여러 개 붙일 수 있음 (분식 + 돈까스) |
+| 홈 대시보드 | 등록 음식점 수, 총 리뷰 수, **이번 달 방문 횟수**, 최근 먹은 곳 / 믿고 먹는 곳 / 오랜만에 가볼 곳 |
+| 음식점 기록 | 등록·수정·삭제, 지점(같은 브랜드의 역삼점·본점), 방문일·메뉴·한줄평·만족도를 바텀시트로 기록, "또 먹었어요" |
+| 메뉴별 요약 | 같은 가게라도 `간장치킨 최고(3회) / 후라이드 무난(2회)`처럼 메뉴별 집계, 지점별로 거르기 |
+| 뽑기 | 카드 셔플로 카테고리를 뽑고, 오래 안 간 곳·만족한 곳일수록 잘 나오게 음식점까지 뽑기 |
+| 백업 | 내 기록을 JSON(가져오기 가능)·CSV로 내보내기 |
+| 알림 | 웹 푸시. 외부 스케줄러(n8n 등)가 `POST /push/send`로 보냄 |
 | PWA | 홈 화면에 추가하면 주소창 없이 앱처럼 실행, iOS/Android 구분 설치 안내 |
-| 모바일 UI | 하단 탭바 + 플로팅 등록 버튼, 노치 영역 대응, 스켈레톤 로딩, 바텀시트 |
 
-데이터는 `장소 → 카테고리 → 음식점 → 리뷰` 4단 구조. 한 번의 방문에서 메뉴별로 여러 건 기록 가능.
+데이터는 `장소 → 음식점(카테고리 태그 여러 개) → 지점 / 메뉴 → 리뷰` 구조. 한 번의 방문에서 메뉴별로 여러 건 기록 가능.
 
 ---
 
@@ -135,7 +137,7 @@ curl -fsSL .../install.sh | bash -s -- --host 192.168.0.10 --admin-user moning -
 - **직접 만든 설정 보존** — 스크립트가 만들지 않은 `.env` / `docker-compose.yaml`은 덮어쓰지 않고 `.bak.<시각>`으로 백업.
 - **API 주소는 빌드 시점 고정** — 웹 번들에 박히는 구조. 호스트·포트 변경 시 `.env` 수정 후 `--build`로 재빌드 필요.
 
-### 4-2. 1.x에서 2.0으로 올리기
+### 4-4. 1.x에서 2.0으로 올리기
 
 2.0은 데이터 구조가 바뀐다 (음식점이 장소에 직접 속하고 카테고리는 여러 개, 메뉴와 지점이 따로 생김).
 기존 데이터는 **`migrate` 한 번으로 그대로 옮겨진다**. 1.4.0 구조의 PostgreSQL 16에서 옮긴 뒤 내보낸 기록이
@@ -226,30 +228,33 @@ npm run dev
 
 ### 7-1. 엔드포인트
 
-| # | Method | Endpoint | 인증 | 설명 |
-| --- | --- | --- | --- | --- |
-| 1 | `GET` | `/check` | — | 가입된 사용자 존재 여부 (초기 부트스트랩용) |
-| 2 | `POST` | `/auth/obtain-token` | — | 로그인. access 토큰 반환 + refresh 쿠키 발급 |
-| 3 | `POST` | `/auth/refresh-token` | 쿠키 | access 토큰 재발급 (refresh 토큰도 회전) |
-| 4 | `DELETE` | `/auth/token` | — | 로그아웃. refresh 쿠키 삭제 (`204`) |
-| 5 | `GET` | `/users/me` | ✅ | 내 정보 + 누적 통계 + 앱 버전 |
-| 6 | `PATCH` | `/users/me` | ✅ | 표시 이름 수정 |
-| 7 | `PATCH` | `/users/me/password` | ✅ | 비밀번호 변경 (`204`) |
-| 8 | `GET` | `/zones` | ✅ | 내 장소 목록 (최근 방문 순) |
-| 9 | `POST` | `/zones` | ✅ | 장소 생성 + 기본 카테고리 13개 자동 생성 |
-| 10 | `DELETE` | `/zones/{zone_pk}` | ✅ | 장소 삭제 (하위 전체 삭제, `204`) |
-| 11 | `GET` | `/zones/{zone_pk}/dashboard` | ✅ | 홈 대시보드 집계 |
-| 12 | `GET` | `/zones/{zone_pk}/category` | ✅ | 카테고리 목록 |
-| 13 | `POST` | `/zones/{zone_pk}/category` | ✅ | 카테고리 추가 |
-| 14 | `GET` | `/zones/{zone_pk}/restaurants` | ✅ | 장소 전체 음식점 목록 (카테고리 필터 가능) |
-| 15 | `GET` | `/zones/{zone_pk}/category/{category_pk}/restaurants` | ✅ | 특정 카테고리 음식점 목록 |
-| 16 | `POST` | `/zones/{zone_pk}/category/{category_pk}/restaurants` | ✅ | 음식점 등록 |
-| 17 | `GET` | `/restaurants/{restaurant_pk}` | ✅ | 음식점 상세 (메뉴별 만족도 포함) |
-| 18 | `PATCH` | `/restaurants/{restaurant_pk}` | ✅ | 음식점 수정 (카테고리 이동 포함) |
-| 19 | `DELETE` | `/restaurants/{restaurant_pk}` | ✅ | 음식점 삭제 (`204`) |
-| 20 | `GET` | `/restaurants/{restaurant_pk}/reviews` | ✅ | 리뷰 목록 (메뉴 필터 가능) |
-| 21 | `POST` | `/restaurants/{restaurant_pk}/reviews` | ✅ | 리뷰 등록 |
-| 22 | `DELETE` | `/restaurants/{restaurant_pk}/reviews/{review_pk}` | ✅ | 리뷰 삭제 (`204`) |
+| Method | Endpoint | 인증 | 설명 |
+| --- | --- | --- | --- |
+| `GET` | `/check` | — | 가입된 사용자 존재 여부 (초기 부트스트랩용) |
+| `POST` | `/auth/obtain-token` | — | 로그인. access 토큰 반환 + refresh 쿠키 발급 |
+| `POST` | `/auth/refresh-token` | 쿠키 | access 토큰 재발급 (refresh 토큰도 회전) |
+| `DELETE` | `/auth/token` | — | 로그아웃. refresh 쿠키 무효화 (`204`) |
+| `GET` `PATCH` | `/users/me` | ✅ | 내 정보 + 누적 통계 + 앱 버전 / 표시 이름 수정 |
+| `PATCH` | `/users/me/password` | ✅ | 비밀번호 변경 (`204`) |
+| `GET` | `/users/me/export` | ✅ | 내 기록 내보내기 (JSON, `?type=csv`면 CSV) |
+| `POST` | `/users/me/import` | ✅ | JSON 백업 가져오기 (합치기, `?dry_run=1`이면 미리보기) |
+| `GET` `POST` | `/zones` | ✅ | 내 장소 목록 / 장소 생성 (처음이면 기본 카테고리 14개 생성) |
+| `GET` `PATCH` `DELETE` | `/zones/{zone_pk}` | ✅ | 장소 조회·이름 바꾸기·삭제 |
+| `GET` | `/zones/{zone_pk}/dashboard` | ✅ | 홈 대시보드 집계 |
+| `GET` `POST` | `/categories` | ✅ | 내 카테고리 목록 / 추가 |
+| `GET` `PATCH` `DELETE` | `/categories/{category_pk}` | ✅ | 카테고리 조회·이름 바꾸기·삭제 |
+| `GET` | `/categories/{category_pk}/restaurants` | ✅ | 카테고리별로 어느 장소에 어떤 음식점이 있는지 |
+| `GET` `POST` | `/zones/{zone_pk}/restaurants` | ✅ | 장소의 음식점 목록 (필터·검색·정렬) / 음식점 등록 |
+| `GET` | `/zones/{zone_pk}/restaurants/pick` | ✅ | 음식점 하나 뽑기 |
+| `GET` `PATCH` `DELETE` | `/restaurants/{restaurant_pk}` | ✅ | 음식점 상세(메뉴별 요약·지점·메뉴 포함) / 수정 / 삭제 |
+| `GET` `POST` | `/restaurants/{restaurant_pk}/branches` | ✅ | 지점 목록 / 추가 |
+| `GET` `PATCH` `DELETE` | `/restaurants/{restaurant_pk}/branches/{branch_pk}` | ✅ | 지점 조회·이름 바꾸기·삭제 (리뷰는 남고 지점만 비워짐) |
+| `GET` `POST` | `/restaurants/{restaurant_pk}/reviews` | ✅ | 리뷰 목록 / 등록 |
+| `GET` `PATCH` `DELETE` | `/restaurants/{restaurant_pk}/reviews/{review_pk}` | ✅ | 리뷰 조회·수정·삭제 |
+| `GET` | `/push/config` | ✅ | 푸시 공개키 |
+| `POST` `DELETE` | `/push/subscriptions` | ✅ | 이 기기 알림 켜기 / 끄기 |
+| `POST` | `/push/test` | ✅ | 내 기기로 시험 알림 |
+| `POST` | `/push/send` | 토큰 | 외부 스케줄러용. `Authorization: Bearer <PUSH_API_TOKEN>`, 본문 `{"title", "content"}` |
 
 ### 7-2. 인증 / 사용자
 
@@ -269,67 +274,75 @@ npm run dev
 
 | Endpoint | 파라미터 | 위치 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- | --- | --- |
-| `GET /zones` | `page` | query | int | — | 기본 `1` |
 | `POST /zones` | `name` | body | string(100) | ✅ | 장소 이름 (예: `우리집`) |
-| `DELETE /zones/{zone_pk}` | `zone_pk` | path | int | ✅ | 내 소유 장소만 삭제 가능 |
-| `GET /zones/{zone_pk}/dashboard` | `zone_pk` | path | int | ✅ | 아래 응답 필드 참고 |
-| `POST /zones/{zone_pk}/category` | `keyword` | body | string(100) | ✅ | 카테고리 이름 (예: `카레`) |
+| `PATCH /zones/{zone_pk}` | `name` | body | string(100) | ✅ | 장소 이름 바꾸기 |
+| `POST /categories` | `keyword` | body | string(100) | ✅ | 카테고리 이름. 공백·대소문자만 다른 이름은 `400` |
+| `PATCH /categories/{category_pk}` | `keyword` | body | string(100) | ✅ | 이름 바꾸기 |
+| `DELETE /categories/{category_pk}` | — | — | — | — | 음식점은 남고 태그만 빠짐. 그 카테고리 하나만 붙은 음식점이 있으면 `400` |
 
 `GET /zones/{zone_pk}/dashboard` 응답 필드
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `id`, `name` | int, string | 장소 |
-| `category` | array | 카테고리 목록 (`id`, `keyword`) |
+| `category` | array | 내 카테고리 목록 (`id`, `keyword`) |
 | `restaurant_count` | int | 등록 음식점 수 |
 | `review_count` | int | 리뷰 총 건수 |
-| `monthly_visited_count` | int | 이번 달 방문 횟수 (같은 날 여러 리뷰는 1회) |
-| `delicious_restaurants` | array | 만족도 평균 상위 5곳 |
-| `recent_restaurants` | array | 최근 방문 3곳 |
+| `monthly_visited_count` | int | 이번 달 방문 횟수 (같은 날 여러 리뷰는 1회, 한국 시간 기준) |
+| `recent_restaurants` | array | 최근 먹은 곳 |
+| `delicious_restaurants` | array | 믿고 먹는 곳 (2회 이상 + 평균 만족도 0.6 이상) |
+| `forgotten_restaurants` | array | 오랜만에 가볼 곳 (평균 만족도 0.6 이상 + 30일 넘게 안 감) |
 
-### 7-4. 음식점
+### 7-4. 음식점 / 지점
 
 | Endpoint | 파라미터 | 위치 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- | --- | --- |
-| `GET /zones/{zone_pk}/restaurants` | `category` | query | int | — | 카테고리 ID로 필터 |
+| `GET /zones/{zone_pk}/restaurants` | `category` | query | int (여러 번) | — | 카테고리 ID. 여러 개면 하나라도 붙은 음식점 |
+| | `search` | query | string | — | 이름 검색 |
+| | `sort` | query | string | — | `recent`(기본) / `rating` / `visits` / `name` |
 | | `page` | query | int | — | 기본 `1` |
-| `POST .../category/{category_pk}/restaurants` | `name` | body | string(100) | ✅ | 가게 이름 |
-| | `description` | body | string(100) | — | 한 줄 메모 |
-| | `address` | body | string(255) | — | 주소 |
-| `PATCH /restaurants/{restaurant_pk}` | `name` | body | string(100) | — | 부분 수정 |
-| | `description` | body | string(100) | — | |
-| | `address` | body | string(255) | — | |
-| | `category` | body | int | — | 카테고리 이동. **내 장소의 카테고리만** 허용 |
+| `POST /zones/{zone_pk}/restaurants` | `name` | body | string(100) | ✅ | 가게(브랜드) 이름 |
+| | `category_ids` | body | int[] | ✅ | 내 카테고리 하나 이상 |
+| | `description` | body | string(100) | — | 메모 |
+| `PATCH /restaurants/{restaurant_pk}` | `name`, `description`, `category_ids` | body | | — | 부분 수정 |
+| `GET /restaurants/{restaurant_pk}` | `branch` | query | int \| `none` | — | 메뉴별 요약을 그 지점(또는 지점 없음) 기준으로 |
+| `GET /zones/{zone_pk}/restaurants/pick` | `category` | query | int (여러 번) | — | 이 카테고리 안에서 뽑기 |
+| | `exclude_disappointing` | query | `0` \| `1` | — | 기본 `1` (실망한 곳 빼기) |
+| `POST /restaurants/{restaurant_pk}/branches` | `name` | body | string(100) | ✅ | 지점 이름. 띄어쓰기만 다른 이름은 `400` |
 
-음식점 응답 필드
+음식점 상세 응답 필드
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `name`, `description`, `address` | string | 기본 정보 |
-| `category_name` | string | 카테고리 이름 |
+| `name`, `description` | string | 기본 정보 |
+| `categories` | array | 붙은 카테고리 (`id`, `keyword`) |
 | `review_avg` | float | 만족도 평균 (`-1.0 ~ 1.0`) → 화면에서 `실망~최고`로 환산 |
-| `review_count` | int | 리뷰 총 건수 |
+| `review_count` | int | 리뷰 총 건수 (지점 거르기와 무관) |
 | `ordered_count` | int | 서로 다른 방문일 수 |
 | `latest_ordered_at` | date | 최근 방문일 |
-| `menu_summaries` | array | **상세에만 포함**. 메뉴별 `menu`, `review_avg`, `review_count` |
+| `menu_summaries` | array | 메뉴별 `menu`, `review_avg`, `review_count`, `last_point`, `last_branch` (`?branch=` 기준) |
+| `branches` | array | 지점 `id`, `name`, `review_count` |
+| `menus` | array | 이 음식점에서 기록한 메뉴 이름과 리뷰 수 |
 
 ### 7-5. 리뷰
 
-| Endpoint | 파라미터 | 위치 | 타입 | 필수 | 설명                               |
-| --- | --- | --- | --- | --- |------------------------------------|
-| `GET /restaurants/{restaurant_pk}/reviews` | `menu` | query | string | — | 메뉴명 완전일치 필터               |
-| | `page` | query | int | — | 기본 `1`                           |
-| `POST /restaurants/{restaurant_pk}/reviews` | `ordered_at` | body | date(`YYYY-MM-DD`) | ✅ | 방문/주문일                        |
+| Endpoint | 파라미터 | 위치 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- | --- | --- |
+| `GET /restaurants/{restaurant_pk}/reviews` | `menu` | query | string | — | 메뉴명 필터 |
+| | `branch` | query | int \| `none` | — | 지점 필터 |
+| | `page` | query | int | — | 기본 `1` |
+| `POST /restaurants/{restaurant_pk}/reviews` | `ordered_at` | body | date(`YYYY-MM-DD`) | ✅ | 방문/주문일 |
 | | `point` | body | int | ✅ | `1`(만족) / `0`(보통) / `-1`(실망) |
-| | `menu` | body | string(255) | — | 메뉴명                             |
-| | `content` | body | string(255) | — | 한줄평                             |
-| `DELETE .../reviews/{review_pk}` | `review_pk` | path | int | ✅ | —                                  |
+| | `menu` | body | string(255) | — | 메뉴명. 공백·대소문자만 다른 기존 메뉴가 있으면 그 표기로 합쳐짐 |
+| | `branch` | body | int \| null | — | 이 음식점의 지점 |
+| | `content` | body | string(255) | — | 한줄평 |
+| `PATCH .../reviews/{review_pk}` | 위와 같음 | body | | — | 부분 수정 |
 
 ---
 
 ## 8. 환경 변수
 
-install.sh가 `.env`에 자동으로 채움. 직접 배포할 때 참고.
+install.sh가 `.env`에 자동으로 채움. 직접 배포할 때는 저장소 루트의 [`.env.example`](.env.example)을 `.env`로 복사해 채운다.
 
 ### API
 
@@ -343,6 +356,9 @@ install.sh가 `.env`에 자동으로 채움. 직접 배포할 때 참고.
 | `DB_HOST` / `DB_PORT` | — | — | 예: `postgres` / `5432` |
 | `REFRESH_COOKIE_SAMESITE` | `Lax` | — | 크로스 사이트면 `None` |
 | `REFRESH_COOKIE_SECURE` | `false` | — | HTTPS면 `true` |
+| `PUSH_API_TOKEN` | (빈 값) | 알림 ✅ | `POST /push/send` 토큰. 비어 있으면 `503` |
+| `PUBLIC_WEB_ORIGIN` | — | — | 푸시 서명 연락처 기본값으로 씀 (https일 때) |
+| `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 자동 생성 / — | — | 푸시 서명 키와 연락처 (`mailto:` 또는 `https:`) |
 | `APP_VERSION` / `APP_RELEASE_DATE` / `APP_LAST_UPDATED_AT` | 코드 기본값 | — | `/users/me`가 반환하는 버전 표기 |
 
 ### Web
@@ -363,7 +379,8 @@ install.sh가 `.env`에 자동으로 채움. 직접 배포할 때 참고.
 │   └── apps/
 │       ├── auth/                       # 토큰 발급·회전·로그아웃, 내 정보, 비밀번호 변경
 │       ├── zone/                       # 장소·카테고리·대시보드 집계
-│       ├── restaurant/                 # 음식점·리뷰·메뉴별 요약
+│       ├── restaurant/                 # 음식점·지점·메뉴·리뷰, 뽑기, 백업
+│       ├── push/                       # 웹 푸시 구독·발송
 │       └── urls.py                     # 전체 라우팅 집약
 ├── web/                                # Next.js 16 App Router
 │   ├── app/                            # 라우트 그룹별 레이아웃 + 페이지, PWA manifest
@@ -371,8 +388,10 @@ install.sh가 `.env`에 자동으로 채움. 직접 배포할 때 참고.
 │   ├── constants/routeUrl.ts           # 엔드포인트 중앙 관리
 │   ├── hooks/useAuthBootstrap.ts       # 자동 로그인 + 미인증 리다이렉트
 │   ├── lib/api.ts                      # fetch 래퍼 (토큰 자동 갱신 & 재시도)
-│   └── store/                          # 클라이언트 상태 (세션 단위 유지)
-└── .github/workflows/deploy.yaml       # Release → GHCR 이미지 푸시
+│   ├── store/                          # 클라이언트 상태 (세션 단위 유지)
+│   └── e2e/                            # Playwright E2E (실제 API + 웹 빌드, 모바일 크기)
+├── .env.example                        # 직접 설치할 때 쓰는 설정 예시
+└── .github/workflows/                  # ci.yaml (lint·테스트·E2E), deploy.yaml (Release → GHCR)
 ```
 
 ---

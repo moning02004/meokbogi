@@ -1,0 +1,15 @@
+# ruff: lint만 쓴다 (make lint / CI). 포맷은 지금 코드 모양을 그대로 둔다.
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = ["venv", "*/migrations/*"]
+
+[tool.ruff.lint]
+# E/F: 기본 오류, I: import 순서, UP: 새 문법, B: 흔한 실수
+select = ["E", "F", "I", "UP", "B"]
+# 한글 주석이 길어 줄 길이는 보지 않는다
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# 설정은 base를 통째로 받아 덮어쓰는 구조다
+"meokbogi_api/settings/*.py" = ["F403", "F405"]
