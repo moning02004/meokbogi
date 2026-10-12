@@ -18,6 +18,7 @@ import toast from "react-hot-toast";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
+import {AddToGuideSheet} from "@/components/guide/add_to_guide_sheet";
 import {SENTIMENTS, SentimentKey} from "@/components/review/sentiment";
 import type {ReviewDraft} from "@/components/review/review_sheet";
 import dynamic from "next/dynamic";
@@ -74,6 +75,8 @@ export default function Page() {
     // 음식점 수정 시트. 열 때마다 seq를 올려 폼을 새로 만든다.
     const [isEditingRestaurant, setIsEditingRestaurant] = useState(false)
     const [editSeq, setEditSeq] = useState(0)
+    // 먹골목의 골목에 담기
+    const [isGuideSheetOpen, setIsGuideSheetOpen] = useState(false)
 
     // 지점 거르기: null = 전체, "none" = 지점 없이 남긴 리뷰, 숫자 = 그 지점
     const [selectedBranch, setSelectedBranch] = useState<number | "none" | null>(null)
@@ -308,6 +311,9 @@ export default function Page() {
                                 label: "음식점 수정",
                                 onClick: () => editRestaurant(),
                             }, {
+                                label: "골목에 담기",
+                                onClick: () => setIsGuideSheetOpen(true),
+                            }, {
                                 label: "음식점 삭제",
                                 danger: true,
                                 onClick: () => deleteRestaurant(),
@@ -339,6 +345,9 @@ export default function Page() {
                             <ReviewContent key={restaurant.description} content={restaurant.description}
                                            className="text-[14.5px] text-ink2 leading-relaxed"/>
                         </div>
+                    )}
+                    {restaurant.address && (
+                        <p className="mt-1.5 text-[13.5px] text-ink3 leading-relaxed">{restaurant.address}</p>
                     )}
                     <dl className="grid grid-cols-3 mt-3.5 rounded-[18px] bg-surface py-3.5 text-center divide-x divide-line">
                         <div>
@@ -553,6 +562,8 @@ export default function Page() {
                         먹은 메뉴 기록하기
                     </button>
                 </div>
+
+                <AddToGuideSheet open={isGuideSheetOpen} onOpenChange={setIsGuideSheetOpen} restaurant={restaurant}/>
 
                 {/* ---- 음식점 수정 ---- */}
                 <RestaurantEditSheet

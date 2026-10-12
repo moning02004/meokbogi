@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.auth import views as auth_views
+from apps.guide import views as guide_views
 from apps.push import views as push_views
 from apps.restaurant import views as restaurant_views
 from apps.zone import views as zone_views
@@ -61,4 +62,12 @@ urlpatterns = [
          }), name="review-create"),
     path("restaurants/<int:restaurant_pk>/reviews/<int:review_pk>",
          restaurant_views.RestaurantReviewDeleteAPIView.as_view(), name="review-delete"),
+
+    # 먹골목 (골목 = 골라서 남에게 건네는 목록)
+    path("guides", guide_views.GuideListAPIView.as_view(), name="guides"),
+    path("guides/<int:guide_pk>", guide_views.GuideDetailAPIView.as_view(), name="guide-detail"),
+    path("guides/<int:guide_pk>/entries", guide_views.GuideEntriesAPIView.as_view(), name="guide-entries"),
+    path("guides/<int:guide_pk>/share", guide_views.GuideShareAPIView.as_view(), name="guide-share"),
+    # 로그인 없이 읽는 공개 주소
+    path("public/guides/<str:token>", guide_views.PublicGuideAPIView.as_view(), name="public-guide"),
 ]

@@ -8,6 +8,8 @@ export interface ImportSummary {
     restaurants_matched: number;
     reviews_created: number;
     reviews_skipped: number;
+    guides_created: number;
+    guides_skipped: number;
     dry_run: boolean;
 }
 

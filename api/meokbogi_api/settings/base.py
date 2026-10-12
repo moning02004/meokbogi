@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 
     "apps.zone",
     "apps.restaurant",
+    "apps.guide",
     "apps.push",
 ]
 

@@ -2,7 +2,7 @@ import {useAuthStore} from "@/store/auth";
 import {API_HOST} from "@/constants/api";
 import {AuthTokenResponse} from "@/types/auth";
 
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type RequestExtraOptions = {
     isMime?: boolean,
     isDownloadFile?: boolean
@@ -132,6 +132,7 @@ async function request<T = unknown>(endPoint: string,
 export const apiRequest = {
     get: <T = unknown>(endPoint: string, options?: RequestInit, extraOptions?: RequestExtraOptions) => request<T>(endPoint, "GET", options, extraOptions),
     post: <T = unknown>(endPoint: string, options?: RequestInit, extraOptions?: RequestExtraOptions) => request<T>(endPoint, "POST", options, extraOptions),
+    put: <T = unknown>(endPoint: string, options?: RequestInit, extraOptions?: RequestExtraOptions) => request<T>(endPoint, "PUT", options, extraOptions),
     patch: <T = unknown>(endPoint: string, options?: RequestInit, extraOptions?: RequestExtraOptions) => request<T>(endPoint, "PATCH", options, extraOptions),
     delete: <T = unknown>(endPoint: string, options?: RequestInit, extraOptions?: RequestExtraOptions) => request<T>(endPoint, "DELETE", options, extraOptions),
 };

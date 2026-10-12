@@ -4,7 +4,7 @@ export const ZONE_PAGE = {
 
 export const STATS_PAGE = "/stats"
 
-type ApiMethod = "get" | "post" | "patch" | "delete"
+type ApiMethod = "get" | "post" | "put" | "patch" | "delete"
 
 interface StaticApiEndpointConfig {
     method: ApiMethod;
@@ -16,6 +16,7 @@ interface EndpointArgs {
     category?: number;
     restaurant?: number;
     review?: number;
+    guide?: number;
 }
 
 interface DynamicApiEndpointConfig {
@@ -135,6 +136,44 @@ export const RESTAURANT_REVIEW_API = {
     delete: {
         method: "delete",
         endpoint: (args: EndpointArgs) => `/restaurants/${args.restaurant}/reviews/${args.review}`
+    },
+} satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
+
+// 먹골목. 골목 = 먹어본 집을 골라 남에게 건네는 목록
+export const GUIDE_PAGE = {
+    list: "/guides",
+    detail: (_id: number) => `/guides/${_id}`,
+    // 로그인 없이 열리는 공개 화면
+    public: (token: string) => `/g/${token}`,
+}
+
+export const GUIDE_API = {
+    list: {method: "get", endpoint: "/guides"},
+    add: {method: "post", endpoint: "/guides"},
+    retrieve: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}`
+    },
+    update: {
+        method: "patch",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}`
+    },
+    delete: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}`
+    },
+    // 실린 집을 순서째로 통째로 저장한다
+    entries: {
+        method: "put",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}/entries`
+    },
+    share: {
+        method: "post",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}/share`
+    },
+    unshare: {
+        method: "delete",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}/share`
     },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
