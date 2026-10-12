@@ -67,7 +67,7 @@ class GuideSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Guide
-        fields = ["id", "title", "intro", "edition", "show_address", "show_visits", "share_token", "entry_count",
+        fields = ["id", "title", "intro", "edition", "grade", "show_address", "show_visits", "share_token", "entry_count",
                   "updated_at"]
         read_only_fields = ["id", "share_token", "updated_at"]
 
@@ -136,4 +136,5 @@ def public_guide(guide):
             item["visit_count"] = len(days)
             item["first_ordered_month"] = min(days).strftime("%Y-%m") if days else None
         entries.append(item)
-    return {"title": guide.title, "intro": guide.intro, "edition": guide.edition, "entries": entries}
+    return {"title": guide.title, "intro": guide.intro, "edition": guide.edition,
+            "grade": guide.grade, "grade_label": guide.grade_label, "entries": entries}

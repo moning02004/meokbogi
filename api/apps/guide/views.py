@@ -2,7 +2,6 @@ from django.db import transaction
 from django.db.models import Count, Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.http import content_disposition_header
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
@@ -124,13 +123,13 @@ class GuideShareAPIView(APIView):
 class GuidePamphletAPIView(APIView):
     """골목을 A4 가로 팜플렛 PDF로 내려준다. 공개하지 않은 골목도 주인은 받을 수 있다.
 
-    내용은 공개 화면과 같고(리뷰 글·장소 이름 없음), 파일에는 만든 날짜가 찍힌다.
+    내용은 공개 화면과 같다 (리뷰 글·장소 이름 없음).
     """
 
     def get(self, request, *args, **kwargs):
         guide = my_guide_or_404(request, self.kwargs["guide_pk"])
         try:
-            pdf = render_pamphlet(guide, timezone.localdate())
+            pdf = render_pamphlet(guide)
         except PamphletUnavailable:
             return Response({"detail": "이 서버에는 PDF를 만드는 도구가 설치되어 있지 않아요."}, status=503)
         response = HttpResponse(pdf, content_type="application/pdf")

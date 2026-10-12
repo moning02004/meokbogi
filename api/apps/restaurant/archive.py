@@ -80,6 +80,7 @@ def build_archive(user):
                 "title": guide.title,
                 "intro": guide.intro,
                 "edition": guide.edition,
+                "grade": guide.grade,
                 "show_address": guide.show_address,
                 "show_visits": guide.show_visits,
                 "entries": [
@@ -160,6 +161,8 @@ class GuideArchiveSerializer(serializers.Serializer):
     edition = serializers.CharField(max_length=20, allow_blank=True, default="")
     show_address = serializers.BooleanField(default=True)
     show_visits = serializers.BooleanField(default=True)
+    # 2.5부터. 없으면 등급 없음.
+    grade = serializers.ChoiceField(choices=[0, 1, 2, 3], default=0)
     entries = GuideEntryArchiveSerializer(many=True, default=list)
 
 
@@ -330,7 +333,8 @@ def _merge_guides(user, guides, summary):
             continue
         titles.add(_name_key(title))
         guide = user.guides.create(title=title, intro=guide_data["intro"], edition=guide_data["edition"],
-                                   show_address=guide_data["show_address"], show_visits=guide_data["show_visits"])
+                                   show_address=guide_data["show_address"], show_visits=guide_data["show_visits"],
+                                   grade=guide_data["grade"])
         summary["guides_created"] += 1
 
         seen = set()

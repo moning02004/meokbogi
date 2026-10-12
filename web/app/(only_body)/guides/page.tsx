@@ -7,15 +7,17 @@ import {LuChevronRight} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {GUIDE_PAGE} from "@/constants/routeUrl";
 import {errorMessage} from "@/lib/api";
-import {createGuide, fetchGuides} from "@/lib/guide";
+import {createGuide, fetchGuides, GuideGrade} from "@/lib/guide";
 import {GuideType} from "@/types/guide";
 import {Skeleton} from "@/components/skeleton";
+import {SpoonGradePicker, Spoons} from "@/components/guide/spoon_grade";
 
 // 먹골목: 내가 만든 골목 목록과 새 골목 만들기
 export default function Page() {
     const router = useRouter()
     const [guides, setGuides] = useState<GuideType[] | null>(null)
     const [title, setTitle] = useState("")
+    const [grade, setGrade] = useState<GuideGrade>(0)
     const [isCreating, setIsCreating] = useState(false)
 
     useEffect(() => {
@@ -33,7 +35,7 @@ export default function Page() {
             return
         }
         setIsCreating(true)
-        createGuide(name)
+        createGuide(name, grade)
             .then((guide) => router.push(GUIDE_PAGE.detail(guide.id)))
             .catch((error) => {
                 toast.error(errorMessage(error, "골목을 만들지 못했어요."))
@@ -70,6 +72,10 @@ export default function Page() {
                         autoComplete="off"
                         className="w-full rounded-[14px] px-3.5 py-3 text-[14.5px] text-ink bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                     />
+                    <div className="text-[12.5px] font-bold text-ink3 mt-1">
+                        추천 등급 <span className="font-medium">(나중에 바꿀 수 있어요)</span>
+                    </div>
+                    <SpoonGradePicker value={grade} onChange={setGrade}/>
                     <button
                         onClick={create}
                         disabled={isCreating}
@@ -96,7 +102,10 @@ export default function Page() {
                             className="w-full flex items-center gap-2 py-3.5 text-left border-b border-line last:border-0 cursor-pointer"
                         >
                             <span className="flex-1 min-w-0">
-                                <span className="block font-bold text-[16px] text-ink tracking-tight truncate">{guide.title}</span>
+                                <span className="flex items-center gap-2">
+                                    <span className="font-bold text-[16px] text-ink tracking-tight truncate">{guide.title}</span>
+                                    <Spoons grade={guide.grade} height={16} className="shrink-0 text-accent-text"/>
+                                </span>
                                 <span className="block text-[13px] text-ink3 mt-0.5">
                                     {guide.entry_count}곳{guide.edition && ` · ${guide.edition}`}
                                 </span>

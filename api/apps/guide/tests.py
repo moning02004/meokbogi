@@ -130,6 +130,23 @@ class GuideTestCase(TestCase):
         self.assertEqual(other.post(share).status_code, 404)
         self.assertIsNone(Guide.objects.get(pk=guide_id).share_token)
 
+    def test_grade_is_spoons_from_zero_to_three(self):
+        guide_id = self.create_guide(grade=2)
+        detail = reverse("guide-detail", kwargs={"guide_pk": guide_id})
+        self.assertEqual(self.client.get(detail).json()["grade"], 2)
+        self.assertEqual(self.client.patch(detail, data={"grade": 4}, content_type="application/json").status_code, 400)
+        self.assertEqual(self.client.patch(detail, data={"grade": 3}, content_type="application/json").json()["grade"], 3)
+
+        # 공개 화면과 팜플렛에는 숟가락 수와 그 뜻이 함께 나간다
+        token = self.client.post(reverse("guide-share", kwargs={"guide_pk": guide_id})).json()["share_token"]
+        public = Client().get(reverse("public-guide", kwargs={"token": token})).json()
+        self.assertEqual((public["grade"], public["grade_label"]), (3, "이 골목 때문에 그 동네에 갈 만한 골목"))
+        context = pamphlet_context(Guide.objects.get(pk=guide_id))
+        self.assertEqual((len(context["spoons"]), context["guide"]["grade_label"]), (3, public["grade_label"]))
+
+        # 등급을 안 주면 0 (등급 없음)
+        self.assertEqual(self.client.get(reverse("guide-detail", kwargs={"guide_pk": self.create_guide()})).json()["grade"], 0)
+
     def test_patch_keeps_entry_order(self):
         guide_id = self.create_guide()
         self.put_entries(guide_id, [{"restaurant": self.noodle.id}, {"restaurant": self.gimbap.id}])
@@ -157,7 +174,7 @@ class GuideTestCase(TestCase):
         response = anonymous.get(reverse("public-guide", kwargs={"token": token}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {
-            "title": "을지로 점심 골목", "intro": "먹어본 집만", "edition": "",
+            "title": "을지로 점심 골목", "intro": "먹어본 집만", "edition": "", "grade": 0, "grade_label": "",
             "entries": [{
                 "name": "진미손칼국수", "categories": ["칼국수"], "branch": "", "comment": "바지락이 넉넉해요",
                 "menus": ["손만두"], "address": "을지로 12", "visit_count": 2, "first_ordered_month": "2024-11",
@@ -205,7 +222,7 @@ class GuideTestCase(TestCase):
         self.assertEqual([entry["restaurant"]["name"] for entry in detail["entries"]], ["산들김밥"])
 
     def test_archive_round_trip(self):
-        guide_id = self.create_guide(intro="먹어본 집만", edition="2026 가을", show_address=False)
+        guide_id = self.create_guide(intro="먹어본 집만", edition="2026 가을", show_address=False, grade=2)
         self.put_entries(guide_id, [{"restaurant": self.gimbap.id},
                                     {"restaurant": self.noodle.id, "comment": "넉넉해요", "menus": ["손만두"]}])
         self.client.post(reverse("guide-share", kwargs={"guide_pk": guide_id}))
@@ -223,8 +240,8 @@ class GuideTestCase(TestCase):
 
         self.assertEqual((load()["guides_created"], load()["guides_skipped"]), (1, 1))
         guide = newbie.get(reverse("guides")).json()[0]
-        self.assertEqual((guide["title"], guide["edition"], guide["show_address"], guide["share_token"]),
-                         ("을지로 점심 골목", "2026 가을", False, None))
+        self.assertEqual((guide["title"], guide["edition"], guide["show_address"], guide["share_token"], guide["grade"]),
+                         ("을지로 점심 골목", "2026 가을", False, None, 2))
         entries = newbie.get(reverse("guide-detail", kwargs={"guide_pk": guide["id"]})).json()["entries"]
         self.assertEqual([(e["restaurant"]["name"], e["comment"], e["menus"]) for e in entries],
                          [("산들김밥", "", []), ("진미손칼국수", "넉넉해요", ["손만두"])])
@@ -252,7 +269,7 @@ class GuideTestCase(TestCase):
                          + [{"restaurant": restaurant.id} for restaurant in extras])
         guide = Guide.objects.prefetch_related("entries").get(pk=guide_id)
 
-        context = pamphlet_context(guide, date(2026, 10, 13))
+        context = pamphlet_context(guide)
         # 첫 장은 표지 옆 두 단에 여섯 집, 다음 장은 세 단에 아홉 집
         self.assertEqual([len(column) for column in context["first_columns"]], [3, 3])
         self.assertEqual([[len(column) for column in page] for page in context["other_pages"]], [[3, 3, 3]])
@@ -263,20 +280,19 @@ class GuideTestCase(TestCase):
         self.assertEqual(first["comment"].replace("\u2060", ""), "넉넉해요")
         self.assertEqual(context["guide"]["intro"].replace("\u2060", ""), "먹어본 집만")
         self.assertEqual(context["guide"]["intro"].count(" "), 1)
-        self.assertEqual(context["today"], "2026.10.13")
         self.assertNotIn("나만 보는 메모", str(context))
         self.assertNotIn("우리집", str(context))
 
         # 집이 적으면 빈 단을 남겨 단 폭을 지키고, 둘째 장은 만들지 않는다
         self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
-        context = pamphlet_context(Guide.objects.get(pk=guide_id), date(2026, 10, 13))
+        context = pamphlet_context(Guide.objects.get(pk=guide_id))
         self.assertEqual([len(column) for column in context["first_columns"]], [1, 0])
         self.assertEqual(context["other_pages"], [])
 
     def test_pamphlet_follows_display_settings(self):
         guide_id = self.create_guide(show_address=False, show_visits=False)
         self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
-        context = pamphlet_context(Guide.objects.get(pk=guide_id), date(2026, 10, 13))
+        context = pamphlet_context(Guide.objects.get(pk=guide_id))
         entry = context["first_columns"][0][0]
         self.assertEqual((entry.get("address"), entry.get("visit_count"), entry["first_ordered"]), (None, None, ""))
         self.assertFalse(context["show_visits"])

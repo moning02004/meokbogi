@@ -18,8 +18,14 @@ test.describe("먹골목", () => {
         await page.getByRole("button", {name: /먹골목/}).click()
 
         await page.getByLabel("새 골목").fill("을지로 점심 골목")
+        await page.getByRole("radio", {name: "숟가락 2개"}).click()
+        await expect(page.getByText("일부러 찾아갈 만한 골목")).toBeVisible()
         await page.getByRole("button", {name: "골목 만들기"}).click()
         await expect(page.getByText("골목 꾸미기")).toBeVisible()
+
+        // 만들 때 준 등급이 들어와 있고, 꾸미면서 바꿀 수 있다
+        await expect(page.getByRole("radio", {name: "숟가락 2개"})).toHaveAttribute("aria-checked", "true")
+        await page.getByRole("radio", {name: "숟가락 3개"}).click()
 
         // 많이 간 집이 위에 온다
         await page.getByRole("button", {name: "음식점 고르기"}).click()
@@ -48,6 +54,8 @@ test.describe("먹골목", () => {
         await visitor.goto(url)
         await expect(visitor.getByRole("heading", {name: "을지로 점심 골목"})).toBeVisible()
         await expect(visitor.getByText("먹어본 집만 골랐어요")).toBeVisible()
+        await expect(visitor.getByRole("img", {name: "숟가락 3개"})).toBeVisible()
+        await expect(visitor.getByText("이 골목 때문에 그 동네에 갈 만한 골목")).toBeVisible()
         const cards = visitor.getByRole("article")
         await expect(cards).toHaveCount(2)
         await expect(cards.first()).toContainText("진미손칼국수")
