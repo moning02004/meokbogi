@@ -4,7 +4,7 @@ import {useEffect, useState} from "react"
 import {useRouter} from "next/navigation"
 import toast from "react-hot-toast"
 import {BsForkKnife} from "react-icons/bs"
-import {FaGamepad, FaPlus} from "react-icons/fa"
+import {FaAngleDown, FaGamepad, FaPlus} from "react-icons/fa"
 import {IoMdHome} from "react-icons/io"
 import {LuCheck, LuCopy, LuUser} from "react-icons/lu"
 import {MdSentimentNeutral, MdSentimentSatisfiedAlt, MdSentimentVeryDissatisfied} from "react-icons/md"
@@ -38,35 +38,35 @@ export default function Page() {
     }
 
     return (
-        <div className="min-h-[100dvh] bg-white">
+        <div className="min-h-[100dvh] bg-surface">
             <div className="w-full max-w-[560px] mx-auto">
 
                 {/* ================= 히어로 ================= */}
                 <div className="px-6 pt-[calc(env(safe-area-inset-top)+44px)] pb-8 text-center">
                     <div className="inline-flex items-center gap-2 mb-6">
-                        <div className="w-8 h-8 rounded-full bg-[#E0603A] flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-accent text-on-accent flex items-center justify-center">
                             <BrandMark size={16}/>
                         </div>
-                        <span className="text-[15px] font-extrabold text-[#211D17] tracking-tight">먹보기</span>
+                        <span className="text-[15px] font-extrabold text-ink tracking-tight">먹보기</span>
                     </div>
 
-                    <h1 className="text-[30px] leading-[1.28] font-extrabold text-[#211D17] tracking-tight mb-3.5">
+                    <h1 className="text-[30px] leading-[1.28] font-extrabold text-ink tracking-tight mb-3.5">
                         먹어본 것만<br/>
-                        <span className="text-[#D2571E]">차곡차곡</span> 쌓이는<br/>
+                        <span className="text-accent-text">차곡차곡</span> 쌓이는<br/>
                         나만의 맛집 목록
                     </h1>
-                    <p className="text-[14px] text-[#8A8172] font-semibold leading-[1.75] mb-7">
+                    <p className="text-[14px] text-ink3 font-semibold leading-[1.75] mb-7">
                         &ldquo;저번에 그 집, 뭐가 맛있었더라?&rdquo;<br/>
                         그 질문에 답하려고 만들었습니다.
                     </p>
 
                     <button
                         onClick={() => router.push("/login")}
-                        className="w-full max-w-[280px] py-3.5 rounded-xl bg-[#D2571E] text-white font-bold text-[15px] cursor-pointer active:scale-[0.98] sm:hover:bg-[#b84a19] transition-all"
+                        className="w-full max-w-[280px] h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer active:scale-[0.98] sm:hover:bg-accent-hover transition-all"
                     >
                         기록하러 가기
                     </button>
-                    <p className="text-[11.5px] text-[#B7AF9F] font-semibold mt-3">
+                    <p className="text-[11.5px] text-ink3 font-semibold mt-3">
                         아래에서 먼저 눌러보고 결정해도 괜찮아요
                     </p>
                 </div>
@@ -79,10 +79,10 @@ export default function Page() {
                 {/* ================= 인터랙티브 데모 ================= */}
                 <div className="px-5 pb-11">
                     <SectionLabel>직접 눌러보세요</SectionLabel>
-                    <h2 className="text-[19px] font-extrabold text-[#211D17] tracking-tight mb-1.5">
+                    <h2 className="text-[19px] font-extrabold text-ink tracking-tight mb-1.5">
                         기록은 이게 전부입니다
                     </h2>
-                    <p className="text-[13px] text-[#8A8172] font-medium leading-relaxed mb-4">
+                    <p className="text-[13px] text-ink3 font-medium leading-relaxed mb-4">
                         먹은 메뉴마다 셋 중 하나만 누르면 끝. 별점 몇 개를 줄지 고민하지 않아도 됩니다.
                     </p>
                     <ReviewDemo/>
@@ -96,15 +96,15 @@ export default function Page() {
                             <li key={title} className="flex gap-3.5">
                                 <div className="flex flex-col items-center shrink-0">
                                     <div
-                                        className="w-7 h-7 rounded-full bg-[#24564A] text-white text-[12px] font-extrabold flex items-center justify-center">
+                                        className="w-7 h-7 rounded-full bg-strong text-white text-[12px] font-extrabold flex items-center justify-center">
                                         {index + 1}
                                     </div>
-                                    {index < STEPS.length - 1 && <div className="w-px flex-1 bg-[#E7E0CF] my-1"/>}
+                                    {index < STEPS.length - 1 && <div className="w-px flex-1 bg-line my-1"/>}
                                 </div>
                                 <div className={index < STEPS.length - 1 ? "pb-5" : ""}>
-                                    <div className="text-[14.5px] font-extrabold text-[#211D17] mb-1">{title}</div>
+                                    <div className="text-[14.5px] font-extrabold text-ink mb-1">{title}</div>
                                     <div
-                                        className="text-[12.5px] text-[#8A8172] font-medium leading-relaxed">{desc}</div>
+                                        className="text-[12.5px] text-ink3 font-medium leading-relaxed">{desc}</div>
                                 </div>
                             </li>
                         ))}
@@ -117,9 +117,9 @@ export default function Page() {
                     <div className="grid grid-cols-2 gap-2.5">
                         {FEATURES.map(({title, desc}) => (
                             <div key={title}
-                                 className="bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-3.5 py-3.5">
-                                <div className="text-[13px] font-extrabold text-[#211D17] mb-1">{title}</div>
-                                <div className="text-[11.5px] text-[#8A8172] font-medium leading-relaxed">{desc}</div>
+                                 className="bg-fill rounded-2xl px-3.5 py-3.5">
+                                <div className="text-[13px] font-extrabold text-ink mb-1">{title}</div>
+                                <div className="text-[11.5px] text-ink3 font-medium leading-relaxed">{desc}</div>
                             </div>
                         ))}
                     </div>
@@ -128,22 +128,22 @@ export default function Page() {
                 {/* ================= 설치 ================= */}
                 <div className="px-5 pb-11">
                     <SectionLabel>직접 설치해서 씁니다</SectionLabel>
-                    <div className="rounded-2xl bg-[#17372F] px-5 py-5 text-[#EFF4F1]">
+                    <div className="rounded-2xl bg-strong px-5 py-5 text-white">
                         <div className="text-[15px] font-extrabold mb-1.5">기록은 내 서버에만 남습니다</div>
-                        <p className="text-[12.5px] text-[#9FB6AE] font-medium leading-relaxed mb-4">
+                        <p className="text-[12.5px] text-white/70 font-medium leading-relaxed mb-4">
                             남의 서버에 취향을 맡기지 않아도 됩니다. Docker와 git만 있으면 아래 한 줄로 끝나요.
                         </p>
 
                         <div
                             className="flex items-center gap-2 rounded-xl bg-black/25 border border-white/[0.12] pl-3 pr-2 py-2.5">
                             <code
-                                className="flex-1 min-w-0 font-mono text-[11px] text-[#D8E5E0] overflow-x-auto whitespace-nowrap">
+                                className="flex-1 min-w-0 font-mono text-[11px] text-line-strong overflow-x-auto whitespace-nowrap">
                                 {INSTALL_COMMAND}
                             </code>
                             <button
                                 onClick={copyInstallCommand}
                                 aria-label="설치 명령어 복사"
-                                className="shrink-0 flex items-center gap-1 text-[11.5px] font-bold text-[#17372F] bg-[#EFF4F1] rounded-lg px-2.5 py-1.5 cursor-pointer sm:hover:bg-white transition-colors"
+                                className="shrink-0 flex items-center gap-1 text-[11.5px] font-bold text-strong bg-surface rounded-lg px-2.5 py-1.5 cursor-pointer sm:hover:bg-surface transition-colors"
                             >
                                 {copied ? <LuCheck size={12}/> : <LuCopy size={12}/>}
                                 {copied ? "복사됨" : "복사"}
@@ -152,8 +152,8 @@ export default function Page() {
 
                         <div className="flex flex-col gap-1.5 mt-4">
                             {INSTALL_NOTES.map((note) => (
-                                <div key={note} className="flex gap-2 text-[12px] text-[#B9CFC8] font-medium">
-                                    <span className="text-[#7FA99B]">·</span>
+                                <div key={note} className="flex gap-2 text-[12px] text-white/70 font-medium">
+                                    <span className="text-white/70">·</span>
                                     <span className="leading-relaxed">{note}</span>
                                 </div>
                             ))}
@@ -165,15 +165,15 @@ export default function Page() {
 
                 {/* ================= 마무리 ================= */}
                 <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+48px)] text-center">
-                    <div className="text-[16px] font-extrabold text-[#211D17] tracking-tight mb-2">
+                    <div className="text-[16px] font-extrabold text-ink tracking-tight mb-2">
                         오늘 먹은 것부터 남겨보세요
                     </div>
-                    <p className="text-[12.5px] text-[#8A8172] font-medium leading-relaxed mb-5">
+                    <p className="text-[12.5px] text-ink3 font-medium leading-relaxed mb-5">
                         한 줄이면 됩니다. 세 번쯤 쌓이면 그때부터 목록이 일을 하기 시작해요.
                     </p>
                     <button
                         onClick={() => router.push("/login")}
-                        className="w-full max-w-[280px] py-3.5 rounded-xl bg-[#D2571E] text-white font-bold text-[15px] cursor-pointer active:scale-[0.98] sm:hover:bg-[#b84a19] transition-all"
+                        className="w-full max-w-[280px] h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer active:scale-[0.98] sm:hover:bg-accent-hover transition-all"
                     >
                         기록하러 가기
                     </button>
@@ -187,7 +187,7 @@ export default function Page() {
 
 function SectionLabel({children}: { children: React.ReactNode }) {
     return (
-        <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-3">
+        <div className="text-[11px] font-bold tracking-[0.1em] text-ink3 uppercase mb-3">
             {children}
         </div>
     )
@@ -196,7 +196,7 @@ function SectionLabel({children}: { children: React.ReactNode }) {
 function BrandMark({size}: { size: number }) {
     return (
         <svg width={size} height={size} viewBox="0 0 120 120">
-            <g transform="translate(60,60)" fill="#fff">
+            <g transform="translate(60,60)" fill="currentColor">
                 <path d="M-22 -28 L-19 -28 L-19 -12 L-17 -8 L-17 28 L-21 28 L-21 -8 L-23 -12 L-23 -28 Z"/>
                 <rect x="-18.5" y="-28" width="2.6" height="15"/>
                 <rect x="-14.5" y="-28" width="2.6" height="15"/>
@@ -206,55 +206,53 @@ function BrandMark({size}: { size: number }) {
     )
 }
 
-// 실제 홈 화면(계기판 + 믿고 먹는 음식점)을 그대로 축소해 보여준다
+// 실제 홈 화면(이번 달 기록 + 믿고 먹는 음식점)을 그대로 축소해 보여준다
 function AppPreview() {
     return (
         <div
-            className="mx-auto w-[248px] rounded-[26px] border-[7px] border-[#211D17] bg-white overflow-hidden shadow-[0_18px_44px_-14px_rgba(33,29,23,0.5)]">
-            <div className="flex justify-between items-center bg-white border-b border-[#E7E0CF] px-3 py-2">
-                <div>
-                    <div className="text-[7px] font-semibold tracking-[0.14em] text-[#B7AF9F] uppercase">ZONE</div>
-                    <div className="text-[12px] font-extrabold tracking-tight text-[#211D17]">우리집</div>
-                </div>
-                <div className="w-5 h-5 rounded-full bg-[#E4EEEA]"/>
+            className="mx-auto w-[248px] rounded-[26px] border-[7px] border-strong bg-bg overflow-hidden shadow-[0_18px_44px_-14px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center gap-0.5 px-3 pt-2.5 pb-1.5">
+                <div className="text-[13px] font-extrabold tracking-tight text-ink">우리집</div>
+                <FaAngleDown size={8} className="text-ink3"/>
             </div>
 
-            <div className="p-2.5">
-                <div className="rounded-[14px] bg-[#17372F] px-3 pt-2.5 pb-2 text-[#EFF4F1]">
-                    <div className="flex items-center gap-1 text-[8px] font-semibold text-[#B9CFC8] mb-2">
-                        <BsForkKnife size={8}/>
+            <div className="px-2.5 pb-2.5">
+                <div className="rounded-[14px] bg-surface px-3 pt-2.5 pb-2.5">
+                    <div className="flex items-center gap-1 text-[8px] font-semibold text-ink3">
+                        <BsForkKnife size={7}/>
                         우리집 기록
                     </div>
-                    <div className="flex">
-                        {PREVIEW_STATS.map(({value, label}) => (
-                            <div key={label} className="flex-1 text-center">
-                                <div
-                                    className="mx-1 font-mono text-[15px] font-semibold rounded-[6px] py-0.5 bg-white/[0.06] border border-white/[0.12]">
-                                    {value}
-                                </div>
-                                <p className="text-[6.5px] font-medium text-[#9FB6AE] mt-1">{label}</p>
+                    <div className="flex items-baseline gap-0.5 mt-1">
+                        <span className="text-[22px] leading-none font-extrabold tracking-tight text-ink">{PREVIEW_STATS[2].value}</span>
+                        <span className="text-[10px] font-bold text-ink">번</span>
+                        <span className="ml-1 text-[7.5px] font-semibold text-ink3">{PREVIEW_STATS[2].label}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 mt-2">
+                        {PREVIEW_STATS.slice(0, 2).map(({value, label}) => (
+                            <div key={label} className="rounded-lg bg-fill px-2 py-1.5">
+                                <p className="text-[7px] font-semibold text-ink3">{label}</p>
+                                <p className="text-[10px] font-bold text-ink">{value}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="flex gap-1.5 mt-2.5">
-                    <span className="px-2 py-1 rounded-full text-[8px] font-semibold bg-[#24564A] text-white">
-                        믿고 먹는 음식점
+                <div className="grid grid-cols-2 gap-0.5 p-0.5 mt-2 rounded-lg bg-fill-hover">
+                    <span className="py-1 rounded-md text-center text-[8px] font-bold bg-raise text-ink">
+                        믿고 먹는
                     </span>
-                    <span
-                        className="px-2 py-1 rounded-full text-[8px] font-semibold bg-white text-[#8A8172] border border-[#E7E0CF]">
-                        최근 먹었던
+                    <span className="py-1 rounded-md text-center text-[8px] font-semibold text-ink3">
+                        최근 먹은
                     </span>
                 </div>
 
-                <div className="flex flex-col gap-1.5 mt-2">
+                <div className="mt-2 rounded-[14px] bg-surface px-2.5">
                     {PREVIEW_ROWS.map(({name, category, avg}) => (
                         <div key={name}
-                             className="flex items-center justify-between px-2.5 py-2 rounded-xl border border-[#E7E0CF]">
+                             className="flex items-center justify-between py-2 border-b border-line last:border-0">
                             <div className="min-w-0">
-                                <p className="text-[10.5px] font-bold text-[#211D17] tracking-tight truncate">{name}</p>
-                                <p className="text-[8px] text-[#8A8172] mt-0.5">{category} 음식점</p>
+                                <p className="text-[10.5px] font-bold text-ink tracking-tight truncate">{name}</p>
+                                <p className="text-[8px] text-ink3 mt-0.5">{category} 음식점</p>
                             </div>
                             <span className="shrink-0 scale-[0.78] origin-right">{getReviewTextBox(avg, "sm")}</span>
                         </div>
@@ -262,14 +260,14 @@ function AppPreview() {
                 </div>
             </div>
 
-            <div className="flex items-center justify-around border-t border-[#E7E0CF] px-2 py-1.5">
-                <IoMdHome size={13} className="text-[#24564A]"/>
-                <FaGamepad size={13} className="text-[#B7AF9F]"/>
-                <div className="w-7 h-7 rounded-full bg-[#D2571E] flex items-center justify-center -translate-y-2">
-                    <FaPlus size={11} className="text-white"/>
+            <div className="grid grid-cols-5 items-center justify-items-center bg-surface border-t border-line px-2 py-1.5">
+                <IoMdHome size={13} className="text-ink"/>
+                <FaGamepad size={13} className="text-ink3"/>
+                <div className="w-7 h-7 rounded-[10px] bg-accent text-on-accent flex items-center justify-center">
+                    <FaPlus size={10}/>
                 </div>
-                <BsForkKnife size={12} className="text-[#B7AF9F]"/>
-                <LuUser size={13} className="text-[#B7AF9F]"/>
+                <BsForkKnife size={12} className="text-ink3"/>
+                <LuUser size={13} className="text-ink3"/>
             </div>
         </div>
     )
@@ -289,21 +287,21 @@ function ReviewDemo() {
     const isTrusted = recorded.length >= 2 && average >= 0.6
 
     return (
-        <div className="rounded-2xl border border-[#E7E0CF] bg-white overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#F0EBDD]">
+        <div className="rounded-3xl bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-line">
                 <div className="min-w-0">
-                    <p className="text-[15px] font-extrabold text-[#211D17] tracking-tight">우리동네 치킨</p>
-                    <p className="text-[12px] text-[#8A8172] mt-0.5">
+                    <p className="text-[15px] font-extrabold text-ink tracking-tight">우리동네 치킨</p>
+                    <p className="text-[12px] text-ink3 mt-0.5">
                         치킨 음식점 · 기록 {recorded.length}건
                     </p>
                 </div>
                 {recorded.length > 0 && getReviewTextBox(average, "sm")}
             </div>
 
-            <ul className="flex flex-col divide-y divide-[#F0EBDD]">
+            <ul className="flex flex-col divide-y divide-line">
                 {DEMO_MENUS.map((menu) => (
                     <li key={menu} className="flex items-center gap-2 px-4 py-3">
-                        <span className="flex-1 min-w-0 text-[13.5px] font-semibold text-[#211D17] truncate">
+                        <span className="flex-1 min-w-0 text-[13.5px] font-semibold text-ink truncate">
                             {menu}
                         </span>
                         <div className="flex gap-1.5 shrink-0">
@@ -326,13 +324,13 @@ function ReviewDemo() {
                 ))}
             </ul>
 
-            <div className="px-4 py-3.5 bg-[#FBFAF6] border-t border-[#F0EBDD]">
+            <div className="px-4 py-3.5 bg-fill border-t border-line">
                 {isTrusted ? (
-                    <p className="text-[12.5px] font-bold text-[#24564A] leading-relaxed">
+                    <p className="text-[12.5px] font-bold text-ink leading-relaxed">
                         🎉 이제 홈에서 &lsquo;믿고 먹는 음식점&rsquo;으로 올라옵니다.
                     </p>
                 ) : (
-                    <p className="text-[12.5px] text-[#8A8172] font-medium leading-relaxed">
+                    <p className="text-[12.5px] text-ink3 font-medium leading-relaxed">
                         두 번 이상 좋게 남긴 곳만 홈의 &lsquo;믿고 먹는 음식점&rsquo;에 올라옵니다.
                         한 번 먹고 만 곳은 올라오지 않아요.
                     </p>
@@ -341,7 +339,7 @@ function ReviewDemo() {
                 {recorded.length > 0 && (
                     <button
                         onClick={() => setRecords({})}
-                        className="text-[11.5px] font-bold text-[#B7AF9F] mt-2 cursor-pointer sm:hover:text-[#8A8172] transition-colors"
+                        className="text-[11.5px] font-bold text-ink3 mt-2 cursor-pointer sm:hover:text-ink3 transition-colors"
                     >
                         다시 해보기
                     </button>
@@ -356,7 +354,7 @@ function ReviewDemo() {
 const PREVIEW_STATS = [
     {value: "12", label: "등록한 음식점"},
     {value: "47", label: "작성한 리뷰"},
-    {value: "06", label: "이번 달 주문"},
+    {value: "6", label: "이번 달 주문"},
 ]
 
 const PREVIEW_ROWS = [
@@ -372,22 +370,22 @@ const SENTIMENTS = [
         point: 1 as Sentiment,
         label: "만족",
         icon: MdSentimentSatisfiedAlt,
-        on: "bg-[#B5E3C4] text-[#24564A]",
-        off: "bg-[#F6F3EC] text-[#C4BCA8] sm:hover:bg-[#EDE8DC]",
+        on: "bg-good-soft text-ink",
+        off: "bg-fill text-ink4 sm:hover:bg-line",
     },
     {
         point: 0 as Sentiment,
         label: "보통",
         icon: MdSentimentNeutral,
-        on: "bg-[#D6D2CC] text-[#5B5548]",
-        off: "bg-[#F6F3EC] text-[#C4BCA8] sm:hover:bg-[#EDE8DC]",
+        on: "bg-line-strong text-ink2",
+        off: "bg-fill text-ink4 sm:hover:bg-line",
     },
     {
         point: -1 as Sentiment,
         label: "별로",
         icon: MdSentimentVeryDissatisfied,
-        on: "bg-[#EBB9A2] text-[#C23B1E]",
-        off: "bg-[#F6F3EC] text-[#C4BCA8] sm:hover:bg-[#EDE8DC]",
+        on: "bg-bad-soft text-danger-text",
+        off: "bg-fill text-ink4 sm:hover:bg-line",
     },
 ]
 

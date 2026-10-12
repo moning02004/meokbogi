@@ -18,7 +18,7 @@ type Pos = { x: number; y: number };
 export default function FoodCardShuffle({
                                             categoryInfo,
                                             items,
-                                            trayColor = '#17372F',
+                                            trayColor = 'var(--strong)',
                                             setSelectedCategory,
                                             onBusyChange,
                                         }: FoodCardShuffleProps) {
@@ -109,9 +109,9 @@ export default function FoodCardShuffle({
     function resetBorder(idx: number) {
         const front = frontRefs.current[idx];
         if (front) {
-            front.style.borderColor = '#E4DCC8';
+            front.style.borderColor = '#E6E9EE';
             front.style.borderWidth = '1px';
-            front.style.background = '#FAF6EC';
+            front.style.background = '#FFFFFF';
         }
     }
 
@@ -180,7 +180,7 @@ export default function FoodCardShuffle({
         const winnerIdx = order[0];
         const front = frontRefs.current[winnerIdx];
         if (front) {
-            front.style.borderColor = '#D2571E';
+            front.style.borderColor = 'var(--accent)';
             front.style.borderWidth = '3px';
         }
         const p0 = finalPos[0];
@@ -204,9 +204,9 @@ export default function FoodCardShuffle({
 
     return (
         <div className="flex flex-col items-center gap-1">
-            <div className="w-full p-5 relative overflow-hidden" style={{background: trayColor}}>
+            <div className="w-[calc(100%-32px)] mx-4 rounded-3xl p-5 relative overflow-hidden" style={{background: trayColor}}>
                 <div className="text-center text-[19px] font-bold tracking-tight text-white relative">
-                    오늘의 <span className="text-[#F0A87E]">메뉴</span>, 골라드릴게요
+                    오늘의 <span className="text-accent">메뉴</span>, 골라드릴게요
                 </div>
                 <div ref={deckRef} className="relative w-full" style={{height: boxH}}>
                     {items.map((item, i) => {
@@ -226,13 +226,13 @@ export default function FoodCardShuffle({
                                     ref={(el) => {
                                         frontRefs.current[i] = el;
                                     }}
-                                    className="absolute inset-0 flex flex-col items-center justify-between rounded-lg border border-[#E4DCC8] bg-[#FAF6EC] p-1.5 shadow transition-[opacity,transform,background,border-color] duration-300"
+                                    className="absolute inset-0 flex flex-col items-center justify-between rounded-lg border border-line bg-white p-1.5 shadow transition-[opacity,transform,background,border-color] duration-300"
                                 >
                                     <span
                                         ref={(el) => {
                                             rankTopRefs.current[i] = el;
                                         }}
-                                        className="text-[11px] font-medium text-[#8A8474]"
+                                        className="text-[11px] font-medium text-ink3"
                                     >
                                         {i + 1}
                                     </span>
@@ -244,7 +244,7 @@ export default function FoodCardShuffle({
                                         ref={(el) => {
                                             rankBottomRefs.current[i] = el;
                                         }}
-                                        className="rotate-180 text-[11px] font-medium text-[#8A8474]"
+                                        className="rotate-180 text-[11px] font-medium text-ink3"
                                     >
                                         {i + 1}
                                     </span>
@@ -255,10 +255,10 @@ export default function FoodCardShuffle({
                                     ref={(el) => {
                                         backRefs.current[i] = el;
                                     }}
-                                    className="absolute inset-0 flex items-center justify-center rounded-lg border border-zinc-500 opacity-0 shadow transition-[opacity,transform] duration-300"
+                                    className="absolute inset-0 flex items-center justify-center rounded-lg border border-line-strong opacity-0 shadow transition-[opacity,transform] duration-300"
                                     style={{
                                         transform: 'scaleX(0)',
-                                        background: 'repeating-linear-gradient(45deg, #504C58, #504C58 4px, #5E5A66 4px, #5E5A66 8px)',
+                                        background: 'repeating-linear-gradient(45deg, #3A3F4A, #3A3F4A 4px, #4A505C 4px, #4A505C 8px)',
                                     }}
                                 >
                                     <ForkKnifeIcon/>
@@ -271,16 +271,16 @@ export default function FoodCardShuffle({
 
             {/* 결과 칩 */}
 
-                <div className="inline-flex items-center gap-2 bg-[#FDEBE1] border border-[#F6C9B2] rounded-full px-4 py-2 mt-4">
-                    <span className="text-[11px] text-[#B7754F] font-bold">오늘의 메뉴</span>
-                    <span className="text-[14px] text-[#D2571E] font-extrabold">{result || "-"}</span>
+                <div className="inline-flex items-center gap-2 bg-surface rounded-full px-4 py-2 mt-4">
+                    <span className="text-[12px] text-ink3 font-bold">오늘의 메뉴</span>
+                    <span className="text-[15px] text-ink font-extrabold">{result || "-"}</span>
                 </div>
 
             {/* 섞기 / 다시 섞기 버튼 */}
             <button
                 onClick={handleShuffle}
                 disabled={busy}
-                className="inline-flex items-center gap-2 rounded-full bg-[#24564A] text-white px-8 py-3 my-3 text-[14.5px] font-extrabold shadow-[0_10px_18px_-8px_rgba(36,86,74,0.5)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
+                className="inline-flex items-center gap-2 rounded-full bg-strong text-white px-8 py-3 my-3 text-[14.5px] font-extrabold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-transform"
             >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                     <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M4 4l4.5 4.5M15 15l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

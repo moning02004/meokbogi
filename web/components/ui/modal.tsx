@@ -23,14 +23,14 @@ export function Modal({trigger, title, children, open, onOpenChange, fullScreen 
                 {fullScreen ? (
                     // vaul이 열림/닫힘 애니메이션에 transform을 쓰므로 위치는 inset으로만 잡는다
                     <Drawer.Content
-                        className="fixed inset-0 z-50 flex flex-col bg-white outline-none md:inset-y-[7vh] md:inset-x-[25vw] md:rounded-2xl md:overflow-hidden">
+                        className="fixed inset-0 z-50 flex flex-col bg-surface outline-none md:inset-y-[7vh] md:inset-x-[25vw] md:rounded-[28px] md:overflow-hidden">
                         <div
-                            className="shrink-0 flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+18px)] pb-3.5 border-b border-[#F0EBDD] md:pt-4">
-                            <Drawer.Title className="text-[16px] font-extrabold text-[#211D17] truncate pr-3">
+                            className="shrink-0 flex items-center justify-between px-5 pt-[calc(env(safe-area-inset-top)+18px)] pb-3 md:pt-4">
+                            <Drawer.Title className="text-[20px] font-extrabold tracking-tight text-ink truncate pr-3">
                                 {title}
                             </Drawer.Title>
                             <Drawer.Close
-                                className="shrink-0 text-[12.5px] font-bold text-[#B7AF9F] cursor-pointer sm:hover:text-[#8A8172] transition-colors">
+                                className="shrink-0 text-[14px] font-semibold text-ink3 cursor-pointer sm:hover:text-ink transition-colors">
                                 닫기
                             </Drawer.Close>
                         </div>
@@ -41,13 +41,13 @@ export function Modal({trigger, title, children, open, onOpenChange, fullScreen 
                     </Drawer.Content>
                 ) : (
                     <Drawer.Content
-                        className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:w-[50vw] bg-white rounded-t-2xl outline-none">
+                        className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full max-w-[560px] bg-surface rounded-t-[28px] outline-none">
                         <div className="px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+20px)]">
                             <div className="flex items-center justify-between mb-4">
                                 <Drawer.Title
-                                    className="text-[15px] font-extrabold text-[#211D17]">{title}</Drawer.Title>
+                                    className="text-[20px] font-extrabold tracking-tight text-ink">{title}</Drawer.Title>
                                 <Drawer.Close
-                                    className="text-[12.5px] font-bold text-[#B7AF9F] cursor-pointer sm:hover:text-[#8A8172] transition-colors">
+                                    className="text-[14px] font-semibold text-ink3 cursor-pointer sm:hover:text-ink transition-colors">
                                     닫기
                                 </Drawer.Close>
                             </div>

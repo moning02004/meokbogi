@@ -23,20 +23,16 @@ export const Topbar = () => {
     }
 
     return (
-        <div className="flex justify-between items-center bg-white border-b border-[#E7E0CF] h-[7vh] px-3.5">
-            <div>
-                <div className="text-[11px] font-semibold tracking-[0.14em] text-[#B7AF9F] uppercase mb-0.5">
-                    ZONE
-                </div>
-                <div className="text-[19px] font-extrabold tracking-tight text-[#211D17]">
-                    {selectedZone ? selectedZone.name : "장소를 추가해서 시작해보세요."}
-                </div>
-            </div>
-
+        <div className="shrink-0 flex items-center h-[60px] px-4">
             <ActionDrawer
                 trigger={
-                    <button aria-label="장소 바꾸기" className="w-10 h-10 rounded-full text-[#24564A] flex items-center justify-center cursor-pointer sm:hover:bg-[#d7e6df] transition-colors">
-                        <FaAngleDown size={15}/>
+                    // 장소 이름 자체가 제목이자 바꾸기 버튼
+                    <button aria-label="장소 바꾸기"
+                            className="flex items-center gap-1 h-11 px-1 rounded-xl cursor-pointer sm:hover:bg-fill-hover transition-colors">
+                        <span className="text-[22px] font-extrabold tracking-tight text-ink">
+                            {selectedZone ? selectedZone.name : "장소를 추가해서 시작해보세요."}
+                        </span>
+                        <FaAngleDown size={15} className="text-ink3"/>
                     </button>
                 }
                 items={
@@ -48,7 +44,7 @@ export const Topbar = () => {
                 closeLabel={null}
                 extraButton={
                     <button onClick={gotoAddZone}
-                            className="w-full p-3 text-center hover:bg-[#efefef] rounded cursor-pointer text-[#D2571E] font-bold text-md">
+                            className="w-full h-12 mt-1 rounded-xl text-center bg-fill sm:hover:bg-fill-hover cursor-pointer text-ink font-bold text-[14.5px] transition-colors">
                         장소 추가
                     </button>
                 }

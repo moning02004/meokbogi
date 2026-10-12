@@ -24,13 +24,13 @@ export const SectionBox = ({
         className = `${className} mb-3`
     }
     if (isBorder) {
-        className = `${className} rounded-xl px-2 py-3 border border-stone-300`
+        className = `${className} rounded-xl px-2 py-3 border border-line`
     }
 
     return (
         <div className={className}>
             {title &&
-                <div className="text-sm text-stone-600 flex flex-row gap-3 mb-1">
+                <div className="text-sm text-ink2 flex flex-row gap-3 mb-1">
                     {icon && <div className="my-auto">{icon}</div>}
                     <div>{title}</div>
                 </div>

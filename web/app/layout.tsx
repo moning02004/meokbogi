@@ -27,7 +27,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-    themeColor: "#24564A",
+    // 상태바·주소창 색을 화면 바탕과 맞춘다
+    themeColor: [
+        {media: "(prefers-color-scheme: light)", color: "#F3F4F7"},
+        {media: "(prefers-color-scheme: dark)", color: "#0F1115"},
+    ],
 };
 
 export default function RootLayout({
@@ -46,6 +50,14 @@ export default function RootLayout({
 
         <Toaster position="bottom-center" containerStyle={{
             bottom: 80
+        }} toastOptions={{
+            style: {
+                background: "var(--strong)",
+                color: "#fff",
+                borderRadius: 14,
+                fontSize: 14,
+                fontWeight: 600,
+            },
         }}/>
         </body>
         </html>

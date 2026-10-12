@@ -60,44 +60,44 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
 
     return (
         <>
-            <div className="flex flex-col divide-y divide-[#F0EBDD]">
+            <div className="flex flex-col divide-y divide-line">
                 <button
                     onClick={() => download("json")}
                     disabled={busy !== null}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-fill transition-colors disabled:opacity-50"
                 >
-                    <LuDownload size={17} className="shrink-0 text-[#24564A]"/>
+                    <LuDownload size={17} className="shrink-0 text-ink"/>
                     <span className="flex-1 min-w-0">
-                        <span className="block text-[14px] font-semibold text-[#211D17]">
+                        <span className="block text-[14px] font-semibold text-ink">
                             {busy === "json" ? "만드는 중…" : "백업 파일로 내보내기"}
                         </span>
-                        <span className="block text-[12px] text-[#8A8172]">JSON · 다시 가져올 수 있어요</span>
+                        <span className="block text-[12px] text-ink3">JSON · 다시 가져올 수 있어요</span>
                     </span>
                 </button>
                 <button
                     onClick={() => download("csv")}
                     disabled={busy !== null}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-fill transition-colors disabled:opacity-50"
                 >
-                    <LuDownload size={17} className="shrink-0 text-[#24564A]"/>
+                    <LuDownload size={17} className="shrink-0 text-ink"/>
                     <span className="flex-1 min-w-0">
-                        <span className="block text-[14px] font-semibold text-[#211D17]">
+                        <span className="block text-[14px] font-semibold text-ink">
                             {busy === "csv" ? "만드는 중…" : "엑셀용으로 내보내기"}
                         </span>
-                        <span className="block text-[12px] text-[#8A8172]">CSV · 리뷰 한 건이 한 줄</span>
+                        <span className="block text-[12px] text-ink3">CSV · 리뷰 한 건이 한 줄</span>
                     </span>
                 </button>
                 <button
                     onClick={() => fileRef.current?.click()}
                     disabled={busy !== null}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-fill transition-colors disabled:opacity-50"
                 >
-                    <LuUpload size={17} className="shrink-0 text-[#D2571E]"/>
+                    <LuUpload size={17} className="shrink-0 text-accent-text"/>
                     <span className="flex-1 min-w-0">
-                        <span className="block text-[14px] font-semibold text-[#211D17]">
+                        <span className="block text-[14px] font-semibold text-ink">
                             {busy === "preview" ? "파일 확인 중…" : "백업 파일 가져오기"}
                         </span>
-                        <span className="block text-[12px] text-[#8A8172]">지금 기록에 합쳐요. 지워지는 건 없어요</span>
+                        <span className="block text-[12px] text-ink3">지금 기록에 합쳐요. 지워지는 건 없어요</span>
                     </span>
                 </button>
             </div>
@@ -120,9 +120,9 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
             >
                 {preview && (
                     <div className="flex flex-col gap-3">
-                        <p className="text-[12.5px] text-[#8A8172] truncate">{pending?.file.name}</p>
+                        <p className="text-[12.5px] text-ink3 truncate">{pending?.file.name}</p>
                         {nothingNew ? (
-                            <p className="text-[13.5px] text-[#5B5548] leading-relaxed">
+                            <p className="text-[13.5px] text-ink2 leading-relaxed">
                                 이 파일의 기록은 이미 모두 있어요. 가져와도 바뀌는 게 없어요.
                             </p>
                         ) : (
@@ -133,15 +133,15 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
                                     ["새 음식점", preview.restaurants_created],
                                     ["새 리뷰", preview.reviews_created],
                                 ].map(([label, value]) => (
-                                    <div key={label} className="bg-[#FBFAF6] border border-[#E7E0CF] rounded-xl px-3 py-2.5">
-                                        <dt className="text-[11.5px] font-semibold text-[#8A8172]">{label}</dt>
-                                        <dd className="text-[18px] font-bold text-[#211D17] tabular-nums">{value}</dd>
+                                    <div key={label} className="bg-fill rounded-xl px-3 py-2.5">
+                                        <dt className="text-[11.5px] font-semibold text-ink3">{label}</dt>
+                                        <dd className="text-[18px] font-bold text-ink tabular-nums">{value}</dd>
                                     </div>
                                 ))}
                             </dl>
                         )}
                         {(preview.restaurants_matched > 0 || preview.reviews_skipped > 0) && (
-                            <p className="text-[12px] text-[#8A8172] leading-relaxed">
+                            <p className="text-[12px] text-ink3 leading-relaxed">
                                 이미 있는 음식점 {preview.restaurants_matched}곳은 그대로 두고 리뷰만 합쳐요.
                                 똑같은 리뷰 {preview.reviews_skipped}개는 건너뛰어요.
                             </p>
@@ -149,7 +149,7 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
                         <button
                             onClick={confirmImport}
                             disabled={busy === "import" || !!nothingNew}
-                            className="w-full text-[13.5px] font-bold text-white bg-[#24564A] rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-[#1c443a] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-full text-[13.5px] font-bold text-white bg-strong rounded-lg py-3 mt-1 cursor-pointer sm:hover:bg-strong-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {busy === "import" ? "가져오는 중…" : "가져오기"}
                         </button>

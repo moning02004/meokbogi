@@ -14,7 +14,7 @@ export function Bottombar() {
     }, [router]);
 
     return (
-        <div className="flex items-center justify-around px-2 bg-white border-t border-[#E7E0CF] h-[8vh]">
+        <div className="shrink-0 grid grid-cols-5 items-center px-2 h-[68px] bg-surface border-t border-line">
             {menuItems.map((item) => {
                 const isActive = pathname === item.path;
 
@@ -25,15 +25,13 @@ export function Bottombar() {
                             key={item.name}
                             onClick={() => router.push(item.path)}
                             aria-label={item.name}
-                            className="flex items-center justify-center
-                                       -translate-y-4
-                                       w-13 h-13 rounded-full
-                                       bg-[#D2571E] text-white
-                                       shadow-lg shadow-[#D2571E]/30
+                            className="justify-self-center flex items-center justify-center
+                                       w-12 h-12 rounded-[18px]
+                                       bg-accent text-on-accent
                                        transition-transform duration-150
-                                       active:scale-90 sm:hover:bg-[#b84a19] cursor-pointer"
+                                       active:scale-90 sm:hover:bg-accent-hover cursor-pointer"
                         >
-                            <item.icon size={22} strokeWidth={2.5} />
+                            <item.icon size={20} />
                         </button>
                     );
                 }
@@ -42,12 +40,13 @@ export function Bottombar() {
                     <button
                         key={item.name}
                         onClick={() => router.push(item.path)}
-                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full
+                        aria-current={isActive ? "page" : undefined}
+                        className={`flex flex-col items-center justify-center gap-1 h-14
                                     transition-colors duration-150 cursor-pointer
-                                    ${isActive ? "text-[#24564A]" : "text-[#B7AF9F] hover:text-[#24564A]"}`}
+                                    ${isActive ? "text-ink" : "text-ink3 sm:hover:text-ink"}`}
                     >
                         <item.icon size={22} />
-                        <span className="text-[10px] font-semibold">{item.name}</span>
+                        <span className={`text-[11px] ${isActive ? "font-bold" : "font-semibold"}`}>{item.name}</span>
                     </button>
                 );
             })}

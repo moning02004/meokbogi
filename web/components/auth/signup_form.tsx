@@ -41,7 +41,7 @@ export const SignupForm = () => {
 
     return (
         <div
-            className="w-full bg-white mx-auto px-3 py-5 mt-25 shadow-sm border-0-x sm:w-[50%] sm:rounded-2xl sm:border ">
+            className="w-full bg-surface mx-auto px-3 py-5 mt-25 shadow-sm border-0-x sm:w-[50%] sm:rounded-2xl sm:border ">
             <div className="text-[1.4rem] mb-4">집슐랭 가이드</div>
 
             <SectionBox title="아이디">
@@ -87,7 +87,7 @@ export const SignupForm = () => {
             <div className="mt-3">{errorMessage}</div>
 
             <button onClick={handleSignup}
-                    className="w-full p-2 bg-stone-200 rounded mt-3 cursor-pointer hover:bg-stone-300">로그인
+                    className="w-full p-2 bg-fill-hover rounded mt-3 cursor-pointer hover:bg-line-strong">로그인
             </button>
         </div>
     )

@@ -56,11 +56,11 @@ const DateButton = forwardRef<HTMLButtonElement, { label: string; onClick?: () =
             ref={ref}
             onClick={onClick}
             aria-labelledby="review-date-label review-date-value"
-            className="w-full flex items-center gap-2 text-[14px] font-semibold text-[#211D17] bg-white border border-[#E7E0CF] rounded-xl px-3.5 py-3 cursor-pointer"
+            className="w-full flex items-center gap-2 text-[15px] font-semibold text-ink bg-fill rounded-[14px] px-4 py-3 cursor-pointer"
         >
-            <LuCalendar size={16} className="text-[#8A8172]"/>
+            <LuCalendar size={16} className="text-ink3"/>
             <span id="review-date-value" className="flex-1 text-left">{label}</span>
-            <LuChevronDown size={16} className="text-[#B7AF9F]"/>
+            <LuChevronDown size={16} className="text-ink3"/>
         </button>
     )
 )
@@ -142,7 +142,7 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                 <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40"/>
                 <Drawer.Content
                     aria-describedby={undefined}
-                    className="fixed left-0 right-0 z-50 mx-auto w-full md:w-[50vw] flex flex-col bg-white rounded-t-2xl outline-none"
+                    className="fixed left-0 right-0 z-50 mx-auto w-full max-w-[560px] flex flex-col bg-surface rounded-t-[28px] outline-none"
                     style={{
                         bottom: keyboardInset,
                         // 키보드가 떠 있으면 보이는 높이 안에 시트가 다 들어오게 한다
@@ -150,19 +150,19 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                     }}
                 >
                     <div className="shrink-0 flex flex-col items-center pt-2.5">
-                        <div className="w-10 h-1 rounded-full bg-[#E7E0CF]" aria-hidden/>
+                        <div className="w-10 h-1 rounded-full bg-line" aria-hidden/>
                     </div>
                     <div className="shrink-0 flex items-center justify-between px-5 pt-3 pb-2">
-                        <Drawer.Title className="text-[16px] font-extrabold text-[#211D17]">{title}</Drawer.Title>
+                        <Drawer.Title className="text-[16px] font-extrabold text-ink">{title}</Drawer.Title>
                         <Drawer.Close
-                            className="text-[12.5px] font-bold text-[#B7AF9F] cursor-pointer p-2 -m-2 sm:hover:text-[#8A8172] transition-colors">
+                            className="text-[12.5px] font-bold text-ink3 cursor-pointer p-2 -m-2 sm:hover:text-ink3 transition-colors">
                             닫기
                         </Drawer.Close>
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-3 flex flex-col gap-4">
                         <div>
-                            <div id="review-date-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">먹은 날</div>
+                            <div id="review-date-label" className="text-[13px] font-semibold text-ink3 mb-2">먹은 날</div>
                             <DatePicker
                                 locale={ko}
                                 selected={parseLocalDate(date)}
@@ -181,16 +181,16 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                 renderCustomHeader={({date: shown, decreaseMonth, increaseMonth, nextMonthButtonDisabled}) => (
                                     <div className="flex items-center justify-between px-2 py-2">
                                         <button type="button" onClick={decreaseMonth} aria-label="이전 달"
-                                                className="w-10 h-10 flex items-center justify-center rounded-full text-[#5B5548] cursor-pointer sm:hover:bg-[#F1EDE2]">
+                                                className="w-10 h-10 flex items-center justify-center rounded-full text-ink2 cursor-pointer sm:hover:bg-fill">
                                             <LuChevronLeft size={18}/>
                                         </button>
-                                        <span className="text-[15px] font-extrabold text-[#211D17]">
+                                        <span className="text-[15px] font-extrabold text-ink">
                                             {shown.getFullYear()}년 {shown.getMonth() + 1}월
                                         </span>
                                         {/* 미래 날짜는 고를 수 없지만 자리는 지켜서 가운데 정렬이 흔들리지 않게 한다 */}
                                         <button type="button" onClick={increaseMonth} aria-label="다음 달"
                                                 disabled={nextMonthButtonDisabled}
-                                                className="w-10 h-10 flex items-center justify-center rounded-full text-[#5B5548] cursor-pointer sm:hover:bg-[#F1EDE2] disabled:text-[#E7E0CF] disabled:cursor-default disabled:hover:bg-transparent">
+                                                className="w-10 h-10 flex items-center justify-center rounded-full text-ink2 cursor-pointer sm:hover:bg-fill disabled:text-line disabled:cursor-default disabled:hover:bg-transparent">
                                             <LuChevronRight size={18}/>
                                         </button>
                                     </div>
@@ -202,9 +202,9 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                             {branches.length === 0 ? (
                                 // 동네 가게처럼 지점이 없는 곳은 고를 게 없으니 추가 링크만 작게 둔다
                                 !isAddingBranch && (
-                                    <div className="flex items-center gap-2 text-[12px] text-[#B7AF9F]">
+                                    <div className="flex items-center gap-2 text-[12px] text-ink3">
                                         <button type="button" onClick={() => setIsAddingBranch(true)}
-                                                className="font-bold text-[#8A8172] underline underline-offset-2 cursor-pointer">
+                                                className="font-bold text-ink3 underline underline-offset-2 cursor-pointer">
                                             + 지점 추가
                                         </button>
                                         <span>프랜차이즈처럼 지점마다 맛이 다르면</span>
@@ -212,7 +212,7 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                 )
                             ) : (
                                 <>
-                                    <div id="review-branch-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">
+                                    <div id="review-branch-label" className="text-[13px] font-semibold text-ink3 mb-2">
                                         지점
                                     </div>
                                     <div role="radiogroup" aria-labelledby="review-branch-label" className="flex flex-wrap gap-1.5">
@@ -222,8 +222,8 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                                 <button key={option.id ?? "none"} type="button" role="radio" aria-checked={active}
                                                         onClick={() => setBranch(option.id)}
                                                         className={`px-3 py-1.5 rounded-full text-[13px] font-bold border cursor-pointer transition-colors ${
-                                                            active ? "bg-[#24564A] text-white border-[#24564A]"
-                                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                                            active ? "bg-strong text-white border-strong"
+                                                                : "bg-fill text-ink2 border-fill"
                                                         }`}>
                                                     {option.name}
                                                 </button>
@@ -231,7 +231,7 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                         })}
                                         {!isAddingBranch && (
                                             <button type="button" onClick={() => setIsAddingBranch(true)}
-                                                    className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-[#D6D2CC] text-[#8A8172] cursor-pointer">
+                                                    className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-line-strong text-ink3 cursor-pointer">
                                                 + 지점 추가
                                             </button>
                                         )}
@@ -250,16 +250,16 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                         maxLength={100}
                                         placeholder="예: 역삼점"
                                         aria-label="새 지점 이름"
-                                        className="flex-1 min-w-0 text-[14px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3 py-2 outline-none focus:border-[#24564A] placeholder:text-[#B7AF9F]"
+                                        className="flex-1 min-w-0 text-[14px] text-ink rounded-[14px] px-3 py-2 bg-fill outline-none focus:ring-2 focus:ring-strong placeholder:text-ink4"
                                     />
                                     <button type="button" onClick={createBranch} disabled={!newBranch.trim() || isCreatingBranch}
-                                            className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-xl px-3.5 py-2 cursor-pointer disabled:opacity-40">
+                                            className="shrink-0 text-[13px] font-bold text-white bg-strong rounded-xl px-3.5 py-2 cursor-pointer disabled:opacity-40">
                                         {isCreatingBranch ? "추가 중…" : "추가"}
                                     </button>
                                     <button type="button" onClick={() => {
                                         setIsAddingBranch(false)
                                         setNewBranch("")
-                                    }} className="shrink-0 text-[12.5px] font-bold text-[#8A8172] px-1 cursor-pointer">
+                                    }} className="shrink-0 text-[12.5px] font-bold text-ink3 px-1 cursor-pointer">
                                         취소
                                     </button>
                                 </div>
@@ -267,8 +267,8 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                         </div>
 
                         <div>
-                            <label htmlFor="review-menu" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                메뉴 <span className="text-[#D2571E]">*</span>
+                            <label htmlFor="review-menu" className="block text-[13px] font-semibold text-ink3 mb-2">
+                                메뉴 <span className="text-accent-text">*</span>
                             </label>
                             <div className="relative">
                             <input
@@ -292,51 +292,51 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                 aria-autocomplete="list"
                                 aria-expanded={isMenuBoxOpen}
                                 aria-controls="review-menu-box"
-                                className="w-full text-[15px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3.5 py-3 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                                className="w-full text-[15px] text-ink rounded-[14px] px-3.5 py-3 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                             />
                             {isMenuBoxOpen && (
                                 // 항목을 누를 때 입력칸 포커스가 먼저 빠져 상자가 닫히지 않도록 mousedown 기본 동작을 막는다
                                 <div id="review-menu-box" role="listbox" aria-label="메뉴 고르기"
                                      onMouseDown={(e) => e.preventDefault()}
-                                     className="absolute left-0 right-0 top-full z-20 mt-1.5 border border-[#E7E0CF] rounded-xl bg-white shadow-lg max-h-52 overflow-y-auto">
+                                     className="absolute left-0 right-0 top-full z-20 mt-1.5 border border-line rounded-xl bg-surface shadow-lg max-h-52 overflow-y-auto">
                                     {keyword && !exactMatch && !mergeTarget && (
                                         <button type="button" role="option" aria-selected={false}
                                                 onClick={() => chooseMenu(keyword)}
-                                                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-[14px] cursor-pointer sm:hover:bg-[#F6F3EC] border-b border-[#F0EBDD] last:border-0">
-                                            <span className="font-bold text-[#211D17] truncate">&lsquo;{keyword}&rsquo;</span>
-                                            <span className="shrink-0 text-[12px] font-bold text-[#D2571E]">새 메뉴로 쓰기</span>
+                                                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-[14px] cursor-pointer sm:hover:bg-fill border-b border-line last:border-0">
+                                            <span className="font-bold text-ink truncate">&lsquo;{keyword}&rsquo;</span>
+                                            <span className="shrink-0 text-[12px] font-bold text-accent-text">새 메뉴로 쓰기</span>
                                         </button>
                                     )}
                                     {menuOptions.map((option) => (
                                         <button key={option.menu} type="button" role="option"
                                                 aria-selected={option.menu === keyword}
                                                 onClick={() => chooseMenu(option.menu)}
-                                                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-[14px] cursor-pointer sm:hover:bg-[#F6F3EC] border-b border-[#F0EBDD] last:border-0">
-                                            <span className="font-semibold text-[#211D17] truncate">{option.menu}</span>
-                                            <span className="shrink-0 text-[12px] font-semibold text-[#B7AF9F]">리뷰 {option.review_count}</span>
+                                                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-[14px] cursor-pointer sm:hover:bg-fill border-b border-line last:border-0">
+                                            <span className="font-semibold text-ink truncate">{option.menu}</span>
+                                            <span className="shrink-0 text-[12px] font-semibold text-ink3">리뷰 {option.review_count}</span>
                                         </button>
                                     ))}
                                     {!keyword && menuOptions.length === 0 && (
-                                        <p className="px-3.5 py-3 text-[13px] text-[#8A8172]">처음 기록하는 곳이에요. 메뉴 이름을 입력해주세요.</p>
+                                        <p className="px-3.5 py-3 text-[13px] text-ink3">처음 기록하는 곳이에요. 메뉴 이름을 입력해주세요.</p>
                                     )}
                                 </div>
                             )}
                             </div>
                             {mergeTarget && (
-                                <p className="mt-1.5 text-[12px] font-semibold text-[#24564A]">
+                                <p className="mt-1.5 text-[12px] font-semibold text-ink">
                                     &lsquo;{mergeTarget}&rsquo;(으)로 합쳐서 기록돼요.
                                 </p>
                             )}
                         </div>
 
                         <div>
-                            <div className="text-[12px] font-bold text-[#8A8172] mb-1.5">어땠어요?</div>
+                            <div className="text-[13px] font-semibold text-ink3 mb-2">어땠어요?</div>
                             <SentimentPicker value={point} onChange={setPoint}/>
                         </div>
 
                         <div>
-                            <label htmlFor="review-content" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                한줄평 <span className="font-medium text-[#B7AF9F]">(선택)</span>
+                            <label htmlFor="review-content" className="block text-[13px] font-semibold text-ink3 mb-2">
+                                한줄평 <span className="font-medium text-ink3">(선택)</span>
                             </label>
                             <textarea
                                 id="review-content"
@@ -345,24 +345,24 @@ export function ReviewSheet({open, onOpenChange, title, submitLabel, initial, me
                                 maxLength={255}
                                 rows={2}
                                 placeholder="다음에 시킬 때 참고할 한마디"
-                                className="w-full text-[14px] text-[#211D17] bg-[#FBFAF6] border border-[#E7E0CF] rounded-xl px-3.5 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none"
+                                className="w-full text-[14px] text-ink rounded-[14px] px-3.5 py-2.5 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4 resize-none"
                             />
                         </div>
                     </div>
 
                     {/* 저장 버튼: 시트 맨 아래 = 키보드 바로 위 */}
                     <div
-                        className="shrink-0 border-t border-[#F0EBDD] bg-white px-5 pt-2.5 flex flex-col gap-1.5"
+                        className="shrink-0 border-t border-line bg-surface px-5 pt-2.5 flex flex-col gap-1.5"
                         style={{paddingBottom: keyboardInset ? 10 : "calc(env(safe-area-inset-bottom) + 12px)"}}
                     >
-                        {error && <p role="alert" className="text-[12px] font-semibold text-[#C23B1E]">{error}</p>}
+                        {error && <p role="alert" className="text-[12px] font-semibold text-danger-text">{error}</p>}
                         <button
                             type="button"
                             onClick={submit}
                             disabled={isSaving}
                             // 누르는 순간 입력칸 포커스가 빠지며 키보드가 내려가 버튼이 움직이지 않도록 포커스를 뺏지 않는다
                             onMouseDown={(e) => e.preventDefault()}
-                            className="w-full py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] transition-colors disabled:opacity-50"
+                            className="w-full h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer sm:hover:bg-accent-hover transition-colors disabled:opacity-50"
                         >
                             {isSaving ? "저장 중…" : submitLabel}
                         </button>

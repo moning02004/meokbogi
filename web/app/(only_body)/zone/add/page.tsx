@@ -48,29 +48,29 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="h-[100%] flex flex-col">
-                <div className="flex items-center gap-3 px-4 py-4 bg-white border-b border-[#E7E0CF]">
+            <div className="min-h-[100%] bg-surface flex flex-col">
+                <div className="flex items-center gap-1 h-14 px-2">
                     {zones.length != 0 &&
-                        <button onClick={() => router.back()} aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5">
+                        <button onClick={() => router.back()} aria-label="뒤로" className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill transition-colors">
                             <FaArrowLeft size={16}/>
                         </button>
                     }
-                    <div className="text-[15px] font-bold text-[#211D17]">새 장소 추가</div>
+                    <div className="text-[17px] font-bold text-ink">새 장소 추가</div>
                 </div>
 
                 <div className="px-5 pt-10 flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-full bg-[#E4EEEA] flex items-center justify-center mb-5">
+                    <div className="w-16 h-16 rounded-full bg-fill text-ink flex items-center justify-center mb-5">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" stroke="#24564A"
+                            <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" stroke="currentColor"
                                   strokeWidth="2" strokeLinejoin="round"/>
-                            <circle cx="12" cy="9.5" r="2.4" stroke="#24564A" strokeWidth="2"/>
+                            <circle cx="12" cy="9.5" r="2.4" stroke="currentColor" strokeWidth="2"/>
                         </svg>
                     </div>
 
-                    <div className="text-[17px] font-bold text-[#211D17] mb-1.5 text-center">
+                    <div className="text-[17px] font-bold text-ink mb-1.5 text-center">
                         어디를 기록할까요?
                     </div>
-                    <div className="text-[13px] text-[#8A8172] mb-8 text-center leading-relaxed">
+                    <div className="text-[13px] text-ink3 mb-8 text-center leading-relaxed">
                         우리집, 회사, 친구집처럼<br/>기록을 나눠서 관리할 공간 이름을 정해주세요
                     </div>
 
@@ -82,14 +82,14 @@ export default function Page() {
                         }}
                         placeholder="예: 우리집, 회사, 친구집"
                         maxLength={100}
-                        className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3.5 mb-4 outline-none focus:border-[#24564A] transition-colors"
+                        className="w-full text-[15px] rounded-[14px] px-4 py-3.5 mb-4 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow"
                         autoFocus
                     />
 
                     <button
                         onClick={registerZone}
                         disabled={!zoneName.trim() || isSubmitting}
-                        className="w-full py-3.5 rounded-xl bg-[#D2571E] text-white font-bold text-[15px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                        className="w-full h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                     >
                         존 만들기
                     </button>
@@ -97,7 +97,7 @@ export default function Page() {
                     {zones.length == 0 &&
                         <button
                             onClick={() => authLogout()}
-                            className="w-full py-3.5 rounded-xl bg-[#EFF4F1] text-[#24564A] font-bold text-[15px] cursor-pointer mt-2 transition-colors sm:hover:bg-[#D9E6E0]"
+                            className="w-full py-3.5 rounded-xl bg-surface text-ink font-bold text-[15px] cursor-pointer mt-2 transition-colors sm:hover:bg-fill-hover"
                         >
                             로그인으로
                         </button>}

@@ -91,7 +91,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                 <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40"/>
                 <Drawer.Content
                     aria-describedby={undefined}
-                    className="fixed left-0 right-0 z-50 mx-auto w-full md:w-[50vw] flex flex-col bg-white rounded-t-2xl outline-none"
+                    className="fixed left-0 right-0 z-50 mx-auto w-full max-w-[560px] flex flex-col bg-surface rounded-t-[28px] outline-none"
                     style={{
                         bottom: keyboardInset,
                         // 키보드가 떠 있으면 보이는 높이 안에 시트가 다 들어오게 한다
@@ -99,12 +99,12 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                     }}
                 >
                     <div className="shrink-0 flex flex-col items-center pt-2.5">
-                        <div className="w-10 h-1 rounded-full bg-[#E7E0CF]" aria-hidden/>
+                        <div className="w-10 h-1 rounded-full bg-line" aria-hidden/>
                     </div>
                     <div className="shrink-0 flex items-center justify-between px-5 pt-3 pb-2">
-                        <Drawer.Title className="text-[16px] font-extrabold text-[#211D17]">음식점 수정</Drawer.Title>
+                        <Drawer.Title className="text-[16px] font-extrabold text-ink">음식점 수정</Drawer.Title>
                         <Drawer.Close
-                            className="text-[12.5px] font-bold text-[#B7AF9F] cursor-pointer p-2 -m-2 sm:hover:text-[#8A8172] transition-colors">
+                            className="text-[12.5px] font-bold text-ink3 cursor-pointer p-2 -m-2 sm:hover:text-ink3 transition-colors">
                             닫기
                         </Drawer.Close>
                     </div>
@@ -112,8 +112,8 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                     {/* 카테고리가 많거나 키보드가 올라와도 내용만 스크롤되고 저장 버튼은 아래에 붙어 있다 */}
                     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-3 flex flex-col gap-4">
                         <div>
-                            <div id="edit-categories-label" className="text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                카테고리 <span className="text-[#D2571E]">*</span>
+                            <div id="edit-categories-label" className="text-[13px] font-semibold text-ink3 mb-2">
+                                카테고리 <span className="text-accent-text">*</span>
                             </div>
                             <CategoryChips categories={categories} selected={categoryIds}
                                            onChange={(next) => {
@@ -124,8 +124,8 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                         </div>
 
                         <div>
-                            <label htmlFor="edit-name" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                이름 <span className="text-[#D2571E]">*</span>
+                            <label htmlFor="edit-name" className="block text-[13px] font-semibold text-ink3 mb-2">
+                                이름 <span className="text-accent-text">*</span>
                             </label>
                             <input
                                 id="edit-name"
@@ -137,13 +137,13 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                                 maxLength={100}
                                 placeholder="예: 미뜨레피자"
                                 autoComplete="off"
-                                className="w-full text-[15px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3.5 py-3 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                                className="w-full text-[15px] text-ink rounded-[14px] px-3.5 py-3 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                             />
                         </div>
 
                         <div>
-                            <label htmlFor="edit-description" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                설명 <span className="font-medium text-[#B7AF9F]">(선택)</span>
+                            <label htmlFor="edit-description" className="block text-[13px] font-semibold text-ink3 mb-2">
+                                설명 <span className="font-medium text-ink3">(선택)</span>
                             </label>
                             <textarea
                                 id="edit-description"
@@ -152,13 +152,13 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                                 maxLength={100}
                                 rows={2}
                                 placeholder="예: 양념은 따로 달라고 하기"
-                                className="w-full text-[14px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3.5 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] resize-none leading-relaxed"
+                                className="w-full text-[14px] text-ink rounded-[14px] px-3.5 py-2.5 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4 resize-none leading-relaxed"
                             />
                         </div>
 
                         <div>
-                            <div className="text-[12px] font-bold text-[#8A8172] mb-1.5">
-                                지점 <span className="font-medium text-[#B7AF9F]">메뉴는 같고 맛이 다른 곳</span>
+                            <div className="text-[13px] font-semibold text-ink3 mb-2">
+                                지점 <span className="font-medium text-ink3">메뉴는 같고 맛이 다른 곳</span>
                             </div>
                             <BranchManager branches={restaurant.branches} onCreate={createBranch} onRemove={removeBranch}/>
                         </div>
@@ -166,17 +166,17 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
 
                     {/* 저장 버튼: 시트 맨 아래 = 키보드 바로 위 */}
                     <div
-                        className="shrink-0 border-t border-[#F0EBDD] bg-white px-5 pt-2.5 flex flex-col gap-1.5"
+                        className="shrink-0 border-t border-line bg-surface px-5 pt-2.5 flex flex-col gap-1.5"
                         style={{paddingBottom: keyboardInset ? 10 : "calc(env(safe-area-inset-bottom) + 12px)"}}
                     >
-                        {error && <p role="alert" className="text-[12px] font-semibold text-[#C23B1E]">{error}</p>}
+                        {error && <p role="alert" className="text-[12px] font-semibold text-danger-text">{error}</p>}
                         <button
                             type="button"
                             onClick={save}
                             disabled={isSaving}
                             // 누르는 순간 입력칸 포커스가 빠지며 키보드가 내려가 버튼이 움직이지 않도록 포커스를 뺏지 않는다
                             onMouseDown={(e) => e.preventDefault()}
-                            className="w-full py-3.5 rounded-xl bg-[#24564A] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#1c443a] transition-colors disabled:opacity-50"
+                            className="w-full h-14 rounded-[18px] bg-strong text-white font-bold text-[16px] cursor-pointer sm:hover:bg-strong-hover transition-colors disabled:opacity-50"
                         >
                             {isSaving ? "저장 중…" : "저장하기"}
                         </button>

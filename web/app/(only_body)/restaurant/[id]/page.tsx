@@ -29,7 +29,7 @@ const ReviewSheet = dynamic(() => loadReviewSheet().then((module) => module.Revi
 
 // 한줄평이 2줄을 넘으면 "더보기"로 펼칠 수 있게 한다.
 // 넘치는지 여부는 ref 콜백에서 실측한다 (effect 안에서 setState 하지 않기 위해).
-function ReviewContent({content, className = "text-[13px] text-[#8A8172] mt-0.5 leading-snug"}: {
+function ReviewContent({content, className = "text-[13px] text-ink3 mt-0.5 leading-snug"}: {
     content: string
     className?: string
 }) {
@@ -52,7 +52,7 @@ function ReviewContent({content, className = "text-[13px] text-[#8A8172] mt-0.5 
             {isOverflowing && (
                 <button
                     onClick={() => setIsExpanded((prev) => !prev)}
-                    className="text-[12px] font-bold text-[#B7AF9F] mt-0.5 cursor-pointer sm:hover:text-[#24564A] transition-colors"
+                    className="text-[12px] font-bold text-ink3 mt-0.5 cursor-pointer sm:hover:text-ink transition-colors"
                 >
                     {isExpanded ? "접기" : "더보기"}
                 </button>
@@ -270,10 +270,10 @@ export default function Page() {
     if (!restaurantId) return <NotFound/>
     if (loadError) return (
         <div className="flex flex-col items-center justify-center gap-4 h-full px-6 text-center">
-            <p className="text-[14px] font-semibold text-[#8A8172] leading-relaxed">{loadError}</p>
+            <p className="text-[14px] font-semibold text-ink3 leading-relaxed">{loadError}</p>
             <button
                 onClick={() => router.replace("/restaurant")}
-                className="text-[13.5px] font-bold text-white bg-[#24564A] rounded-xl px-5 py-3 cursor-pointer sm:hover:bg-[#1c443a] transition-colors">
+                className="text-[13.5px] font-bold text-white bg-strong rounded-xl px-5 py-3 cursor-pointer sm:hover:bg-strong-hover transition-colors">
                 음식점 목록으로
             </button>
         </div>
@@ -286,71 +286,81 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="min-h-[100%] bg-white pb-28">
+            <div className="min-h-[100%] flex flex-col">
 
-                <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
-                    <button aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5" onClick={() => router.back()}>
-                        <FaArrowLeft size={16}/>
+                <div className="shrink-0 flex items-center h-14 px-2">
+                    <button aria-label="뒤로"
+                            className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill-hover transition-colors"
+                            onClick={() => router.back()}>
+                        <FaArrowLeft size={17}/>
                     </button>
-                    <div className="text-[15px] font-bold text-[#211D17]">음식점</div>
-                </div>
-
-                <div
-                    className="flex items-center gap-1 text-[12.5px] text-[#8A8172] font-semibold px-5 pt-3 pb-1 cursor-pointer w-fit sm:hover:text-[#24564A] transition-colors"
-                    onClick={() => router.replace("/restaurant")}
-                >
-                    <FiArrowUpLeft size={13}/>
-                    목록으로
+                    <div
+                        className="flex items-center gap-1 h-11 px-2 text-[13.5px] text-ink3 font-semibold cursor-pointer sm:hover:text-ink transition-colors"
+                        onClick={() => router.replace("/restaurant")}
+                    >
+                        <FiArrowUpLeft size={14}/>
+                        목록으로
+                    </div>
+                    <div className="ml-auto w-11 h-11 flex items-center justify-center">
+                        <ActionDrawer
+                            triggerLabel="음식점 메뉴 열기"
+                            items={[{
+                                label: "음식점 수정",
+                                onClick: () => editRestaurant(),
+                            }, {
+                                label: "음식점 삭제",
+                                danger: true,
+                                onClick: () => deleteRestaurant(),
+                                confirm: {
+                                    title: `'${restaurant.name}'을(를) 삭제할까요?`,
+                                    description: `리뷰 ${restaurant.review_count}개도 함께 사라지고 되돌릴 수 없어요.`,
+                                    confirmLabel: "삭제",
+                                },
+                            }]}
+                        />
+                    </div>
                 </div>
 
                 {/* ---- 음식점 정보 ---- */}
-                <div className="mx-5 mt-2 mb-4 bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-4 py-3.5">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="flex flex-row">
-                            <div
-                                className="text-[18px] font-extrabold text-[#211D17] tracking-tight">
-                                {restaurant.name}
-                            </div>
-                            {restaurant.review_avg !== null && getReviewTextBox(restaurant.review_avg)}
-                        </div>
-                        <div className="ml-auto">
-                            <ActionDrawer
-                                triggerLabel="음식점 메뉴 열기"
-                                items={[{
-                                    label: "음식점 수정",
-                                    onClick: () => editRestaurant(),
-                                }, {
-                                    label: "음식점 삭제",
-                                    danger: true,
-                                    onClick: () => deleteRestaurant(),
-                                    confirm: {
-                                        title: `'${restaurant.name}'을(를) 삭제할까요?`,
-                                        description: `리뷰 ${restaurant.review_count}개도 함께 사라지고 되돌릴 수 없어요.`,
-                                        confirmLabel: "삭제",
-                                    },
-                                }]}
-                            />
-                        </div>
+                <div className="shrink-0 px-5 pt-1 pb-[18px]">
+                    <div className="flex items-center gap-2">
+                        <h1 className="min-w-0 text-[26px] leading-tight font-extrabold text-ink tracking-tight">
+                            {restaurant.name}
+                        </h1>
+                        {restaurant.review_avg !== null && getReviewTextBox(restaurant.review_avg)}
                     </div>
-                    <div className="text-[12.5px] text-[#8A8172] font-medium">
+                    <div className="text-[14px] text-ink3 font-semibold mt-1.5">
                         {categoryLabel(restaurant.categories)}
                     </div>
                     {/* 설명은 쓴 경우에만 보여준다 (비어 있으면 "소개 없음" 칸이 자리만 차지했다) */}
                     {restaurant.description && (
                         // 두 줄까지 보여주고 넘치면 "더보기". 수정하면 내용이 바뀌므로 key로 다시 재게 한다
-                        <div className="mt-2 bg-white px-3 py-1.5 rounded border border-[#E7E0CF]">
+                        <div className="mt-1.5">
                             <ReviewContent key={restaurant.description} content={restaurant.description}
-                                           className="text-[12.5px] text-[#5B5548] leading-relaxed"/>
+                                           className="text-[14.5px] text-ink2 leading-relaxed"/>
                         </div>
                     )}
-                    <div className="text-[11.5px] text-[#B7AF9F] font-medium mt-1.5">
-                        방문 {restaurant.ordered_count}회 · 최근 방문 {restaurant.latest_ordered_at || "-"} · 전체
-                        리뷰 {restaurant.review_count} 개
-                    </div>
+                    <dl className="grid grid-cols-3 mt-3.5 rounded-[18px] bg-surface py-3.5 text-center divide-x divide-line">
+                        <div>
+                            <dt className="text-[12.5px] font-semibold text-ink3">방문</dt>
+                            <dd className="text-[17px] font-bold text-ink tabular-nums mt-0.5">{restaurant.ordered_count}회</dd>
+                        </div>
+                        <div>
+                            <dt className="text-[12.5px] font-semibold text-ink3">리뷰</dt>
+                            <dd className="text-[17px] font-bold text-ink tabular-nums mt-0.5">{restaurant.review_count}개</dd>
+                        </div>
+                        <div>
+                            <dt className="text-[12.5px] font-semibold text-ink3">최근 방문</dt>
+                            <dd className="text-[17px] font-bold text-ink tabular-nums mt-0.5">
+                                {restaurant.latest_ordered_at ? restaurant.latest_ordered_at.slice(5).replace("-", ".") : "-"}
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
 
+                <div className="flex-1 rounded-t-3xl bg-surface pt-1 pb-24">
                 {/* ---- 탭: 지점 칩(동그란 버튼)과 헷갈리지 않게 밑줄 탭으로 ---- */}
-                <div role="tablist" aria-label="보기" className="flex mx-5 mb-3 border-b border-[#E7E0CF]">
+                <div role="tablist" aria-label="보기" className="flex mx-5 mb-3.5 border-b border-line">
                     {([["menu", "메뉴별 보기"], ["all", "리뷰 보기"]] as const).map(([tab, label]) => {
                         const active = activeTab === tab
                         return (
@@ -360,8 +370,8 @@ export default function Page() {
                                         setActiveTab("menu")
                                         setMenuFilter(null)
                                     }}
-                                    className={`flex-1 -mb-px py-2.5 text-[14px] font-bold border-b-2 cursor-pointer transition-colors ${
-                                        active ? "text-[#24564A] border-[#24564A]" : "text-[#B7AF9F] border-transparent sm:hover:text-[#8A8172]"
+                                    className={`flex-1 -mb-px h-[50px] text-[15px] border-b-2 cursor-pointer transition-colors ${
+                                        active ? "text-ink font-bold border-ink" : "text-ink3 font-semibold border-transparent sm:hover:text-ink"
                                     }`}>
                                 {label}
                             </button>
@@ -382,9 +392,9 @@ export default function Page() {
                             return (
                                 <button key={String(option.id)} role="radio" aria-checked={active}
                                         onClick={() => chooseBranch(option.id)}
-                                        className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12.5px] font-semibold border cursor-pointer transition-colors ${
-                                            active ? "bg-[#211D17] text-white border-[#211D17]"
-                                                : "bg-white text-[#8A8172] border-[#E7E0CF]"
+                                        className={`shrink-0 whitespace-nowrap h-9 px-3.5 rounded-full text-[13.5px] cursor-pointer transition-colors ${
+                                            active ? "bg-strong text-white font-bold"
+                                                : "bg-fill text-ink2 font-semibold"
                                         }`}>
                                     {option.label}
                                 </button>
@@ -398,7 +408,7 @@ export default function Page() {
                     <div className="px-5 mb-2.5">
                         <button
                             onClick={() => showReviews(null)}
-                            className="inline-flex items-center gap-2 bg-[#E4EEEA] text-[#24564A] text-[12px] font-bold px-3.5 py-1.5 rounded-full cursor-pointer"
+                            className="inline-flex items-center gap-2 bg-fill text-ink text-[13px] font-bold h-9 px-3.5 rounded-full cursor-pointer"
                         >
                             {menuFilter != "" ? menuFilter : "메뉴 미기재"}
                             <span className="text-[11px] opacity-70">✕</span>
@@ -407,10 +417,10 @@ export default function Page() {
                 )}
 
                 {/* ---- 리스트 ---- */}
-                <div className="mx-5 border border-[#E7E0CF] rounded-2xl px-3.5 mb-10">
+                <div className="mx-5 mb-10">
                     {activeTab === "menu" ? (
                         menuSummaries.length === 0 ? (
-                            <p className="text-[13px] text-[#B7AF9F] text-center py-8">아직 기록된 메뉴가 없어요.</p>
+                            <p className="text-[13px] text-ink3 text-center py-8">아직 기록된 메뉴가 없어요.</p>
                         ) : (
                             menuSummaries.map((summary: MenuSummaryType, index) => {
                                 const {menu, review_count, review_avg} = summary
@@ -418,18 +428,18 @@ export default function Page() {
 
                                 return (
                                     <div key={index}
-                                         className="flex items-center gap-2 border-b border-[#F0EBDD] last:border-0">
+                                         className="flex items-center gap-2 border-b border-line last:border-0">
                                         <button
                                             onClick={() => openMenuReviews(menu)}
                                             className="flex-1 min-w-0 flex items-center gap-3 py-3.5 cursor-pointer text-left"
                                         >
                                             <div
-                                                className="flex-1 min-w-0 font-extrabold text-[#211D17] truncate">{menu || "메뉴 미기재"}
+                                                className="flex-1 min-w-0 text-[16px] font-bold text-ink truncate">{menu || "메뉴 미기재"}
                                             </div>
                                             <div>{reviewTextBox}</div>
                                             <div
-                                                className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">리뷰 {review_count}</div>
-                                            <FaChevronRight size={11} className="text-[#D8D0BC] shrink-0"/>
+                                                className="text-[13px] text-ink3 font-semibold shrink-0">리뷰 {review_count}</div>
+                                            <FaChevronRight size={11} className="text-ink4 shrink-0"/>
                                         </button>
                                         {/* "또 먹었어요" 글자 버튼은 길어서 메뉴 이름이 잘렸다. 아이콘만 둔다 */}
                                         {menu && (
@@ -437,9 +447,9 @@ export default function Page() {
                                                 onClick={() => startRecording(summary)}
                                                 aria-label={`${menu} 또 먹었어요`}
                                                 title="또 먹었어요"
-                                                className="shrink-0 w-8 h-8 flex items-center justify-center text-[#D2571E] bg-[#FDEBE1] rounded-full cursor-pointer sm:hover:bg-[#FBDCCB] transition-colors"
+                                                className="shrink-0 w-11 h-11 flex items-center justify-center text-ink bg-fill rounded-2xl cursor-pointer sm:hover:bg-fill-hover transition-colors"
                                             >
-                                                <LuPlus size={16} strokeWidth={2.75}/>
+                                                <LuPlus size={19} strokeWidth={2.6}/>
                                             </button>
                                         )}
                                     </div>
@@ -449,37 +459,37 @@ export default function Page() {
                     ) : (
                         <>
                             {isReviewLoading && reviews.length === 0 ? (
-                                <p className="text-[13px] text-[#B7AF9F] text-center py-8">불러오는 중...</p>
+                                <p className="text-[13px] text-ink3 text-center py-8">불러오는 중...</p>
                             ) : reviews.length === 0 ? (
-                                <p className="text-[13px] text-[#B7AF9F] text-center py-8">아직 리뷰가 없어요.</p>
+                                <p className="text-[13px] text-ink3 text-center py-8">아직 리뷰가 없어요.</p>
                             ) : (
                                 reviews.map((review) => {
-                                    const {icon: Icon, color, bg} = SENTIMENTS[review.point as SentimentKey]
+                                    const {icon: Icon, text, bg} = SENTIMENTS[review.point as SentimentKey]
                                     return (
                                         <div key={review.id}
-                                             className="flex gap-2.5 py-3.5 border-b border-[#F0EBDD] last:border-0">
+                                             className="flex gap-2.5 py-3.5 border-b border-line last:border-0">
                                             <div
-                                                className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
-                                                <Icon size={20} color={color}/>
+                                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
+                                                <Icon size={22} className={text}/>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="text-[14px] font-extrabold text-[#211D17] truncate">
+                                                    <div className="text-[15px] font-bold text-ink truncate">
                                                         {review.menu?.trim() || "메뉴 미기재"}
                                                     </div>
                                                 </div>
                                                 <ReviewContent content={review.content || "내용 없음"}/>
                                             </div>
                                             <div
-                                                className="my-auto text-[11.5px] text-[#B7AF9F] font-semibold ml-auto shrink-0 text-right">
+                                                className="my-auto text-[12.5px] text-ink3 font-semibold ml-auto shrink-0 text-right">
                                                 {review.ordered_at}
-                                                {review.branch_name && <div className="text-[#8A8172]">{review.branch_name}</div>}
+                                                {review.branch_name && <div className="text-ink3">{review.branch_name}</div>}
                                             </div>
                                             <ActionDrawer
                                                 trigger={
                                                     <button
                                                         aria-label="리뷰 메뉴 열기"
-                                                        className="my-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-3 -m-3">
+                                                        className="my-auto text-ink3 shrink-0 self-start cursor-pointer p-3 -m-3">
                                                         <LuEllipsisVertical size={16}/>
                                                     </button>
                                                 }
@@ -506,13 +516,15 @@ export default function Page() {
                                 <button
                                     onClick={() => fetchReviews(menuFilter, reviewPage + 1, true)}
                                     disabled={isReviewLoading}
-                                    className="w-full py-3.5 text-[12.5px] font-bold text-[#24564A] border-t border-[#F0EBDD] cursor-pointer disabled:opacity-50"
+                                    className="w-full py-3.5 text-[12.5px] font-bold text-ink border-t border-line cursor-pointer disabled:opacity-50"
                                 >
                                     {isReviewLoading ? "불러오는 중..." : "더 보기"}
                                 </button>
                             )}
                         </>
                     )}
+                </div>
+
                 </div>
 
                 {/* ---- 리뷰 쓰기·고치기 시트 ---- */}
@@ -532,10 +544,10 @@ export default function Page() {
                 )}
 
                 {/* ---- 화면 아래 고정 기록 버튼 ---- */}
-                <div className="fixed bottom-0 left-0 right-0 z-30 mx-auto w-full sm:w-[70%] bg-white/95 backdrop-blur border-t border-[#E7E0CF] px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+                <div className="fixed bottom-0 left-0 right-0 z-30 mx-auto w-full max-w-[560px] bg-surface/95 backdrop-blur border-t border-line px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
                     <button
                         onClick={() => startRecording()}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] transition-colors"
+                        className="w-full flex items-center justify-center gap-2 h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer sm:hover:bg-accent-hover transition-colors"
                     >
                         <LuPencilLine size={17}/>
                         먹은 메뉴 기록하기

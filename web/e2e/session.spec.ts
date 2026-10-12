@@ -50,7 +50,7 @@ test.describe("새 탭·링크로 들어오기", () => {
 
         // 지금 선택된 장소가 어디든 그 장소의 "치킨"으로 거른 뒤 다른 장소로 바꾼다
         await page.getByRole("button", {name: "치킨", exact: true}).click()
-        const current = await page.locator("text=ZONE").locator("xpath=following-sibling::div").innerText()
+        const current = (await page.getByRole("button", {name: "장소 바꾸기"}).innerText()).trim()
         const other = current === "우리집" ? "회사" : "우리집"
 
         await page.getByRole("button", {name: "장소 바꾸기"}).click()

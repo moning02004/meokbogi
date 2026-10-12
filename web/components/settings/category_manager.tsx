@@ -130,18 +130,18 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
         <div>
             <div className="relative">
                 <LuSearch size={14}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B7AF9F] pointer-events-none"/>
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none"/>
                 <input
                     value={keyword}
                     onChange={(event) => setKeyword(event.target.value)}
                     placeholder="카테고리 찾기"
                     aria-label="카테고리 찾기"
                     maxLength={100}
-                    className="w-full text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg pl-8.5 pr-8 py-2.5 outline-none focus:border-[#24564A] transition-colors"
+                    className="w-full text-[13.5px] text-ink rounded-xl pl-8.5 pr-8 py-2.5 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow"
                 />
                 {keyword && (
                     <button onClick={() => setKeyword("")} aria-label="검색어 지우기"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-[#B7AF9F] cursor-pointer">
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-ink3 cursor-pointer">
                         <LuX size={13}/>
                     </button>
                 )}
@@ -150,59 +150,59 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
             <div className="mt-3">
                 {visible === null ? (
                     <div className="flex flex-col gap-1.5">
-                        {[0, 1, 2].map((row) => <div key={row} className="h-[52px] rounded-lg bg-[#F6F3EC] animate-pulse"/>)}
+                        {[0, 1, 2].map((row) => <div key={row} className="h-[52px] rounded-lg bg-fill animate-pulse"/>)}
                     </div>
                 ) : (matched?.length ?? 0) === 0 ? (
-                    <p className="text-[13px] text-[#8A8172] py-3 text-center leading-relaxed">
+                    <p className="text-[13px] text-ink3 py-3 text-center leading-relaxed">
                         {query ? "맞는 카테고리가 없어요." : "카테고리가 없어요."}<br/>
-                        <span className="text-[12px] text-[#B7AF9F]">새 카테고리는 음식점을 등록할 때 만들 수 있어요.</span>
+                        <span className="text-[12px] text-ink3">새 카테고리는 음식점을 등록할 때 만들 수 있어요.</span>
                     </p>
                 ) : visible.length === 0 ? (
-                    <p className="text-[13px] text-[#8A8172] py-3 text-center">아직 음식점을 등록한 카테고리가 없어요.</p>
+                    <p className="text-[13px] text-ink3 py-3 text-center">아직 음식점을 등록한 카테고리가 없어요.</p>
                 ) : (
-                    <ul className="flex flex-col divide-y divide-[#F0EBDD] border border-[#E7E0CF] rounded-xl overflow-hidden">
+                    <ul className="flex flex-col divide-y divide-line border border-line rounded-xl overflow-hidden">
                         {visible.map((category) => {
                             const isOpen = openId === category.id
                             const summary = category.zones.length
                                 ? category.zones.map((zone) => `${zone.name} ${zone.count}`).join(" · ")
                                 : "등록한 음식점 없음"
                             return (
-                                <li key={category.id} className="bg-white">
+                                <li key={category.id} className="bg-surface">
                                     <button
                                         onClick={() => toggle(category)}
                                         aria-expanded={isOpen}
-                                        className="w-full flex items-center gap-2 px-3.5 py-3 text-left cursor-pointer sm:hover:bg-[#FBFAF6]"
+                                        className="w-full flex items-center gap-2 px-3.5 py-3 text-left cursor-pointer sm:hover:bg-fill"
                                     >
                                         <span className="flex-1 min-w-0">
-                                            <span className="block text-[14px] font-bold text-[#211D17] truncate">{category.keyword}</span>
-                                            <span className="block text-[12px] text-[#8A8172] truncate">{summary}</span>
+                                            <span className="block text-[14px] font-bold text-ink truncate">{category.keyword}</span>
+                                            <span className="block text-[12px] text-ink3 truncate">{summary}</span>
                                         </span>
-                                        <span className="shrink-0 text-[11.5px] font-bold rounded-full px-2 py-0.5 bg-[#F1EFE8] text-[#8A8172]">
+                                        <span className="shrink-0 text-[11.5px] font-bold rounded-full px-2 py-0.5 bg-fill text-ink3">
                                             {category.restaurant_count}곳
                                         </span>
                                         <LuChevronDown size={16}
-                                                       className={`shrink-0 text-[#B7AF9F] transition-transform ${isOpen ? "rotate-180" : ""}`}/>
+                                                       className={`shrink-0 text-ink3 transition-transform ${isOpen ? "rotate-180" : ""}`}/>
                                     </button>
 
                                     {isOpen && (
-                                        <div className="px-3.5 pb-3 flex flex-col gap-3 bg-[#FBFAF6] border-t border-[#F0EBDD]">
+                                        <div className="px-3.5 pb-3 flex flex-col gap-3 bg-fill border-t border-line">
                                             {/* ---- 장소별 음식점 ---- */}
                                             {category.restaurant_count > 0 && (
                                                 groups[category.id] === undefined ? (
-                                                    <p className="pt-3 text-[12.5px] text-[#B7AF9F]">불러오는 중…</p>
+                                                    <p className="pt-3 text-[12.5px] text-ink3">불러오는 중…</p>
                                                 ) : (
                                                     groups[category.id].map((group) => (
                                                         <div key={group.zone.id} className="pt-3">
-                                                            <div className="text-[11.5px] font-bold text-[#8A8172] mb-1.5">{group.zone.name}</div>
+                                                            <div className="text-[11.5px] font-bold text-ink3 mb-1.5">{group.zone.name}</div>
                                                             <div className="flex flex-col gap-1">
                                                                 {group.restaurants.map((restaurant) => (
                                                                     <button key={restaurant.id}
                                                                             onClick={() => openRestaurant(group.zone.id, restaurant.id)}
-                                                                            className="flex items-center justify-between gap-2 bg-white border border-[#E7E0CF] rounded-lg px-3 py-2 text-left cursor-pointer sm:hover:bg-[#F6F3EC]">
-                                                                        <span className="min-w-0 truncate text-[13.5px] font-semibold text-[#211D17]">{restaurant.name}</span>
+                                                                            className="flex items-center justify-between gap-2 bg-surface border border-line rounded-lg px-3 py-2 text-left cursor-pointer sm:hover:bg-fill">
+                                                                        <span className="min-w-0 truncate text-[13.5px] font-semibold text-ink">{restaurant.name}</span>
                                                                         {restaurant.review_avg !== null
                                                                             ? getReviewTextBox(restaurant.review_avg, "sm")
-                                                                            : <span className="shrink-0 text-[11.5px] text-[#B7AF9F]">기록 없음</span>}
+                                                                            : <span className="shrink-0 text-[11.5px] text-ink3">기록 없음</span>}
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -225,35 +225,35 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
                                                             aria-label={`${category.keyword} 새 이름`}
                                                             maxLength={100}
                                                             autoFocus
-                                                            className="flex-1 min-w-0 text-[13.5px] font-semibold text-[#211D17] border border-[#24564A] rounded-md px-2.5 py-1.5 outline-none bg-white"
+                                                            className="flex-1 min-w-0 text-[13.5px] font-semibold text-ink border border-strong rounded-md px-2.5 py-1.5 outline-none bg-surface"
                                                         />
                                                         <button onClick={() => rename(category)} disabled={!editTrimmed || editDuplicate || isSubmitting}
-                                                                className="shrink-0 text-[12px] font-bold text-white bg-[#24564A] rounded-md px-2.5 py-1.5 cursor-pointer disabled:opacity-40">
+                                                                className="shrink-0 text-[12px] font-bold text-white bg-strong rounded-md px-2.5 py-1.5 cursor-pointer disabled:opacity-40">
                                                             저장
                                                         </button>
                                                         <button onClick={() => setEditingId(null)}
-                                                                className="shrink-0 text-[12px] font-bold text-[#8A8172] px-1.5 py-1.5 cursor-pointer">
+                                                                className="shrink-0 text-[12px] font-bold text-ink3 px-1.5 py-1.5 cursor-pointer">
                                                             취소
                                                         </button>
                                                     </div>
                                                     {editDuplicate && (
-                                                        <p className="text-[11.5px] font-semibold text-[#C23B1E]">
+                                                        <p className="text-[11.5px] font-semibold text-danger-text">
                                                             &lsquo;{editTrimmed}&rsquo;은(는) 이미 있는 카테고리예요.
                                                         </p>
                                                     )}
                                                 </div>
                                             ) : confirmingDeleteId === category.id ? (
                                                 <div className="pt-3 flex flex-col gap-2">
-                                                    <p className="text-[12.5px] text-[#8A6A5C] leading-relaxed">
+                                                    <p className="text-[12.5px] text-ink3 leading-relaxed">
                                                         &lsquo;{category.keyword}&rsquo;을(를) 지울까요? 음식점은 남고 이 카테고리만 빠져요.
                                                     </p>
                                                     <div className="flex gap-2">
                                                         <button onClick={() => setConfirmingDeleteId(null)}
-                                                                className="flex-1 text-[12.5px] font-bold text-[#5B5548] bg-white border border-[#E7E0CF] rounded-lg py-2 cursor-pointer">
+                                                                className="flex-1 text-[12.5px] font-bold text-ink2 bg-surface border border-line rounded-lg py-2 cursor-pointer">
                                                             취소
                                                         </button>
                                                         <button onClick={() => remove(category)} disabled={isSubmitting}
-                                                                className="flex-1 text-[12.5px] font-bold text-white bg-[#C23B1E] rounded-lg py-2 cursor-pointer disabled:opacity-50">
+                                                                className="flex-1 text-[12.5px] font-bold text-white bg-danger rounded-lg py-2 cursor-pointer disabled:opacity-50">
                                                             지우기
                                                         </button>
                                                     </div>
@@ -263,16 +263,16 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
                                                     <button onClick={() => {
                                                         setEditingId(category.id)
                                                         setEditValue(category.keyword)
-                                                    }} className="shrink-0 whitespace-nowrap text-[12.5px] font-bold text-[#24564A] cursor-pointer">
+                                                    }} className="shrink-0 whitespace-nowrap text-[12.5px] font-bold text-ink cursor-pointer">
                                                         이름 바꾸기
                                                     </button>
                                                     {category.exclusive_restaurant_count > 0 ? (
-                                                        <span className="text-[11.5px] text-[#B7AF9F] leading-snug">
+                                                        <span className="text-[11.5px] text-ink3 leading-snug">
                                                             이 카테고리만 붙은 음식점 {category.exclusive_restaurant_count}곳이 있어 지울 수 없어요
                                                         </span>
                                                     ) : (
                                                         <button onClick={() => setConfirmingDeleteId(category.id)}
-                                                                className="text-[12.5px] font-bold text-[#C23B1E] cursor-pointer">
+                                                                className="text-[12.5px] font-bold text-danger-text cursor-pointer">
                                                             지우기
                                                         </button>
                                                     )}
@@ -287,13 +287,13 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
                 )}
                 {!query && empty.length > 0 && (
                     <button onClick={() => setShowEmpty((prev) => !prev)}
-                            className="mt-2 w-full text-[12.5px] font-bold text-[#8A8172] py-2 cursor-pointer">
+                            className="mt-2 w-full text-[12.5px] font-bold text-ink3 py-2 cursor-pointer">
                         {showEmpty ? "음식점 없는 카테고리 접기" : `음식점 없는 카테고리 ${empty.length}개 보기`}
                     </button>
                 )}
             </div>
 
-            <p className="text-[11.5px] text-[#B7AF9F] mt-2.5 leading-relaxed">
+            <p className="text-[11.5px] text-ink3 mt-2.5 leading-relaxed">
                 카테고리는 모든 장소에서 같이 써요. 새 카테고리는 음식점을 등록할 때 만들 수 있어요.
             </p>
         </div>

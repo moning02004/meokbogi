@@ -75,14 +75,14 @@ export function PushManager() {
     const sendUrl = `${API_HOST}/push/send`
 
     return (
-        <div className="flex flex-col divide-y divide-[#F0EBDD]">
+        <div className="flex flex-col divide-y divide-line">
             {/* ---- 이 기기에서 알림 받기 ---- */}
             <div className="px-4 py-3.5 flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                    <LuBellRing size={17} className="shrink-0 text-[#24564A]"/>
+                    <LuBellRing size={17} className="shrink-0 text-ink"/>
                     <span className="flex-1 min-w-0">
-                        <span id="push-toggle-label" className="block text-[14px] font-semibold text-[#211D17]">이 기기에서 알림 받기</span>
-                        <span className="block text-[12px] text-[#8A8172]">
+                        <span id="push-toggle-label" className="block text-[14px] font-semibold text-ink">이 기기에서 알림 받기</span>
+                        <span className="block text-[12px] text-ink3">
                             {deviceCount === null ? "" : `알림 받는 기기 ${deviceCount}대`}
                         </span>
                     </span>
@@ -94,29 +94,29 @@ export function PushManager() {
                             onClick={toggle}
                             disabled={enabled === null || busy !== null}
                             className={`shrink-0 relative w-12 h-7 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
-                                enabled ? "bg-[#24564A]" : "bg-[#D6D2CC]"
+                                enabled ? "bg-strong" : "bg-line-strong"
                             }`}
                         >
-                            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-surface shadow transition-transform ${
                                 enabled ? "translate-x-5" : ""
                             }`}/>
                         </button>
                     )}
                 </div>
                 {support === "ios-needs-install" && (
-                    <p className="text-[12.5px] text-[#8A6A5C] bg-[#FDF6F1] border border-[#F6C9B2] rounded-lg px-3 py-2 leading-relaxed">
+                    <p className="text-[12.5px] text-ink3 bg-accent-soft border border-accent/40 rounded-lg px-3 py-2 leading-relaxed">
                         iPhone은 홈 화면에 추가한 앱에서만 알림을 받을 수 있어요. Safari 공유 버튼 →
                         &ldquo;홈 화면에 추가&rdquo;로 설치한 뒤, 그 앱의 내정보에서 켜주세요.
                     </p>
                 )}
                 {support === "unsupported" && (
-                    <p className="text-[12.5px] text-[#8A8172]">이 브라우저는 웹 알림을 지원하지 않아요.</p>
+                    <p className="text-[12.5px] text-ink3">이 브라우저는 웹 알림을 지원하지 않아요.</p>
                 )}
                 {enabled && (
                     <button
                         onClick={test}
                         disabled={busy !== null}
-                        className="self-start text-[12.5px] font-bold text-[#24564A] bg-[#E4EEEA] rounded-full px-3 py-1.5 cursor-pointer disabled:opacity-50"
+                        className="self-start text-[12.5px] font-bold text-ink bg-good-soft rounded-full px-3 py-1.5 cursor-pointer disabled:opacity-50"
                     >
                         {busy === "test" ? "보내는 중…" : "시험 알림 보내기"}
                     </button>
@@ -125,18 +125,18 @@ export function PushManager() {
 
             {/* ---- 외부 스케줄러(n8n)에서 보내기 ---- */}
             <div className="px-4 py-3.5 flex flex-col gap-1.5">
-                <div className="text-[14px] font-semibold text-[#211D17]">정해진 시간에 알림 보내기</div>
-                <p className="text-[12px] text-[#8A8172] leading-relaxed">
+                <div className="text-[14px] font-semibold text-ink">정해진 시간에 알림 보내기</div>
+                <p className="text-[12px] text-ink3 leading-relaxed">
                     n8n 같은 스케줄러가 아래 주소를 부르면, 알림 받기를 켠 모든 사용자의 기기로 알림이 가요.
                     토큰은 서버 <code className="font-mono">.env</code>의 <code className="font-mono">PUSH_API_TOKEN</code> 값이에요.
                 </p>
-                <details className="text-[12.5px] text-[#5B5548]">
-                    <summary className="cursor-pointer font-bold text-[#24564A] py-1">n8n에서 쓰는 법</summary>
+                <details className="text-[12.5px] text-ink2">
+                    <summary className="cursor-pointer font-bold text-ink py-1">n8n에서 쓰는 법</summary>
                     <ol className="list-decimal pl-5 flex flex-col gap-1.5 mt-1.5 leading-relaxed">
                         <li><b>Schedule Trigger</b>: Cron <code className="font-mono">0 15,20 * * *</code>, 시간대 Asia/Seoul</li>
                         <li><b>HTTP Request</b>: POST
                             <button onClick={() => copy(sendUrl, "주소")}
-                                    className="ml-1 font-mono text-[12px] text-[#24564A] underline underline-offset-2 break-all text-left cursor-pointer">
+                                    className="ml-1 font-mono text-[12px] text-ink underline underline-offset-2 break-all text-left cursor-pointer">
                                 {sendUrl}
                             </button>
                         </li>

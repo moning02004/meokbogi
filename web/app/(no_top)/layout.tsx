@@ -16,18 +16,14 @@ export default function MainLayout({children}: {
     if (!isReady) return <LoadingPage/>
 
     return (
-        <div className="flex flex-col h-dvh w-full sm:w-[70%] mx-auto">
-            <div className="flex-1  flex-wrap overflow-y-auto">
+        <div className="flex flex-col h-dvh w-full max-w-[560px] mx-auto bg-bg">
+            <div className="flex-1 min-h-0 overflow-y-auto">
                 <Providers>
                     {children}
                 </Providers>
             </div>
 
-            <div className="border-t border-[#dedede] bg-white">
-                <div className="w-full mx-auto">
-                    <Bottombar/>
-                </div>
-            </div>
+            <Bottombar/>
         </div>
     );
 }
