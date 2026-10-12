@@ -290,10 +290,12 @@ class GuideTestCase(TestCase):
         guide = Guide.objects.prefetch_related("entries").get(pk=guide_id)
 
         context = pamphlet_context(guide)
-        # 첫 장은 표지 옆 두 단에 여섯 집, 다음 장은 세 단에 아홉 집
-        self.assertEqual([len(column) for column in context["first_columns"]], [3, 3])
-        self.assertEqual([[len(column) for column in page] for page in context["other_pages"]], [[3, 3, 3]])
-        first = context["first_columns"][0][0]
+        # 한 장에 여섯 집, 넘치면 같은 줄 모양으로 다음 장에 이어진다. 번호는 장을 넘어 이어진다.
+        self.assertEqual([len(page) for page in context["pages"]], [6, 6, 3])
+        self.assertEqual((context["pages"][0][0]["number"], context["pages"][2][2]["number"]), ("01", "15"))
+        # 공개 주소를 주지 않으면 QR이 없다
+        self.assertEqual(context["qr"], "")
+        first = context["pages"][0][0]
         self.assertEqual((first["name"], first["visit_count"], first["first_ordered"], first["menu"], first["address"]),
                          ("진미손칼국수", 2, "2024.11", "손만두", "을지로 12"))
         # 한마디는 낱말 중간에서 줄이 바뀌지 않게 글자 사이에 붙임표가 들어간다 (띄어쓰기는 그대로)
@@ -303,17 +305,19 @@ class GuideTestCase(TestCase):
         self.assertNotIn("나만 보는 메모", str(context))
         self.assertNotIn("우리집", str(context))
 
-        # 집이 적으면 빈 단을 남겨 단 폭을 지키고, 둘째 장은 만들지 않는다
-        self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
-        context = pamphlet_context(Guide.objects.get(pk=guide_id))
-        self.assertEqual([len(column) for column in context["first_columns"]], [1, 0])
-        self.assertEqual(context["other_pages"], [])
+        # 집이 없어도 표지 한 장은 나온다
+        self.put_entries(guide_id, [])
+        self.assertEqual(pamphlet_context(Guide.objects.get(pk=guide_id))["pages"], [[]])
+
+        # 공개 주소를 주면 표지에 넣을 QR 그림이 생긴다
+        qr = pamphlet_context(Guide.objects.get(pk=guide_id), "https://example.com/g/token")["qr"]
+        self.assertTrue(qr.startswith("data:image/svg+xml"))
 
     def test_pamphlet_follows_display_settings(self):
         guide_id = self.create_guide(show_address=False, show_visits=False)
         self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
         context = pamphlet_context(Guide.objects.get(pk=guide_id))
-        entry = context["first_columns"][0][0]
+        entry = context["pages"][0][0]
         self.assertEqual((entry.get("address"), entry.get("visit_count"), entry["first_ordered"]), (None, None, ""))
         self.assertFalse(context["show_visits"])
 
@@ -328,6 +332,26 @@ class GuideTestCase(TestCase):
         self.assertTrue(response.content.startswith(b"%PDF"))
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertIn("filename*=utf-8''", response["Content-Disposition"])
+
+    def test_pamphlet_qr_points_to_public_page(self):
+        guide_id = self.create_guide()
+        url = reverse("guide-pdf", kwargs={"guide_pk": guide_id})
+
+        def share_url_for(**headers):
+            with mock.patch("apps.guide.views.render_pamphlet", return_value=b"%PDF") as render:
+                self.client.get(url, headers=headers)
+            return render.call_args.args[1]
+
+        # 공개하지 않은 골목에는 QR에 넣을 주소가 없다
+        self.assertEqual(share_url_for(Origin="http://localhost:3000"), "")
+        token = self.client.post(reverse("guide-share", kwargs={"guide_pk": guide_id})).json()["share_token"]
+        with self.settings(CORS_ALLOWED_ORIGINS=["http://localhost:3000"]):
+            # 요청을 보낸 웹 앱의 주소로 공개 화면 주소를 만든다. 허용되지 않은 주소는 쓰지 않는다.
+            self.assertEqual(share_url_for(Origin="http://localhost:3000"), f"http://localhost:3000/g/{token}")
+            self.assertEqual(share_url_for(Origin="http://evil.example"), "")
+            # 서버에 웹 주소가 설정돼 있으면 그쪽이 우선
+            with mock.patch.dict("os.environ", {"PUBLIC_WEB_ORIGIN": "https://meokbogi.example.com/"}):
+                self.assertEqual(share_url_for(Origin="http://localhost:3000"), f"https://meokbogi.example.com/g/{token}")
 
     def test_pamphlet_pdf_is_owner_only(self):
         guide_id = self.create_guide()
