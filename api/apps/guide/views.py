@@ -1,3 +1,6 @@
+import os
+
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Prefetch
 from django.http import HttpResponse
@@ -120,16 +123,31 @@ class GuideShareAPIView(APIView):
         return Response(GuideDetailSerializer(guide).data)
 
 
+def public_web_origin(request):
+    """공개 화면이 열리는 웹 주소. QR에 넣으려고 쓴다.
+
+    설정(PUBLIC_WEB_ORIGIN)이 있으면 그 값, 없으면 요청을 보낸 웹 앱의 주소(허용된 오리진일 때만). 둘 다 없으면 빈 값.
+    """
+    origin = os.environ.get("PUBLIC_WEB_ORIGIN", "").rstrip("/")
+    if origin:
+        return origin
+    origin = request.headers.get("Origin", "")
+    return origin if origin in settings.CORS_ALLOWED_ORIGINS else ""
+
+
 class GuidePamphletAPIView(APIView):
     """골목을 A4 가로 팜플렛 PDF로 내려준다. 공개하지 않은 골목도 주인은 받을 수 있다.
 
-    내용은 공개 화면과 같다 (리뷰 글·장소 이름 없음).
+    내용은 공개 화면과 같다 (리뷰 글·장소 이름 없음). 공개 중인 골목이면 표지에 공개 주소의 QR이 들어간다.
     """
 
     def get(self, request, *args, **kwargs):
         guide = my_guide_or_404(request, self.kwargs["guide_pk"])
+        origin = public_web_origin(request)
+        # 웹의 공개 화면 경로와 같다 (web/constants/routeUrl.ts의 GUIDE_PAGE.public)
+        share_url = f"{origin}/g/{guide.share_token}" if origin and guide.share_token else ""
         try:
-            pdf = render_pamphlet(guide)
+            pdf = render_pamphlet(guide, share_url)
         except PamphletUnavailable:
             return Response({"detail": "이 서버에는 PDF를 만드는 도구가 설치되어 있지 않아요."}, status=503)
         response = HttpResponse(pdf, content_type="application/pdf")

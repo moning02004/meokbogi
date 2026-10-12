@@ -525,7 +525,7 @@ export default function Page() {
                     <div>
                         <p className="text-[14px] font-semibold text-ink">팜플렛 PDF</p>
                         <p className="text-[13px] text-ink2 leading-relaxed mt-0.5">
-                            A4 가로 3단으로 접는 모양이에요. 공개하지 않은 골목도 만들 수 있어요.
+                            A4 가로 한 장에 여섯 집씩 들어가요. 공개하지 않은 골목도 만들 수 있고, 링크를 만든 골목은 표지에 QR이 찍혀요.
                         </p>
                     </div>
                     {readyPamphlet ? (

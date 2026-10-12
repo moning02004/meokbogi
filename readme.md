@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/moning02004/meokbogi/main/install.s
 | 음식점 기록 | 등록·수정·삭제, 지점(같은 브랜드의 역삼점·본점), 방문일·메뉴·한줄평·만족도를 바텀시트로 기록, "또 먹었어요" |
 | 메뉴별 요약 | 같은 가게라도 `간장치킨 최고(3회) / 후라이드 무난(2회)`처럼 메뉴별 집계, 지점별로 거르기 |
 | 뽑기 | 카드 셔플로 카테고리를 뽑고, 오래 안 간 곳·만족한 곳일수록 잘 나오게 음식점까지 뽑기 |
-| 먹골목 | 먹어본 집을 골라 한마디·권하는 메뉴를 붙인 목록("골목")을 만들고, 로그인 없이 열리는 **링크로 공유**하거나 **A4 가로 3단 팜플렛 PDF**로 받기. 주문 횟수가 "N번 먹음"으로 찍히고, 골목마다 **추천 등급(숟가락 1~3개)**을 줄 수 있음. 리뷰 글·만족도·장소 이름은 나가지 않음 |
+| 먹골목 | 먹어본 집을 골라 한마디·권하는 메뉴를 붙인 목록("골목")을 만들고, 로그인 없이 열리는 **링크로 공유**하거나 **A4 가로 팜플렛 PDF**(한 장에 여섯 집, 공개 중이면 표지에 QR)로 받기. 주문 횟수가 "N번 먹음"으로 찍히고, 골목마다 **추천 등급(숟가락 1~3개)**을 줄 수 있음. 리뷰 글·만족도·장소 이름은 나가지 않음 |
 | 백업 | 내 기록(골목 포함)을 JSON(가져오기 가능)·CSV로 내보내기 |
 | 알림 | 웹 푸시. 외부 스케줄러(n8n 등)가 `POST /push/send`로 보냄 |
 | PWA | 홈 화면에 추가하면 주소창 없이 앱처럼 실행, iOS/Android 구분 설치 안내 |
@@ -261,7 +261,7 @@ npm run dev
 | `GET` `PATCH` `DELETE` | `/guides/{guide_pk}` | ✅ | 골목 상세(실린 집 포함) / 제목·소개·추천 등급(`grade` 0~3)·표시 설정 수정 / 삭제 |
 | `PUT` | `/guides/{guide_pk}/entries` | ✅ | 실린 집을 순서째로 통째로 저장 (최대 15곳, 집마다 메뉴 3개) |
 | `POST` `DELETE` | `/guides/{guide_pk}/share` | ✅ | 공개 주소 만들기 / 공개 끄기 (다시 켜면 새 주소) |
-| `GET` | `/guides/{guide_pk}/pdf` | ✅ | 골목을 A4 가로 팜플렛 PDF로 받기 (공개하지 않은 골목도 됨, 내용은 공개 화면과 같음) |
+| `GET` | `/guides/{guide_pk}/pdf` | ✅ | 골목을 A4 가로 팜플렛 PDF로 받기 (공개하지 않은 골목도 됨, 내용은 공개 화면과 같음, 공개 중이면 공개 주소 QR 포함) |
 | `GET` | `/public/guides/{token}` | — | 공개 주소로 골목 읽기. 골목에 적은 내용과 가게 이름·카테고리, 설정에 따라 주소·주문 횟수만 나감 |
 | `GET` | `/push/config` | ✅ | 푸시 공개키 |
 | `POST` `DELETE` | `/push/subscriptions` | ✅ | 이 기기 알림 켜기 / 끄기 |
@@ -369,7 +369,7 @@ install.sh가 `.env`에 자동으로 채움. 직접 배포할 때는 저장소 �
 | `REFRESH_COOKIE_SAMESITE` | `Lax` | — | 크로스 사이트면 `None` |
 | `REFRESH_COOKIE_SECURE` | `false` | — | HTTPS면 `true` |
 | `PUSH_API_TOKEN` | (빈 값) | 알림 ✅ | `POST /push/send` 토큰. 비어 있으면 `503` |
-| `PUBLIC_WEB_ORIGIN` | — | — | 푸시 서명 연락처 기본값으로 씀 (https일 때) |
+| `PUBLIC_WEB_ORIGIN` | — | — | 푸시 서명 연락처 기본값(https일 때), 팜플렛 PDF의 QR에 넣는 웹 주소. 비우면 QR은 요청을 보낸 웹 앱의 주소로 만듦 |
 | `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 자동 생성 / — | — | 푸시 서명 키와 연락처 (`mailto:` 또는 `https:`) |
 | `APP_VERSION` / `APP_RELEASE_DATE` / `APP_LAST_UPDATED_AT` | 코드 기본값 | — | `/users/me`가 반환하는 버전 표기 |
 
