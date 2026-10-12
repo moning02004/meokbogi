@@ -438,3 +438,109 @@ class CategoryBrowseTestCase(TestCase):
         self.client.login(username="attacker", password="123")
         url = reverse("category-restaurants", kwargs={"category_pk": self.chicken.pk})
         self.assertEqual(self.client.get(url).status_code, 404)
+
+
+class StatsTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="123")
+        self.zone = Zone.objects.create(user=self.user, name="우리집")
+        self.chicken = make_category(self.zone, "치킨")
+        self.snack = make_category(self.zone, "분식")
+        self.client.login(username="owner", password="123")
+
+    def _visit(self, restaurant, *days):
+        for day in days:
+            make_review(restaurant=restaurant, user=self.user, ordered_at=day, point=1)
+
+    def _stats(self, today=date(2026, 10, 12)):
+        with mock.patch("apps.zone.views.timezone.localdate", return_value=today):
+            return self.client.get(reverse("zone-stats", kwargs={"zone_pk": self.zone.pk})).json()
+
+    def test_months_cover_last_twelve_and_fill_zero(self):
+        restaurant = make_restaurant(category=self.chicken, name="치킨집")
+        self._visit(restaurant, "2026-10-01", "2026-10-05", "2026-08-20", "2025-11-01", "2025-10-31")
+
+        stats = self._stats()
+        months = stats["months"]
+        self.assertEqual([months[0]["month"], months[-1]["month"]], ["2025-11", "2026-10"])
+        self.assertEqual(len(months), 12)
+        counts = {row["month"]: row["count"] for row in months}
+        self.assertEqual((counts["2026-10"], counts["2026-09"], counts["2026-08"], counts["2025-11"]), (2, 0, 1, 1))
+        # 12개월보다 오래된 기록은 세지 않는다
+        self.assertEqual(stats["visit_count"], 4)
+
+    def test_same_day_same_restaurant_is_one_visit(self):
+        restaurant = make_restaurant(category=self.chicken, name="치킨집")
+        other = make_restaurant(category=self.chicken, name="다른 치킨집")
+        self._visit(restaurant, "2026-10-01", "2026-10-01")
+        self._visit(other, "2026-10-01")
+
+        stats = self._stats()
+        self.assertEqual(stats["months"][-1]["count"], 2)
+        self.assertEqual(stats["categories"], [{"id": self.chicken.id, "keyword": "치킨", "count": 2}])
+
+    def test_categories_sorted_and_multi_tag_counts_in_each(self):
+        both = make_restaurant(categories=[self.chicken, self.snack], zone=self.zone, name="치킨 파는 분식집")
+        snack_only = make_restaurant(category=self.snack, name="김밥집")
+        self._visit(both, "2026-10-01")
+        self._visit(snack_only, "2026-10-02", "2026-10-03")
+
+        rows = [(row["keyword"], row["count"]) for row in self._stats()["categories"]]
+        self.assertEqual(rows, [("분식", 3), ("치킨", 1)])
+
+    def test_other_zone_is_not_counted(self):
+        office = Zone.objects.create(user=self.user, name="회사")
+        self._visit(make_restaurant(category=self.chicken, zone=office, name="회사 치킨"), "2026-10-01")
+
+        stats = self._stats()
+        self.assertEqual(stats["visit_count"], 0)
+        self.assertEqual(stats["categories"], [])
+
+    def test_cannot_read_other_users_stats(self):
+        User.objects.create_user(username="attacker", password="123")
+        client = Client()
+        client.login(username="attacker", password="123")
+
+        response = client.get(reverse("zone-stats", kwargs={"zone_pk": self.zone.pk}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_dashboard_has_last_six_months(self):
+        restaurant = make_restaurant(category=self.chicken, name="치킨집")
+        self._visit(restaurant, "2026-10-01", "2026-05-15", "2026-04-30")
+
+        with mock.patch("apps.zone.views.timezone.localdate", return_value=date(2026, 10, 12)):
+            dashboard = self.client.get(reverse("zone-dashboard", kwargs={"zone_pk": self.zone.pk})).json()
+        self.assertEqual(dashboard["monthly_visits"], [
+            {"month": "2026-05", "count": 1}, {"month": "2026-06", "count": 0}, {"month": "2026-07", "count": 0},
+            {"month": "2026-08", "count": 0}, {"month": "2026-09", "count": 0}, {"month": "2026-10", "count": 1},
+        ])
+
+    def _month(self, month):
+        return self.client.get(reverse("zone-stats-month", kwargs={"zone_pk": self.zone.pk, "month": month}))
+
+    def test_month_groups_by_day_then_restaurant(self):
+        chicken = make_restaurant(category=self.chicken, name="치킨집")
+        snack = make_restaurant(category=self.snack, name="김밥집")
+        make_review(restaurant=chicken, user=self.user, ordered_at="2026-10-05", point=1, menu="허니콤보")
+        make_review(restaurant=chicken, user=self.user, ordered_at="2026-10-05", point=-1, menu="레드콤보")
+        make_review(restaurant=snack, user=self.user, ordered_at="2026-10-05", point=0, menu="김밥")
+        make_review(restaurant=snack, user=self.user, ordered_at="2026-10-11", point=1)
+        make_review(restaurant=snack, user=self.user, ordered_at="2026-09-30", point=1, menu="지난달")
+
+        days = self._month("2026-10").json()["days"]
+        self.assertEqual([day["date"] for day in days], ["2026-10-11", "2026-10-05"])
+        self.assertEqual(days[0]["visits"][0]["menus"], [{"menu": "", "point": 1, "branch": ""}])
+        fifth = {visit["restaurant"]["name"]: visit["menus"] for visit in days[1]["visits"]}
+        self.assertEqual([row["menu"] for row in fifth["치킨집"]], ["허니콤보", "레드콤보"])
+        self.assertEqual([row["point"] for row in fifth["치킨집"]], [1, -1])
+        self.assertEqual(len(fifth["김밥집"]), 1)
+
+    def test_month_rejects_bad_format_and_other_users(self):
+        self.assertEqual(self._month("2026-13").status_code, 400)
+        self.assertEqual(self._month("202610").status_code, 400)
+
+        User.objects.create_user(username="attacker", password="123")
+        client = Client()
+        client.login(username="attacker", password="123")
+        response = client.get(reverse("zone-stats-month", kwargs={"zone_pk": self.zone.pk, "month": "2026-10"}))
+        self.assertEqual(response.status_code, 404)

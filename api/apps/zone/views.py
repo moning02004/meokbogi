@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 
 from django.db.models import Avg, CharField, Count, Max, Prefetch, Q, Subquery, Value
@@ -16,6 +17,15 @@ from apps.restaurant.serializers import RestaurantListSerializer
 from apps.restaurant.views import annotate_restaurants, sort_restaurants
 from apps.zone.models import Category, Zone
 from apps.zone.serializers import CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer
+from apps.zone.stats import (
+    DASHBOARD_MONTHS,
+    STATS_MONTHS,
+    category_visits,
+    month_days,
+    month_starts,
+    monthly_visits,
+    zone_visits,
+)
 
 # 이 기간보다 오래 안 간 만족스러운 음식점을 "오랜만에 가볼 만한 곳"으로 보여준다
 FORGOTTEN_AFTER_DAYS = 30
@@ -78,7 +88,37 @@ class ZoneDashboardAPIView(RetrieveAPIView):
         zone.forgotten_restaurants = list(restaurants.filter(
             review_avg__gte=0.6, latest_ordered_at__lt=current_date - timedelta(days=FORGOTTEN_AFTER_DAYS),
         ).order_by("latest_ordered_at", "-review_avg")[:5])
+
+        # 홈 카드의 작은 차트: 최근 여섯 달
+        starts = month_starts(current_date, DASHBOARD_MONTHS)
+        zone.monthly_visits = monthly_visits(zone_visits(zone, starts[0]), starts)
         return zone
+
+
+class ZoneStatsAPIView(APIView):
+    """통계 화면: 최근 12개월의 월별 방문과 카테고리별 방문."""
+
+    def get(self, request, *args, **kwargs):
+        zone = get_object_or_404(Zone, pk=self.kwargs["zone_pk"], user_id=request.user.id)
+        starts = month_starts(timezone.localdate(), STATS_MONTHS)
+        visits = zone_visits(zone, starts[0])
+        return Response({
+            "months": monthly_visits(visits, starts),
+            "categories": category_visits(visits),
+            "visit_count": len(visits),
+        })
+
+
+class ZoneMonthAPIView(APIView):
+    """통계 화면에서 고른 한 달: 기록을 남긴 날과 그날 간 음식점 (달력과 날짜별 목록)."""
+
+    def get(self, request, *args, **kwargs):
+        zone = get_object_or_404(Zone, pk=self.kwargs["zone_pk"], user_id=request.user.id)
+        matched = re.fullmatch(r"(\d{4})-(0[1-9]|1[0-2])", self.kwargs["month"])
+        if not matched:
+            raise ValidationError({"month": "달은 2026-10 처럼 적어주세요."})
+        return Response({"month": self.kwargs["month"],
+                         "days": month_days(zone, int(matched.group(1)), int(matched.group(2)))})
 
 
 class CategoryListAPIView(ListCreateAPIView):

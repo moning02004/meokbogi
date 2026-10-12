@@ -85,11 +85,13 @@ class ZoneDashboardSerializer(UserCategoriesMixin, serializers.ModelSerializer):
     delicious_restaurants = serializers.SerializerMethodField(read_only=True)
     recent_restaurants = serializers.SerializerMethodField(read_only=True)
     forgotten_restaurants = serializers.SerializerMethodField(read_only=True)
+    # [{"month": "2026-05", "count": 3}, ...] 오래된 달부터
+    monthly_visits = serializers.ListField(read_only=True)
 
     class Meta:
         model = Zone
         fields = ["id", "name", "category", "restaurant_count", "review_count", "monthly_visited_count",
-                  "delicious_restaurants", "recent_restaurants", "forgotten_restaurants"]
+                  "delicious_restaurants", "recent_restaurants", "forgotten_restaurants", "monthly_visits"]
 
     def create(self, validated_data):
         validated_data["user_id"] = self.context["request"].user.id
