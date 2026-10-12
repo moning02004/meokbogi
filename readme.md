@@ -250,6 +250,7 @@ npm run dev
 | `GET` `PATCH` `DELETE` | `/categories/{category_pk}` | ✅ | 카테고리 조회·이름 바꾸기·삭제 |
 | `GET` | `/categories/{category_pk}/restaurants` | ✅ | 카테고리별로 어느 장소에 어떤 음식점이 있는지 |
 | `GET` `POST` | `/zones/{zone_pk}/restaurants` | ✅ | 장소의 음식점 목록 (필터·검색·정렬) / 음식점 등록 |
+| `GET` | `/restaurants` | ✅ | 모든 장소의 내 음식점 (검색·정렬, `?rating=good`이면 만족도 좋음 이상만, 장소 이름 포함). 먹골목의 음식점 고르기에서 씀 |
 | `GET` | `/zones/{zone_pk}/restaurants/pick` | ✅ | 음식점 하나 뽑기 |
 | `GET` `PATCH` `DELETE` | `/restaurants/{restaurant_pk}` | ✅ | 음식점 상세(메뉴별 요약·지점·메뉴 포함) / 수정 / 삭제 |
 | `GET` `POST` | `/restaurants/{restaurant_pk}/branches` | ✅ | 지점 목록 / 추가 |

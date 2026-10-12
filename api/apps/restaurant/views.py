@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,6 +20,7 @@ from apps.restaurant.serializers import (
     RestaurantInfoSerializer,
     RestaurantListSerializer,
     RestaurantReviewSerializer,
+    RestaurantWithZoneSerializer,
 )
 from apps.zone.models import Category, Zone
 
@@ -92,6 +93,25 @@ class AllRestaurantsListAPIView(ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(zone=serializer.context["zone"])
+
+
+# 평균 만족도가 이보다 높으면 화면에서 "좋음"·"만족"으로 보인다 (web/components/ui/review_textbox.tsx와 같은 기준)
+GOOD_REVIEW_AVG = 0.2
+
+
+class MyRestaurantsListAPIView(ListAPIView):
+    """모든 장소의 내 음식점 (?search= ?sort= ?rating=good). 먹골목의 골목은 장소를 가리지 않고 집을 싣기 때문에 쓴다.
+
+    rating=good 이면 평균 만족도가 "좋음" 이상인 곳만 (리뷰가 없는 곳은 빠진다).
+    """
+    serializer_class = RestaurantWithZoneSerializer
+    search_fields = ["name"]
+
+    def get_queryset(self):
+        queryset = annotate_restaurants(my_restaurants(self.request).select_related("zone"))
+        if self.request.query_params.get("rating") == "good":
+            queryset = queryset.filter(review_avg__gt=GOOD_REVIEW_AVG)
+        return sort_restaurants(queryset, self.request.query_params.get("sort"))
 
 
 class RestaurantPickAPIView(APIView):

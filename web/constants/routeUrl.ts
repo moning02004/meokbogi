@@ -75,6 +75,8 @@ export const RESTAURANT_PAGE = {
 }
 
 export const RESTAURANT_API = {
+    // 장소를 가리지 않는 내 음식점 전체
+    listAll: {method: "get", endpoint: "/restaurants"},
     list: {
         method: "get",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/restaurants`

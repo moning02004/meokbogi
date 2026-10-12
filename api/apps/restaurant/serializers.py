@@ -88,6 +88,14 @@ class RestaurantListSerializer(CategoryIdsMixin, serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
+class RestaurantWithZoneSerializer(RestaurantListSerializer):
+    """장소를 가리지 않는 목록용. 어느 장소의 음식점인지 이름을 붙인다."""
+    zone = serializers.CharField(source="zone.name", read_only=True)
+
+    class Meta(RestaurantListSerializer.Meta):
+        fields = RestaurantListSerializer.Meta.fields + ["zone"]
+
+
 class RestaurantInfoSerializer(CategoryIdsMixin, serializers.ModelSerializer):
     categories = CategoryTagSerializer(many=True, read_only=True)
     latest_ordered_at = serializers.DateField(read_only=True)
