@@ -25,6 +25,7 @@ import {RestaurantListItemType, RestaurantType} from "@/types/restaurant";
 import {LoadingPage} from "@/components/loading";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {RestaurantPicker} from "@/components/guide/restaurant_picker";
+import {SpoonGradePicker} from "@/components/guide/spoon_grade";
 
 // 화면에서 고치는 중인 "실린 집". 저장하기 전까지 서버와 다를 수 있다.
 interface EntryDraft {
@@ -75,7 +76,7 @@ export default function Page() {
 
     const [guide, setGuide] = useState<GuideDetailType | null>(null)
     const [fields, setFields] = useState<GuideFields>({
-        title: "", intro: "", edition: "", show_address: true, show_visits: true,
+        title: "", intro: "", edition: "", grade: 0, show_address: true, show_visits: true,
     })
     const [entries, setEntries] = useState<EntryDraft[]>([])
     const [saved, setSaved] = useState("")
@@ -89,7 +90,7 @@ export default function Page() {
 
     const apply = (detail: GuideDetailType) => {
         const nextFields = {
-            title: detail.title, intro: detail.intro, edition: detail.edition,
+            title: detail.title, intro: detail.intro, edition: detail.edition, grade: detail.grade,
             show_address: detail.show_address, show_visits: detail.show_visits,
         }
         const nextEntries = detail.entries.map((entry) => ({
@@ -335,6 +336,10 @@ export default function Page() {
                                onChange={(e) => setField("edition", e.target.value)}
                                placeholder="예: 2026 가을" className={fieldClass}/>
                     </div>
+                    <div>
+                        <div className={labelClass}>추천 등급</div>
+                        <SpoonGradePicker value={fields.grade} onChange={(grade) => setField("grade", grade)}/>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between px-1 pt-2">
@@ -520,7 +525,7 @@ export default function Page() {
                     <div>
                         <p className="text-[14px] font-semibold text-ink">팜플렛 PDF</p>
                         <p className="text-[13px] text-ink2 leading-relaxed mt-0.5">
-                            A4 가로 3단으로 접는 모양이에요. 공개하지 않은 골목도 만들 수 있고, 만든 날짜가 찍혀요.
+                            A4 가로 3단으로 접는 모양이에요. 공개하지 않은 골목도 만들 수 있어요.
                         </p>
                     </div>
                     {readyPamphlet ? (

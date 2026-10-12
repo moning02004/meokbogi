@@ -25,6 +25,11 @@ p, h1, h2 { margin: 0; }
 .mark { font-size: 10pt; font-weight: 800; color: #4A7A12; }
 .edition { font-size: 10pt; color: #50564A; margin-bottom: 3mm; }
 .title { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 30pt; line-height: 1.2; letter-spacing: -0.03em; }
+/* 추천 등급: 앱 아이콘의 숟가락. 골목 이름 위에 작게 그리고, 뜻은 표지 아래 범례에 적는다 */
+.grade { margin-bottom: 2.5mm; }
+.grade svg { width: 1.6mm; height: 5.2mm; margin-right: 0.7mm; }
+.grade-label { margin-bottom: 3mm; font-size: 9pt; color: #50564A; }
+.grade-label svg { width: 1.1mm; height: 3.5mm; margin-right: 0.4mm; vertical-align: -0.6mm; }
 .intro { margin-top: 6mm; font-size: 10.5pt; line-height: 1.7; color: #50564A; white-space: pre-line; }
 .legend { border-top: 0.3mm solid #1B1E17; padding-top: 4mm; display: flex; align-items: center; font-size: 9pt; color: #50564A; }
 .legend .stamp { margin-right: 4mm; }
@@ -57,18 +62,24 @@ p, h1, h2 { margin: 0; }
   <div class="panel cover">
     <p class="mark">먹골목</p>
     <div>
+      {% if guide.grade %}
+      <div class="grade">{% for spoon in spoons %}<svg viewBox="5 -29 18 58"><path fill="#4A7A12" d="M13 -28 Q22 -24 22 -12 Q22 -3 15 1 L15 28 L10 28 L10 1 Q6 -1 6 -8 Q6 -20 13 -28 Z"/></svg>{% endfor %}</div>
+      {% endif %}
       {% if guide.edition %}<p class="edition">{{ guide.edition }}</p>{% endif %}
       <h1 class="title">{{ guide.title }}</h1>
       {% if guide.intro %}<p class="intro">{{ guide.intro }}</p>{% endif %}
     </div>
     <div>
+      {% if guide.grade %}
+      <p class="grade-label">{% for spoon in spoons %}<svg viewBox="5 -29 18 58"><path fill="#4A7A12" d="M13 -28 Q22 -24 22 -12 Q22 -3 15 1 L15 28 L10 28 L10 1 Q6 -1 6 -8 Q6 -20 13 -28 Z"/></svg>{% endfor %} {{ guide.grade_label }}</p>
+      {% endif %}
       {% if show_visits %}
       <div class="legend">
         <div class="stamp"><b>N</b><i>번</i></div>
         <p>도장의 숫자는 제가 그 집에서<br>주문한 횟수입니다.</p>
       </div>
       {% endif %}
-      <p class="foot">먹어본 집만 실었습니다 · {{ today }} 기준 · 먹보기</p>
+      <p class="foot">먹어본 집만 실었습니다</p>
     </div>
   </div>
   {% for column in first_columns %}

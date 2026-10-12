@@ -4,6 +4,7 @@ import {useEffect, useState} from "react"
 import {API_HOST} from "@/constants/api";
 import {mapSearchUrl} from "@/lib/guide";
 import {PublicGuideType} from "@/types/guide";
+import {Spoons} from "@/components/guide/spoon_grade";
 
 // 서버에서 읽었으면 그 내용, 주소가 틀렸으면 "missing", 서버가 API에 닿지 못했으면 null (브라우저에서 다시 읽는다)
 export type PublicGuideInitial = PublicGuideType | "missing" | null
@@ -51,6 +52,12 @@ export function PublicGuide({token, initial}: { token: string; initial: PublicGu
                     <span>{guide.entries.length}곳</span>
                 </div>
                 <h1 className="text-[28px] leading-[1.2] font-extrabold tracking-tight text-ink break-keep">{guide.title}</h1>
+                {guide.grade > 0 && (
+                    <p className="flex items-center gap-2 text-[13.5px] font-bold text-accent-text">
+                        <Spoons grade={guide.grade} height={24}/>
+                        {guide.grade_label}
+                    </p>
+                )}
                 {guide.intro && (
                     <p className="text-[15px] text-ink2 leading-relaxed whitespace-pre-line">{guide.intro}</p>
                 )}

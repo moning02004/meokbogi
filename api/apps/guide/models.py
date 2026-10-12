@@ -10,6 +10,13 @@ MAX_ENTRIES = 15
 # 한 집에 권하는 메뉴 수
 MAX_MENUS = 3
 
+# 골목의 추천 등급: 숟가락 0~3개. 0은 등급 없음. 숟가락이 뜻하는 말은 공개 화면과 팜플렛에 함께 적는다.
+GRADE_LABELS = {
+    1: "근처에 가면 들러 볼 만한 골목",
+    2: "일부러 찾아갈 만한 골목",
+    3: "이 골목 때문에 그 동네에 갈 만한 골목",
+}
+
 
 class Guide(models.Model):
     """먹골목의 골목 하나: 먹어본 집을 골라 남에게 건네는 목록.
@@ -21,6 +28,7 @@ class Guide(models.Model):
     intro = models.CharField(max_length=200, default="", blank=True)
     # "2026 가을" 같은 판 이름. 비워도 된다.
     edition = models.CharField(max_length=20, default="", blank=True)
+    grade = models.PositiveSmallIntegerField(default=0, choices=[(0, 0), (1, 1), (2, 2), (3, 3)])
     share_token = models.CharField(max_length=43, null=True, blank=True, unique=True)
     # 공개 화면에 주소·주문 횟수를 보여줄지
     show_address = models.BooleanField(default=True)
@@ -28,6 +36,10 @@ class Guide(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def grade_label(self):
+        return GRADE_LABELS.get(self.grade, "")
 
     def open_share(self):
         """공개 주소를 만든다. 이미 공개 중이면 주소를 바꾸지 않는다."""

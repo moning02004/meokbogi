@@ -6,10 +6,19 @@ import {GuideDetailType, GuideType} from "@/types/guide";
 export const MAX_GUIDE_ENTRIES = 15
 export const MAX_GUIDE_MENUS = 3
 
+// 추천 등급: 숟가락 0~3개. 뜻은 서버(apps/guide/models.py의 GRADE_LABELS)와 같게 둔다.
+export type GuideGrade = 0 | 1 | 2 | 3
+export const GUIDE_GRADE_LABELS: Record<Exclude<GuideGrade, 0>, string> = {
+    1: "근처에 가면 들러 볼 만한 골목",
+    2: "일부러 찾아갈 만한 골목",
+    3: "이 골목 때문에 그 동네에 갈 만한 골목",
+}
+
 export interface GuideFields {
     title: string;
     intro: string;
     edition: string;
+    grade: GuideGrade;
     show_address: boolean;
     show_visits: boolean;
 }
@@ -25,8 +34,8 @@ export interface GuideEntryInput {
 
 export const fetchGuides = () => apiRequest[GUIDE_API.list.method]<GuideType[]>(GUIDE_API.list.endpoint)
 
-export const createGuide = (title: string) =>
-    apiRequest[GUIDE_API.add.method]<GuideType>(GUIDE_API.add.endpoint, {body: JSON.stringify({title})})
+export const createGuide = (title: string, grade: GuideGrade) =>
+    apiRequest[GUIDE_API.add.method]<GuideType>(GUIDE_API.add.endpoint, {body: JSON.stringify({title, grade})})
 
 export const fetchGuide = (guide: number) =>
     apiRequest[GUIDE_API.retrieve.method]<GuideDetailType>(GUIDE_API.retrieve.endpoint({guide}))

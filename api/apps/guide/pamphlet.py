@@ -44,7 +44,7 @@ def columns(entries, count):
     return [entries[index * PER_COLUMN:(index + 1) * PER_COLUMN] for index in range(count)]
 
 
-def pamphlet_context(guide, today):
+def pamphlet_context(guide):
     data = public_guide(guide)
     entries = [{
         **entry,
@@ -58,19 +58,20 @@ def pamphlet_context(guide, today):
     return {
         "guide": {**data, "intro": keep_words(data["intro"])},
         "show_visits": guide.show_visits,
-        "today": today.strftime("%Y.%m.%d"),
+        # 템플릿에서 숟가락을 등급만큼 그리려고 넘긴다
+        "spoons": range(guide.grade),
         "font_dir": FONT_DIR.as_uri(),
         "first_columns": columns(entries[:FIRST_PAGE], 2),
         "other_pages": [columns(rest[start:start + OTHER_PAGE], 3) for start in range(0, len(rest), OTHER_PAGE)],
     }
 
 
-def render_pamphlet(guide, today):
+def render_pamphlet(guide):
     try:
         from weasyprint import HTML
         from weasyprint.text.fonts import FontConfiguration
     except (ImportError, OSError) as error:
         raise PamphletUnavailable(str(error)) from error
 
-    html = render_to_string("guide/pamphlet.html", pamphlet_context(guide, today))
+    html = render_to_string("guide/pamphlet.html", pamphlet_context(guide))
     return HTML(string=html).write_pdf(font_config=FontConfiguration())

@@ -4,6 +4,7 @@ export interface GuideType {
     title: string;
     intro: string;
     edition: string;          // "2026 가을" 같은 판 이름. 비어 있을 수 있다
+    grade: 0 | 1 | 2 | 3;     // 추천 등급: 숟가락 개수. 0은 등급 없음
     show_address: boolean;
     show_visits: boolean;
     share_token: string | null;   // 있으면 공개 중
@@ -52,5 +53,7 @@ export interface PublicGuideType {
     title: string;
     intro: string;
     edition: string;
+    grade: number;
+    grade_label: string;      // 숟가락 개수가 뜻하는 말. 등급이 없으면 빈 값
     entries: PublicGuideEntryType[];
 }
