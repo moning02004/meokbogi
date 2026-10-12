@@ -11,6 +11,9 @@ test.describe("먹골목", () => {
         await api.createReview(noodle.id, {menu: "바지락칼국수", ordered_at: daysAgo(40)})
         await api.createReview(noodle.id, {menu: "손만두", ordered_at: daysAgo(40)})
         await api.createRestaurant(zone.id, category(zone, "분식").id, "산들김밥")
+        // 다른 장소의 음식점도 고를 수 있어야 한다
+        const office = await api.createZone("회사")
+        await api.createRestaurant(office.id, category(office, "한식").id, "회사앞백반")
 
         await loginUi(page, user)
         await expect(page.getByText("우리집 기록")).toBeVisible()
@@ -31,6 +34,12 @@ test.describe("먹골목", () => {
         await page.getByRole("button", {name: "음식점 고르기"}).click()
         const picker = page.getByRole("dialog")
         await expect(picker.getByRole("button").filter({hasText: "방문"}).first()).toContainText("진미손칼국수")
+        // 처음에는 좋음 이상인 집만. 리뷰가 없는 집은 "전체"를 눌러야 나온다
+        await expect(picker.getByRole("radio", {name: "좋음 이상"})).toHaveAttribute("aria-checked", "true")
+        await expect(picker.getByRole("button", {name: /산들김밥/})).toHaveCount(0)
+        await picker.getByRole("radio", {name: "전체"}).click()
+        await expect(picker.getByRole("button", {name: /회사앞백반/})).toContainText("회사 · 한식")
+        await expect(picker.getByRole("button", {name: /진미손칼국수/})).toContainText("만족")
         await picker.getByRole("button", {name: /산들김밥/}).click()
         await picker.getByRole("button", {name: /진미손칼국수/}).click()
         await expect(picker.getByRole("button", {name: /진미손칼국수/})).toBeDisabled()

@@ -62,6 +62,11 @@ export interface RestaurantListItemType {
     review_avg: number | null;
 }
 
+// GET /restaurants (모든 장소) 응답 하나. 어느 장소의 음식점인지 이름이 붙는다
+export interface RestaurantWithZoneType extends RestaurantListItemType {
+    zone: string;
+}
+
 export type RestaurantSort = "recent" | "rating" | "visits" | "name"
 
 export interface MenuSummaryType {

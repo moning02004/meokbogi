@@ -21,7 +21,7 @@ import {
     updateGuide,
 } from "@/lib/guide";
 import {GuideDetailType, GuideRestaurantType} from "@/types/guide";
-import {RestaurantListItemType, RestaurantType} from "@/types/restaurant";
+import {RestaurantType, RestaurantWithZoneType} from "@/types/restaurant";
 import {LoadingPage} from "@/components/loading";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {RestaurantPicker} from "@/components/guide/restaurant_picker";
@@ -150,7 +150,7 @@ export default function Page() {
     }
 
     // 고르기 시트에는 메뉴·지점이 없어서 상세를 받아서 싣는다. 한마디는 음식점 설명으로 시작한다.
-    const pick = (item: RestaurantListItemType, zoneName: string) => {
+    const pick = (item: RestaurantWithZoneType) => {
         if (isFull) {
             toast.error(`한 골목에는 ${MAX_GUIDE_ENTRIES}곳까지 실을 수 있어요.`)
             return
@@ -163,7 +163,7 @@ export default function Page() {
                     restaurant: {
                         id: restaurant.id,
                         name: restaurant.name,
-                        zone: zoneName,
+                        zone: item.zone,
                         description: restaurant.description,
                         address: restaurant.address,
                         categories: restaurant.categories.map((category) => category.keyword),

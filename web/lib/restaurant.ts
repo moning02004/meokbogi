@@ -5,7 +5,13 @@ import {MonthlyVisit} from "@/lib/stats";
 
 // "치킨 · 분식" 처럼 음식점의 카테고리를 한 줄로
 export const categoryLabel = (categories: CategoryType[]) => categories.map((category) => category.keyword).join(" · ")
-import {DeliciousRestaurant, RecentRegisteredRestaurant, RestaurantListItemType, RestaurantSort} from "@/types/restaurant";
+import {
+    DeliciousRestaurant,
+    RecentRegisteredRestaurant,
+    RestaurantListItemType,
+    RestaurantSort,
+    RestaurantWithZoneType,
+} from "@/types/restaurant";
 
 
 export interface DashboardResponseType {
@@ -52,6 +58,23 @@ export const fetchZoneRestaurants = async (
     const restaurantList = RESTAURANT_API.list
     return await apiRequest[restaurantList.method]<PaginatedResponse<RestaurantListItemType>>
     (`${restaurantList.endpoint({zone: zoneId})}?${params.toString()}`)
+}
+
+// 모든 장소의 내 음식점. 먹골목의 음식점 고르기에서 쓴다.
+export const fetchAllRestaurants = async (
+    {page = 1, search, sort, goodOnly = false}: {
+        page?: number; search?: string; sort?: RestaurantSort;
+        // 평균 만족도가 "좋음" 이상인 곳만
+        goodOnly?: boolean
+    } = {}
+) => {
+    const params = new URLSearchParams({page: String(page)})
+    if (search) params.set("search", search)
+    if (sort) params.set("sort", sort)
+    if (goodOnly) params.set("rating", "good")
+    const listAll = RESTAURANT_API.listAll
+    return await apiRequest[listAll.method]<PaginatedResponse<RestaurantWithZoneType>>(
+        `${listAll.endpoint}?${params.toString()}`)
 }
 
 // 한 카테고리에서 음식점 하나를 뽑는다. 오래 안 간 곳·만족도 높은 곳일수록 잘 뽑힌다 (서버가 가중치 계산)

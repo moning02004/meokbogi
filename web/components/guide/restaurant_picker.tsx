@@ -5,29 +5,27 @@ import {Drawer} from "vaul"
 import {LuCheck, LuSearch} from "react-icons/lu"
 import toast from "react-hot-toast"
 import {errorMessage} from "@/lib/api"
-import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant"
+import {categoryLabel, fetchAllRestaurants} from "@/lib/restaurant"
 import {useKeyboardInset, useVisibleHeight} from "@/hooks/useVisualViewport"
-import {useZoneStore} from "@/store/zone"
-import {RestaurantListItemType} from "@/types/restaurant"
+import {RestaurantWithZoneType} from "@/types/restaurant"
+import {getReviewTextBox} from "@/components/ui/review_textbox"
 
 interface RestaurantPickerProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     // 이미 골목에 실린 음식점
     pickedIds: number[]
-    onPick: (restaurant: RestaurantListItemType, zoneName: string) => void
+    onPick: (restaurant: RestaurantWithZoneType) => void
 }
 
-// 골목에 실을 음식점 고르기. 골목은 장소를 가리지 않으므로 장소를 바꿔 가며 고른다. 많이 간 집이 위에 온다.
+// 골목에 실을 음식점 고르기. 골목은 장소를 가리지 않으므로 모든 장소의 음식점을 한 목록으로 보여준다.
+// 많이 간 집이 위에 오고, 어느 장소의 집인지는 줄마다 적는다.
+// 남에게 권할 집을 고르는 자리라 처음에는 만족도가 "좋음" 이상인 집만 보여주고, "전체"를 누르면 모두 보여준다.
 export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: RestaurantPickerProps) {
-    const zones = useZoneStore((state) => state.zones)
-    const selectedZone = useZoneStore((state) => state.selectedZone)
-    const [zoneId, setZoneId] = useState<number | null>(null)
-    const activeZoneId = zoneId ?? selectedZone?.id ?? zones[0]?.id ?? null
-
+    const [showAll, setShowAll] = useState(false)
     const [searchInput, setSearchInput] = useState("")
     const [search, setSearch] = useState("")
-    const [restaurants, setRestaurants] = useState<RestaurantListItemType[]>([])
+    const [restaurants, setRestaurants] = useState<RestaurantWithZoneType[]>([])
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
@@ -40,7 +38,7 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
         return () => clearTimeout(timer)
     }, [searchInput])
 
-    const listKey = `${activeZoneId ?? ""}:${search}`
+    const listKey = `${showAll}:${search}`
     const [trackedListKey, setTrackedListKey] = useState(listKey)
     if (listKey !== trackedListKey) {
         setTrackedListKey(listKey)
@@ -50,9 +48,9 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
     }
 
     useEffect(() => {
-        if (!open || !activeZoneId) return
+        if (!open) return
         let ignore = false
-        fetchZoneRestaurants(activeZoneId, {search, sort: "visits"})
+        fetchAllRestaurants({search, sort: "visits", goodOnly: !showAll})
             .then((res) => {
                 if (ignore) return
                 setRestaurants(res.results)
@@ -67,12 +65,11 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
         return () => {
             ignore = true
         }
-    }, [open, activeZoneId, search])
+    }, [open, search, showAll])
 
     const loadMore = () => {
-        if (!activeZoneId) return
         const nextPage = page + 1
-        fetchZoneRestaurants(activeZoneId, {search, sort: "visits", page: nextPage})
+        fetchAllRestaurants({search, sort: "visits", goodOnly: !showAll, page: nextPage})
             .then((res) => {
                 setRestaurants((prev) => [...prev, ...res.results])
                 setPage(nextPage)
@@ -83,8 +80,6 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
                 toast.error(errorMessage(error))
             })
     }
-
-    const zoneName = zones.find((zone) => zone.id === activeZoneId)?.name ?? ""
 
     return (
         <Drawer.Root open={open} onOpenChange={onOpenChange} repositionInputs={false}>
@@ -110,25 +105,24 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
                     </div>
 
                     <div className="shrink-0 px-5 pb-2 flex flex-col gap-2">
-                        {zones.length > 1 && (
-                            <div
-                                className="flex gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                                {zones.map((zone) => (
-                                    <button
-                                        key={zone.id}
-                                        onClick={() => setZoneId(zone.id)}
-                                        aria-pressed={zone.id === activeZoneId}
-                                        className={`shrink-0 h-10 px-4 rounded-full text-[14px] cursor-pointer whitespace-nowrap transition-colors ${
-                                            zone.id === activeZoneId
-                                                ? "bg-strong text-white font-bold"
-                                                : "bg-fill text-ink2 font-semibold sm:hover:bg-fill-hover"
-                                        }`}
-                                    >
-                                        {zone.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div role="radiogroup" aria-label="보여줄 음식점" className="flex gap-1.5">
+                            {[{all: false, label: "좋음 이상"}, {all: true, label: "전체"}].map((option) => (
+                                <button
+                                    key={option.label}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={showAll === option.all}
+                                    onClick={() => setShowAll(option.all)}
+                                    className={`h-10 px-4 rounded-full text-[14px] cursor-pointer whitespace-nowrap transition-colors ${
+                                        showAll === option.all
+                                            ? "bg-strong text-white font-bold"
+                                            : "bg-fill text-ink2 font-semibold sm:hover:bg-fill-hover"
+                                    }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
                         <div className="relative">
                             <LuSearch size={18}
                                       className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none"/>
@@ -150,23 +144,29 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
                             <p className="text-ink3 text-center py-8 text-[13.5px]">불러오는 중…</p>
                         ) : !restaurants.length ? (
                             <p className="text-ink3 text-center py-8 text-[13.5px]">
-                                {search ? `'${search}'에 맞는 음식점이 없어요.` : "이 장소에 등록된 음식점이 없어요."}
+                                {search ? `'${search}'에 맞는 음식점이 없어요.` : showAll ? "등록된 음식점이 없어요." : "만족도가 좋음 이상인 음식점이 없어요."}
+                                {!showAll && <><br/>위에서 전체를 누르면 모든 음식점이 나와요.</>}
                             </p>
                         ) : restaurants.map((restaurant) => {
                             const picked = pickedIds.includes(restaurant.id)
                             return (
                                 <button
                                     key={restaurant.id}
-                                    onClick={() => onPick(restaurant, zoneName)}
+                                    onClick={() => onPick(restaurant)}
                                     disabled={picked}
                                     className="w-full flex items-center gap-3 py-3 text-left border-b border-line last:border-0 cursor-pointer disabled:cursor-default"
                                 >
                                     <span className="flex-1 min-w-0">
-                                        <span className={`block font-bold text-[15.5px] tracking-tight truncate ${picked ? "text-ink3" : "text-ink"}`}>
-                                            {restaurant.name}
+                                        {/* 만족도는 이름 바로 옆에 둔다. 오른쪽 끝에 두면 이름과 번갈아 보느라 눈이 많이 움직였다 */}
+                                        <span className="flex items-center gap-2">
+                                            <span className={`min-w-0 font-bold text-[15.5px] tracking-tight truncate ${picked ? "text-ink3" : "text-ink"}`}>
+                                                {restaurant.name}
+                                            </span>
+                                            {restaurant.review_avg !== null && restaurant.ordered_count > 0
+                                                && getReviewTextBox(restaurant.review_avg, "sm")}
                                         </span>
                                         <span className="block text-[12.5px] text-ink3 mt-0.5 truncate">
-                                            {categoryLabel(restaurant.categories)} · 방문 {restaurant.ordered_count}회
+                                            {restaurant.zone} · {categoryLabel(restaurant.categories)} · 방문 {restaurant.ordered_count}회
                                         </span>
                                     </span>
                                     {picked ? (

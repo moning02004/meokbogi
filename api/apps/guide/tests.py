@@ -114,6 +114,26 @@ class GuideTestCase(TestCase):
         self.gimbap.refresh_from_db()
         self.assertEqual(self.gimbap.address, "")
 
+    def test_my_restaurants_across_zones(self):
+        office = Zone.objects.create(user=self.user, name="회사")
+        make_restaurant(self.category, zone=office, name="회사앞국수")
+        other = User.objects.create_user(username="other", password="123")
+        make_restaurant(make_category(Zone.objects.create(user=other, name="남의집"), "치킨"), name="남의치킨")
+
+        # 고르기 시트는 장소를 가리지 않고 많이 간 순으로 보여준다
+        response = self.client.get(reverse("my-restaurants"), {"sort": "visits"})
+        self.assertEqual([(r["name"], r["zone"], r["ordered_count"]) for r in response.json()["results"]],
+                         [("진미손칼국수", "우리집", 2), ("회사앞국수", "회사", 0), ("산들김밥", "우리집", 0)])
+        # 좋음 이상만: 평균이 0.2보다 높은 곳. 리뷰가 없는 곳은 빠진다 (칼국수는 만족 2 + 보통 1)
+        response = self.client.get(reverse("my-restaurants"), {"rating": "good"})
+        self.assertEqual([r["name"] for r in response.json()["results"]], ["진미손칼국수"])
+        make_review(restaurant=self.noodle, user=self.user, menu="손만두", ordered_at=date(2026, 1, 1), point=-1)
+        make_review(restaurant=self.noodle, user=self.user, menu="손만두", ordered_at=date(2026, 1, 2), point=-1)
+        self.assertEqual(self.client.get(reverse("my-restaurants"), {"rating": "good"}).json()["count"], 0)
+
+        response = self.client.get(reverse("my-restaurants"), {"search": "국수"})
+        self.assertEqual({r["name"] for r in response.json()["results"]}, {"진미손칼국수", "회사앞국수"})
+
     def test_others_cannot_touch_my_guide(self):
         guide_id = self.create_guide()
         User.objects.create_user(username="other", password="123")
