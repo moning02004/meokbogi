@@ -11,14 +11,14 @@ export default function Page() {
     const router = useRouter()
 
     return (
-        <div className="min-h-[100%] bg-white pb-10">
-            <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E7E0CF]">
-                <button onClick={() => router.back()} aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5">
+        <div className="min-h-[100%] bg-surface pb-10">
+            <div className="flex items-center gap-1 h-14 px-2">
+                <button onClick={() => router.back()} aria-label="뒤로" className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill transition-colors">
                     <FaArrowLeft size={16}/>
                 </button>
-                <h1 className="text-[15px] font-bold text-[#211D17]">카테고리별 음식점</h1>
+                <h1 className="text-[17px] font-bold text-ink">카테고리별 음식점</h1>
             </div>
-            <div className="px-5 pt-4">
+            <div className="px-5 pt-2">
                 <CategoryManager onCategoriesChange={(_, mutated) => {
                     // 상단바·음식점 필터·뽑기가 쓰는 전역 카테고리 목록도 맞춘다
                     if (mutated) syncZones().catch(() => null)

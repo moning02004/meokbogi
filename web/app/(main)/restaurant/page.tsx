@@ -15,6 +15,7 @@ import {ActionDrawer} from "@/components/ui/action_drawer";
 import {apiRequest, errorMessage} from "@/lib/api";
 import toast from "react-hot-toast";
 import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
+import {getReviewTextBox} from "@/components/ui/review_textbox";
 
 const SORT_OPTIONS: { value: RestaurantSort; label: string }[] = [
     {value: "recent", label: "최근 방문순"},
@@ -179,11 +180,11 @@ export default function Page() {
 
     return (
         <div className="flex flex-col min-h-[100%]">
-            <div className="sticky top-0 z-10 bg-white shadow-sm mb-1">
-            <div className="px-4 pt-3">
+            <div className="sticky top-0 z-10 bg-bg pt-1">
+            <div className="px-4">
                 <div className="relative">
-                    <LuSearch size={14}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B7AF9F] pointer-events-none"/>
+                    <LuSearch size={18}
+                              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none"/>
                     <input
                         type="search"
                         value={searchInput}
@@ -191,27 +192,27 @@ export default function Page() {
                         placeholder="음식점 이름으로 찾기"
                         aria-label="음식점 이름으로 찾기"
                         maxLength={100}
-                        className="w-full text-[13.5px] text-[#211D17] bg-[#FBFAF6] border border-[#E7E0CF] rounded-xl pl-8.5 pr-9 py-2.5 outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F] [&::-webkit-search-cancel-button]:hidden"
+                        className="w-full h-12 text-[15px] text-ink bg-surface rounded-[14px] pl-11 pr-11 outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4 [&::-webkit-search-cancel-button]:hidden"
                     />
                     {searchInput && (
                         <button
                             onClick={() => setSearchInput("")}
                             aria-label="검색어 지우기"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-full text-[#B7AF9F] cursor-pointer sm:hover:bg-[#F1EFE8] transition-colors"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full text-ink3 cursor-pointer sm:hover:bg-fill transition-colors"
                         >
-                            <LuX size={13}/>
+                            <LuX size={16}/>
                         </button>
                     )}
                 </div>
             </div>
             <div
-                className="flex gap-2 overflow-x-auto px-4 py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                className="flex gap-1.5 overflow-x-auto px-4 pt-2.5 pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                     onClick={() => setSelectedCategoryId(null)}
-                    className={`shrink-0 px-4 py-1 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
+                    className={`shrink-0 h-10 px-4 rounded-full text-[14px] cursor-pointer whitespace-nowrap transition-colors ${
                         selectedCategoryId === null
-                            ? "bg-[#24564A] text-white border-[#24564A]"
-                            : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
+                            ? "bg-strong text-white font-bold"
+                            : "bg-surface text-ink2 font-semibold sm:hover:bg-fill-hover"
                     }`}
                 >
                     전체
@@ -220,10 +221,10 @@ export default function Page() {
                     <button
                         key={category.id}
                         onClick={() => setSelectedCategoryId(category.id)}
-                        className={`shrink-0 px-4 py-1 rounded-full text-[13.5px] font-semibold border cursor-pointer whitespace-nowrap transition-colors ${
+                        className={`shrink-0 h-10 px-4 rounded-full text-[14px] cursor-pointer whitespace-nowrap transition-colors ${
                             selectedCategoryId === category.id
-                                ? "bg-[#24564A] text-white border-[#24564A]"
-                                : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
+                                ? "bg-strong text-white font-bold"
+                                : "bg-surface text-ink2 font-semibold sm:hover:bg-fill-hover"
                         }`}
                     >
                         {category.keyword}
@@ -231,56 +232,58 @@ export default function Page() {
                 ))}
             </div>
 
-            </div>
-
-            <div className="flex items-center justify-between px-4 my-2">
-                <div className="text-[12.5px] font-semibold text-[#8A8172]">총 {totalCount}곳</div>
+            <div className="flex items-center justify-between px-5 h-11">
+                <div className="text-[13px] font-semibold text-ink3">총 {totalCount}곳</div>
                 <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as RestaurantSort)}
                     aria-label="정렬"
-                    className="text-[12.5px] font-semibold text-[#5B5548] bg-transparent py-1 pl-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#24564A] rounded"
+                    className="text-[13px] font-semibold text-ink2 bg-transparent py-1 pl-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-strong rounded"
                 >
                     {SORT_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                 </select>
             </div>
+            </div>
 
-            <div className="flex flex-col px-4 gap-2.5 pb-3">
+            <div className="mx-4 mb-4 rounded-3xl bg-surface pl-5 pr-2 py-1.5">
                 {isLoading ? (
                     Array.from({length: 6}).map((_, i) => <Skeleton key={i}/>)
                 ) : !restaurants.length ? (
-                    <p className="text-[#B7AF9F] text-center py-8 text-sm">
+                    <p className="text-ink3 text-center py-8 pr-3 text-[13.5px]">
                         {search ? `'${search}'에 맞는 음식점이 없어요.` : "아직 등록된 음식점이 없습니다."}
                     </p>
                 ) : (
                     restaurants.map((restaurant) => (
                         <div key={restaurant.id}
-                             className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-white transition-colors"
+                             className="flex items-center gap-1 border-b border-line last:border-0 cursor-pointer"
                         >
-                            <div className="flex-1" onClick={() => gotoRestaurant(restaurant.id)}>
-                                <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                <p className="text-[12.5px] text-[#8A8172] mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
-                                <div className="flex flex-row mt-1">
-                                    <div
-                                        className="text-[12px] text-[#B7AF9F] font-medium">방문 {restaurant.ordered_count} 회
+                            <div className="flex-1 min-w-0 flex items-center gap-2.5 py-3.5" onClick={() => gotoRestaurant(restaurant.id)}>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-[16px] text-ink tracking-tight truncate">{restaurant.name}</p>
+                                    <p className="text-[13px] text-ink3 mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
+                                    <div className="flex flex-row mt-1">
+                                        <div
+                                            className="text-[13px] text-ink3">방문 {restaurant.ordered_count} 회
+                                        </div>
+                                        {restaurant.latest_ordered_at && (
+                                            <>
+                                                <span className="inline-block mx-2 text-ink3">·</span>
+                                                <div className="text-[13px] text-ink3">최근
+                                                    방문 {restaurant.latest_ordered_at}</div>
+                                            </>
+                                        )}
                                     </div>
-                                    {restaurant.latest_ordered_at && (
-                                        <>
-                                            <span className="inline-block mx-2 text-[#B7AF9F]">·</span>
-                                            <div className="text-[12px] text-[#B7AF9F] font-medium">최근
-                                                방문 {restaurant.latest_ordered_at}</div>
-                                        </>
-                                    )}
                                 </div>
+                                {restaurant.review_avg !== null && restaurant.ordered_count > 0 && getReviewTextBox(restaurant.review_avg)}
                             </div>
                             <ActionDrawer
                                 trigger={
                                     <button
                                         aria-label={`${restaurant.name} 메뉴 열기`}
-                                        className="ml-auto text-[#D8D0BC] shrink-0 self-start cursor-pointer p-3 -m-3">
-                                        <LuEllipsisVertical size={16}/>
+                                        className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full text-ink3 cursor-pointer sm:hover:bg-fill transition-colors">
+                                        <LuEllipsisVertical size={18}/>
                                     </button>
                                 }
                                 items={[{

@@ -86,26 +86,26 @@ export function ZoneManager() {
     return (
         <>
             {zones === null ? (
-                <div className="flex flex-col divide-y divide-[#F0EBDD]">
+                <div className="flex flex-col divide-y divide-line">
                     {[0, 1].map((row) => (
                         <div key={row} className="px-4 py-4">
-                            <div className="h-[16px] w-28 rounded bg-[#F1EDE2] animate-pulse"/>
+                            <div className="h-[16px] w-28 rounded bg-fill animate-pulse"/>
                         </div>
                     ))}
                 </div>
             ) : (
-                <ul className="flex flex-col divide-y divide-[#F0EBDD]">
+                <ul className="flex flex-col divide-y divide-line">
                     {zones.map((zone) => (
                         <li key={zone.id}>
                             <button
                                 onClick={() => openZone(zone)}
-                                className="w-full flex items-center gap-2 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                                className="w-full flex items-center gap-2 px-4 py-3.5 text-left cursor-pointer sm:hover:bg-fill transition-colors"
                             >
                                 <span className="flex-1 min-w-0">
                                     <span
-                                        className="block text-[14px] font-bold text-[#211D17] truncate">{zone.name}</span>
+                                        className="block text-[14px] font-bold text-ink truncate">{zone.name}</span>
                                 </span>
-                                <LuChevronRight size={16} className="shrink-0 text-[#B7AF9F]"/>
+                                <LuChevronRight size={16} className="shrink-0 text-ink3"/>
                             </button>
                         </li>
                     ))}
@@ -113,7 +113,7 @@ export function ZoneManager() {
                     <li>
                         <button
                             onClick={() => router.push(ZONE_PAGE.add)}
-                            className="w-full flex items-center gap-1.5 px-4 py-3.5 text-[13.5px] font-bold text-[#D2571E] cursor-pointer sm:hover:bg-[#FDEBE1] transition-colors"
+                            className="w-full flex items-center gap-1.5 px-4 py-3.5 text-[13.5px] font-bold text-accent-text cursor-pointer sm:hover:bg-accent-soft transition-colors"
                         >
                             <LuPlus size={15}/>
                             장소 추가
@@ -174,7 +174,7 @@ function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
         <div className="flex flex-col gap-5">
             <section>
                 <label htmlFor="zone-name"
-                       className="block text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
+                       className="block text-[13px] font-semibold text-ink3 mb-2 px-1">
                     장소 이름
                 </label>
                 <div className="flex gap-2">
@@ -186,29 +186,29 @@ function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
                             if (event.key === "Enter" && !event.nativeEvent.isComposing) rename()
                         }}
                         maxLength={100}
-                        className="flex-1 min-w-0 text-[13.5px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2.5 outline-none focus:border-[#24564A] transition-colors"
+                        className="flex-1 min-w-0 text-[13.5px] text-ink rounded-xl px-3 py-2.5 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow"
                     />
                     <button
                         onClick={rename}
                         disabled={!canRename}
-                        className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-lg px-3.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:hover:bg-[#1c443a] transition-colors"
+                        className="shrink-0 text-[13px] font-bold text-white bg-strong rounded-lg px-3.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:hover:bg-strong-hover transition-colors"
                     >
                         {isRenaming ? "저장 중…" : "저장"}
                     </button>
                 </div>
             </section>
 
-            <section className="border-t border-[#F0EBDD] pt-4">
-                <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase mb-2.5">
+            <section className="border-t border-line pt-4">
+                <div className="text-[13px] font-semibold text-ink3 mb-2 px-1">
                     존 삭제
                 </div>
 
                 {isConfirmingDelete ? (
-                    <div className="rounded-xl border border-[#F1C8B7] bg-[#FDEBE1] px-3.5 py-3">
-                        <p className="text-[13px] font-extrabold text-[#C23B1E] mb-1">
+                    <div className="rounded-xl border border-accent/40 bg-accent-soft px-3.5 py-3">
+                        <p className="text-[13px] font-extrabold text-danger-text mb-1">
                             &lsquo;{zone.name}&rsquo;을(를) 삭제할까요?
                         </p>
-                        <p className="text-[12px] text-[#8A6A5C] leading-relaxed mb-3">
+                        <p className="text-[12px] text-ink3 leading-relaxed mb-3">
                             음식점 {restaurantCount ?? "…"}곳과 그동안 남긴 리뷰가 모두 함께 사라져요. 되돌릴 수 없어요.
                             카테고리는 다른 장소에서도 쓰므로 남아요.
                         </p>
@@ -216,7 +216,7 @@ function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
                             <button
                                 onClick={() => setIsConfirmingDelete(false)}
                                 disabled={isDeleting}
-                                className="flex-1 text-[13px] font-bold text-[#5B5548] bg-white border border-[#E7E0CF] rounded-lg py-2.5 cursor-pointer disabled:opacity-40 sm:hover:bg-[#F6F3EC] transition-colors"
+                                className="flex-1 text-[13px] font-bold text-ink2 bg-surface border border-line rounded-lg py-2.5 cursor-pointer disabled:opacity-40 sm:hover:bg-fill transition-colors"
                             >
                                 취소
                             </button>
@@ -226,7 +226,7 @@ function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
                                     onDelete(zone).finally(() => setIsDeleting(false))
                                 }}
                                 disabled={isDeleting}
-                                className="flex-1 text-[13px] font-bold text-white bg-[#C23B1E] rounded-lg py-2.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:hover:bg-[#a63118] transition-colors"
+                                className="flex-1 text-[13px] font-bold text-white bg-danger rounded-lg py-2.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:hover:bg-danger-hover transition-colors"
                             >
                                 {isDeleting ? "삭제 중…" : "삭제"}
                             </button>
@@ -235,7 +235,7 @@ function ZoneDetail({zone, onRename, onDelete}: ZoneDetailProps) {
                 ) : (
                     <button
                         onClick={() => setIsConfirmingDelete(true)}
-                        className="w-full text-[13.5px] font-bold text-[#C23B1E] border border-[#F1C8B7] rounded-lg py-3 cursor-pointer sm:hover:bg-[#FDEBE1] transition-colors"
+                        className="w-full text-[13.5px] font-bold text-danger-text border border-accent/40 rounded-lg py-3 cursor-pointer sm:hover:bg-accent-soft transition-colors"
                     >
                         이 존 삭제하기
                     </button>

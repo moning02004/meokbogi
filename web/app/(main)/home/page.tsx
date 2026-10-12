@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
 import {categoryLabel, DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
 import {BsForkKnife} from "react-icons/bs";
+import {LuChevronRight} from "react-icons/lu";
 import {useCategoryStore} from "@/store/category";
 import {useRouter} from "next/navigation";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
@@ -85,52 +86,45 @@ export default function Page() {
     if (!selectedZone) return <LoadingPage/>
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="p-4 flex flex-col gap-3 h-[100%]">
+            <div className="px-4 pt-1 pb-4 flex flex-col gap-3 h-[100%]">
 
-                {/* ---- 계기판 스타일 통계 카드 ---- */}
-                <div
-                    className="rounded-[22px] bg-[#17372F] px-5 pt-5 pb-4 mb-3 text-[#EFF4F1] relative">
-                    <div className="flex items-center gap-1.5 text-[13px] font-semibold text-[#B9CFC8] mb-4">
-                        <BsForkKnife size={13}/>
-                        {selectedZone.name} 기록
-                    </div>
-                    <div className="flex">
-                        <div className="flex-1 text-center relative">
-                            <div
-                                className="mx-3.5 font-mono text-[34px] font-semibold rounded-[10px] py-1.5 bg-white/[0.06] border border-white/[0.12]">
-                                {String(restaurantCount).padStart(2, "0")}
-                            </div>
-                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">등록한 음식점</p>
+                {/* ---- 이번 달 기록 카드 ---- */}
+                <section className="shrink-0 rounded-3xl bg-surface px-[22px] pt-[22px] pb-[18px] flex flex-col gap-[18px]">
+                    <div>
+                        <div className="flex items-center gap-1.5 text-[14px] font-semibold text-ink3">
+                            <BsForkKnife size={13}/>
+                            {selectedZone.name} 기록
                         </div>
-                        <div
-                            className="flex-1 text-center relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-2.5 before:w-px before:bg-white/[0.14]">
-                            <div
-                                className="mx-3.5 font-mono text-[34px] font-semibold rounded-[10px] py-1.5 bg-white/[0.06] border border-white/[0.12]">
-                                {String(reviewCount).padStart(2, "0")}
-                            </div>
-                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">작성한 리뷰</p>
-                        </div>
-                        <div
-                            className="flex-1 text-center relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-2.5 before:w-px before:bg-white/[0.14]">
-                            <div
-                                className="mx-3.5 font-mono text-[34px] font-semibold rounded-[10px] py-1.5 bg-white/[0.06] border border-white/[0.12]">
-                                {String(monthlyVisitedCount).padStart(2, "0")}
-                            </div>
-                            <p className="text-[11.5px] font-medium text-[#9FB6AE] mt-2">이번 달 주문</p>
+                        <div className="flex items-baseline gap-1 mt-2">
+                            <span className="text-[44px] leading-none font-extrabold tracking-tight tabular-nums text-ink">
+                                {monthlyVisitedCount}
+                            </span>
+                            <span className="text-[20px] font-bold text-ink">번</span>
+                            <span className="ml-1.5 text-[14px] font-semibold text-ink3">이번 달 주문</span>
                         </div>
                     </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-2xl bg-fill px-3.5 py-3">
+                            <p className="text-[12.5px] font-semibold text-ink3">등록한 음식점</p>
+                            <p className="text-[18px] font-bold text-ink tabular-nums mt-0.5">{restaurantCount}곳</p>
+                        </div>
+                        <div className="rounded-2xl bg-fill px-3.5 py-3">
+                            <p className="text-[12.5px] font-semibold text-ink3">작성한 리뷰</p>
+                            <p className="text-[18px] font-bold text-ink tabular-nums mt-0.5">{reviewCount}개</p>
+                        </div>
+                    </div>
+                </section>
 
-                {/* ---- 필터 pill ---- */}
-                <div className="flex gap-2 overflow-x-auto shrink-0 -mx-4 px-4 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                {/* ---- 보기 고르기 ---- */}
+                <div className="shrink-0 grid grid-cols-3 gap-0.5 p-1 rounded-[14px] bg-fill-hover">
                     {RESTAURANT_TABS.map((tab) => (
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold border cursor-pointer transition-colors ${
+                            className={`h-10 rounded-[10px] whitespace-nowrap text-[13.5px] cursor-pointer transition-colors ${
                                 activeTab === tab.key
-                                    ? "bg-[#24564A] text-white border-[#24564A]"
-                                    : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
+                                    ? "bg-raise text-ink font-bold shadow-sm"
+                                    : "text-ink3 font-semibold sm:hover:text-ink"
                             }`}
                         >
                             {tab.label}
@@ -139,11 +133,11 @@ export default function Page() {
                 </div>
 
                 {/* ---- 리스트 ---- */}
-                <div className="flex flex-col gap-2.5 overflow-y-auto h-[100%] pb-4">
+                <div className="flex-1 min-h-0 overflow-y-auto rounded-3xl bg-surface px-5 py-1.5">
                     {activeTab === "delicious" ? (
 
                         !deliciousRestaurants.length ? (
-                                <p className="text-sm text-[#8A8172] py-4">
+                                <p className="text-[13.5px] text-ink3 py-6 leading-relaxed">
                                     아직 믿고 먹는 음식점이 없습니다. <br/>
                                     2번 이상 방문하고 평균 만족도가 &lsquo;좋음&rsquo; 이상인 음식점이 믿고 먹는 음식점으로 선정됩니다.
                                 </p>
@@ -154,10 +148,10 @@ export default function Page() {
                                 return (
                                     <div key={restaurant.id}
                                          onClick={() => gotoRestaurant(restaurant.id)}
-                                         className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors">
-                                        <div>
-                                            <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5">{`${categoryLabel(restaurant.categories)} 음식점`}</p>
+                                         className="flex items-center justify-between gap-3 py-3.5 border-b border-line last:border-0 cursor-pointer">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-[16px] text-ink tracking-tight truncate">{restaurant.name}</p>
+                                            <p className="text-[13px] text-ink3 mt-0.5">{`${categoryLabel(restaurant.categories)} 음식점`}</p>
                                         </div>
                                         {reviewTextBox}
                                     </div>
@@ -166,7 +160,7 @@ export default function Page() {
                     ) : (() => {
                         const rows = activeTab === "recent" ? recentRegisteredRestaurants : forgottenRestaurants
                         if (!rows.length) return (
-                            <p className="text-sm text-[#8A8172] py-4 text-center leading-relaxed">
+                            <p className="text-[13.5px] text-ink3 py-6 text-center leading-relaxed">
                                 {activeTab === "recent"
                                     ? "아직 등록된 음식점이 없습니다."
                                     : <>만족했지만 두 달 넘게 안 간 곳이 여기에 나와요.<br/>지금은 해당하는 곳이 없어요.</>}
@@ -174,13 +168,13 @@ export default function Page() {
                         )
                         return rows.map((restaurant) => (
                             <div key={restaurant.id}
-                                 className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                                 className="flex items-center justify-between gap-3 py-3.5 border-b border-line last:border-0 cursor-pointer"
                                  onClick={() => gotoRestaurant(restaurant.id)}
                             >
-                                <div>
-                                    <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                    <p className="text-[12.5px] text-[#8A8172] mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
-                                    <div className="flex flex-row mt-1 text-[12.5px] text-[#8A8172]">
+                                <div className="min-w-0">
+                                    <p className="font-bold text-[16px] text-ink tracking-tight truncate">{restaurant.name}</p>
+                                    <p className="text-[13px] text-ink3 mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
+                                    <div className="flex flex-row mt-1 text-[13px] text-ink3">
                                         <span>방문 {restaurant.ordered_count} 회</span>
                                         <span className="inline-block mx-2">·</span>
                                         <span>
@@ -190,6 +184,7 @@ export default function Page() {
                                         </span>
                                     </div>
                                 </div>
+                                <LuChevronRight size={18} className="shrink-0 text-ink4"/>
                             </div>
                         ))
                     })()}

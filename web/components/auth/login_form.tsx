@@ -41,13 +41,13 @@ export const LoginForm = () => {
     }
 
     return (
-        <div className="w-full sm:w-[420px] mx-auto bg-white sm:rounded-3xl sm:border sm:border-[#E7E0CF] sm:shadow-sm overflow-hidden">
+        <div className="w-full sm:w-[420px] mx-auto bg-surface sm:rounded-3xl overflow-hidden">
 
             {/* 상단 브랜드 */}
             <div className="flex flex-col items-center justify-center px-6 pt-12 pb-7">
-                <div className="w-[60px] h-[60px] rounded-full bg-[#E0603A] flex items-center justify-center mb-4">
+                <div className="w-[60px] h-[60px] rounded-full bg-accent text-on-accent flex items-center justify-center mb-4">
                     <svg width="29" height="29" viewBox="0 0 120 120">
-                        <g transform="translate(60,60)" fill="#fff">
+                        <g transform="translate(60,60)" fill="currentColor">
                             <path d="M-22 -28 L-19 -28 L-19 -12 L-17 -8 L-17 28 L-21 28 L-21 -8 L-23 -12 L-23 -28 Z"/>
                             <rect x="-18.5" y="-28" width="2.6" height="15"/>
                             <rect x="-14.5" y="-28" width="2.6" height="15"/>
@@ -55,13 +55,13 @@ export const LoginForm = () => {
                         </g>
                     </svg>
                 </div>
-                <div className="text-[23px] font-extrabold text-[#211D17] tracking-tight mb-1">먹보기</div>
-                <div className="text-[13px] text-[#B7AF9F] font-semibold">먹어보고 기록하고</div>
+                <div className="text-[23px] font-extrabold text-ink tracking-tight mb-1">먹보기</div>
+                <div className="text-[13px] text-ink3 font-semibold">먹어보고 기록하고</div>
             </div>
 
             {/* 폼 */}
             <div className="px-6 pb-10">
-                <label htmlFor="login-username" className="block text-[12px] font-bold text-[#8A8172] mb-1.5">아이디</label>
+                <label htmlFor="login-username" className="block text-[13px] font-semibold text-ink3 mb-2">아이디</label>
                 <input
                     id="login-username"
                     type="text"
@@ -71,10 +71,10 @@ export const LoginForm = () => {
                     autoComplete="username"
                     autoCapitalize="none"
                     placeholder="아이디를 입력하세요"
-                    className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3 bg-[#FBFAF6] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#C4BCA8]"
+                    className="w-full text-[15px] rounded-[14px] px-4 py-3 text-ink bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                 />
 
-                <label htmlFor="login-password" className="block text-[12px] font-bold text-[#8A8172] mb-1.5 mt-4">비밀번호</label>
+                <label htmlFor="login-password" className="block text-[13px] font-semibold text-ink3 mb-2 mt-4">비밀번호</label>
                 <input
                     id="login-password"
                     type="password"
@@ -83,17 +83,17 @@ export const LoginForm = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="w-full text-[15px] border border-[#E7E0CF] rounded-xl px-4 py-3 bg-[#FBFAF6] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#C4BCA8]"
+                    className="w-full text-[15px] rounded-[14px] px-4 py-3 text-ink bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                 />
 
                 {errorMessage && (
-                    <div className="mt-3 text-[12.5px] text-[#C23B1E] font-semibold">{errorMessage}</div>
+                    <div className="mt-3 text-[12.5px] text-danger-text font-semibold">{errorMessage}</div>
                 )}
 
                 <button
                     onClick={handleLogin}
                     disabled={isSubmitting}
-                    className="w-full mt-6 py-3.5 rounded-xl bg-[#D2571E] text-white font-extrabold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] active:scale-[0.99] transition-all disabled:opacity-60"
+                    className="w-full mt-6 h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer sm:hover:bg-accent-hover active:scale-[0.99] transition-all disabled:opacity-60"
                 >
                     {isSubmitting ? "로그인 중…" : "로그인"}
                 </button>

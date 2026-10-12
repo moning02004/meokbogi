@@ -18,20 +18,16 @@ export default function MainLayout({children}: {
     if (!isReady) return <LoadingPage/>
 
     return (
-        <div className="flex flex-col h-dvh w-full sm:w-[70%] mx-auto">
+        <div className="flex flex-col h-dvh w-full max-w-[560px] mx-auto bg-bg">
             {zones.length !== 0 && <Topbar/>}
 
-            <div className="flex-1 flex-wrap overflow-y-auto h-[85vh]">
+            <div className="flex-1 min-h-0 overflow-y-auto">
                 <Providers>
                     {children}
                 </Providers>
             </div>
             {zones.length !== 0 &&
-                <div className="border-t border-[#dedede] bg-white">
-                    <div className="w-full mx-auto">
-                        <Bottombar/>
-                    </div>
-                </div>
+                <Bottombar/>
             }
 
         </div>

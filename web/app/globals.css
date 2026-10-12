@@ -1,32 +1,127 @@
 @import "tailwindcss";
 
+/* ---- 색 토큰. 화면에서는 색 값을 직접 쓰지 않고 아래 이름(bg-surface, text-ink …)만 쓴다 ---- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light dark;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
-  --font-mono: var(--font-geist-mono);
+  /* 바탕 */
+  --bg: #F3F4F7;            /* 화면 바탕 */
+  --surface: #FFFFFF;       /* 카드·시트 */
+  --fill: #EEF0F4;          /* 입력칸·칩·눌리는 칸 */
+  --fill-hover: #E4E7EC;
+  --raise: #FFFFFF;         /* 회색 칸 위에 떠 있는 선택된 조각 */
+  --line: #E6E9EE;          /* 구분선 */
+  --line-strong: #D5D9E0;
+
+  /* 글자 */
+  --ink: #17191F;
+  --ink2: #474D59;
+  --ink3: #666D7A;
+  --ink4: #9AA1AD;          /* 안내 글자(placeholder)·꾸밈 아이콘. 읽어야 하는 글자에는 쓰지 않는다 */
+
+  /* 선택된 칩·탭 */
+  --strong: #17191F;
+  --strong-hover: #2B2F38;
+
+  /* 포인트: 기록하기·등록 같은 꽉 찬 버튼에만 쓴다 */
+  --accent: #BBDB7A;
+  --accent-hover: #A9CD62;
+  --on-accent: #17191F;
+  --accent-text: #4A7A12;
+  --accent-soft: #F1F8E4;
+
+  /* 만족도 */
+  --good: #0A6B4A;
+  --good-soft: #E3F4EC;
+  --warn: #7A5500;
+  --warn-soft: #FBF0CF;
+  --bad: #A3264B;
+  --bad-soft: #FBE9EE;
+
+  /* 삭제 같은 되돌릴 수 없는 동작 */
+  --danger: #C62D25;
+  --danger-hover: #A9241D;
+  --danger-text: #C62D25;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #0F1115;
+    --surface: #1A1D23;
+    --fill: #262A32;
+    --fill-hover: #2F343D;
+    --raise: #4A505C;
+    --line: #2C3038;
+    --line-strong: #3A3F4A;
+
+    --ink: #F2F4F7;
+    --ink2: #C3C8D1;
+    --ink3: #969DAA;
+    --ink4: #6B7280;
+
+    --strong: #4A505C;
+    --strong-hover: #5A6170;
+
+    --accent: #BBDB7A;
+    --accent-hover: #C9E592;
+    --on-accent: #17191F;
+    --accent-text: #BBDB7A;
+    --accent-soft: #26301A;
+
+    --good: #5FD3A2;
+    --good-soft: #16302A;
+    --warn: #F2C45A;
+    --warn-soft: #33290F;
+    --bad: #FF8FAE;
+    --bad-soft: #3A1B26;
+
+    --danger: #D8372F;
+    --danger-hover: #E5483F;
+    --danger-text: #FF8279;
   }
 }
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-fill: var(--fill);
+  --color-fill-hover: var(--fill-hover);
+  --color-raise: var(--raise);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
+  --color-ink4: var(--ink4);
+  --color-strong: var(--strong);
+  --color-strong-hover: var(--strong-hover);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-text: var(--danger-text);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-mono: var(--font-geist-mono);
+}
+
 html, body {
   overscroll-behavior-y: contain;
 }
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-sans);
-  /* 글자 사이를 살짝 좁혀 맥에서처럼 단정하게 */
-  letter-spacing: -0.01em;
+  /* 글자 사이를 살짝 좁혀 단정하게 */
+  letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -42,16 +137,18 @@ body {
 .review-calendar.react-datepicker-popper .react-datepicker__triangle { display: none; }
 .review-calendar .react-datepicker {
   width: 100%;
-  box-shadow: 0 12px 32px -12px rgba(33, 29, 23, 0.35);
-  border: 1px solid #E7E0CF;
-  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 16px;
   font-family: inherit;
   overflow: hidden;
 }
 .review-calendar .react-datepicker__month-container { width: 100%; float: none; }
 .review-calendar .react-datepicker__header {
-  background: #FBFAF6;
-  border-bottom: 1px solid #F0EBDD;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
   padding: 0 0 4px;
 }
 .review-calendar .react-datepicker__month { margin: 4px 6px 8px; }
@@ -59,25 +156,25 @@ body {
 .review-calendar .react-datepicker__week { display: grid; grid-template-columns: repeat(7, 1fr); }
 .review-calendar .react-datepicker__day-name {
   width: auto; margin: 0; line-height: 28px;
-  font-size: 12px; font-weight: 700; color: #8A8172;
+  font-size: 12px; font-weight: 700; color: var(--ink3);
 }
-.review-calendar .react-datepicker__day-name:first-child { color: #C23B1E; }
+.review-calendar .react-datepicker__day-name:first-child { color: var(--danger-text); }
 /* 손가락으로 누르기 쉬운 크기 */
 .review-calendar .react-datepicker__day {
   width: auto; margin: 2px; line-height: 36px; border-radius: 10px;
-  font-size: 14px; font-weight: 600; color: #211D17;
+  font-size: 14px; font-weight: 600; color: var(--ink);
 }
-.review-calendar .react-datepicker__day:hover { background: #F6F3EC; border-radius: 10px; }
+.review-calendar .react-datepicker__day:hover { background: var(--fill); border-radius: 10px; }
 /* 다른 달 날짜는 숨긴다. 보이면 이번 달 날짜보다 진하게 보여 헷갈렸다 */
 .review-calendar .react-datepicker__day--outside-month { visibility: hidden; pointer-events: none; }
-.review-calendar .react-datepicker__day--disabled { color: #D6D2CC; }
+.review-calendar .react-datepicker__day--disabled { color: var(--ink4); }
 .review-calendar .react-datepicker__day--disabled:hover { background: transparent; }
-.review-calendar .react-datepicker__day--today { box-shadow: inset 0 0 0 1.5px #D2571E; font-weight: 800; }
+.review-calendar .react-datepicker__day--today { box-shadow: inset 0 0 0 1.5px var(--ink3); font-weight: 800; }
 .review-calendar .react-datepicker__day--selected,
 .review-calendar .react-datepicker__day--keyboard-selected {
-  background: #24564A; color: #fff;
+  background: var(--strong); color: #fff;
 }
-.review-calendar .react-datepicker__day--selected:hover { background: #1c443a; }
+.review-calendar .react-datepicker__day--selected:hover { background: var(--strong-hover); }
 .review-calendar .react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
-  background: transparent; color: #211D17;
+  background: transparent; color: var(--ink);
 }

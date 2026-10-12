@@ -116,14 +116,14 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="min-h-[100%] bg-white pb-6">
+            <div className="min-h-[100%] pb-6">
                 {deck.length > 0 ? (
                     <FoodCardShuffle categoryInfo={categoryInfo}
                                      items={deck.map((category) => category.keyword)}
                                      setSelectedCategory={setSelectedCategory}
                                      onBusyChange={setIsShuffling}/>
                 ) : (
-                    <div className="mx-5 mt-5 bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-5 py-6 text-center text-[13px] text-[#8A8172] font-semibold">
+                    <div className="mx-5 mt-5 bg-surface rounded-3xl px-5 py-6 text-center text-[13px] text-ink3 font-semibold">
                         섞을 카테고리가 없어요. 아래에서 뺀 카테고리를 다시 넣어주세요.
                     </div>
                 )}
@@ -133,15 +133,15 @@ export default function Page() {
                     <button
                         onClick={() => setIsPickerOpen((prev) => !prev)}
                         aria-expanded={isPickerOpen}
-                        className="w-full flex items-center justify-between text-[12.5px] font-semibold text-[#8A8172] py-2 cursor-pointer"
+                        className="w-full flex items-center justify-between text-[12.5px] font-semibold text-ink3 py-2 cursor-pointer"
                     >
-                        <span>{categories.length}개 중 <b className="text-[#24564A]">{deck.length}개</b>로 섞어요</span>
-                        <span className="text-[#24564A] font-bold">{isPickerOpen ? "접기" : "카테고리 고르기"}</span>
+                        <span>{categories.length}개 중 <b className="text-ink">{deck.length}개</b>로 섞어요</span>
+                        <span className="text-ink font-bold">{isPickerOpen ? "접기" : "카테고리 고르기"}</span>
                     </button>
 
                     {isPickerOpen && (
                         <div className="flex flex-col gap-2.5 pb-2">
-                            <p className="text-[11.5px] text-[#B7AF9F]">눌러서 이번 판에서 빼거나 다시 넣어요.</p>
+                            <p className="text-[11.5px] text-ink3">눌러서 이번 판에서 빼거나 다시 넣어요.</p>
                             <div className="flex flex-wrap gap-1.5">
                                 {categories.map((category) => {
                                     const isOut = excluded.includes(category.id)
@@ -153,8 +153,8 @@ export default function Page() {
                                             aria-pressed={!isOut}
                                             className={`px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer transition-colors disabled:cursor-not-allowed ${
                                                 isOut
-                                                    ? "bg-white text-[#C9C1AF] border-[#EFEAE0] line-through"
-                                                    : "bg-[#E4EEEA] text-[#24564A] border-[#CFE0D8]"
+                                                    ? "bg-fill text-ink4 border-fill line-through"
+                                                    : "bg-strong text-white border-strong"
                                             }`}
                                         >
                                             {category.keyword}
@@ -170,15 +170,15 @@ export default function Page() {
                 {selectedCategory && restaurants !== null && (
                     <div className="px-5 mt-4 flex flex-col gap-3">
                         {/* 음식점까지 뽑기: 등록한 곳이 있을 때만 */}
-                        {restaurants.length > 0 && <div className="rounded-2xl border border-[#F6C9B2] bg-[#FDF6F1] px-4 py-3.5 flex flex-col gap-2.5">
+                        {restaurants.length > 0 && <div className="rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3.5 flex flex-col gap-2.5">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="text-[13px] font-extrabold text-[#211D17]">
+                                <div className="text-[13px] font-extrabold text-ink">
                                     {selectedCategoryName}, 어디서 시킬까요?
                                 </div>
                                 <button
                                     onClick={pick}
                                     disabled={isPicking}
-                                    className="shrink-0 text-[12.5px] font-extrabold text-white bg-[#D2571E] rounded-xl px-3.5 py-2 cursor-pointer sm:hover:bg-[#b84a19] transition-colors disabled:opacity-50"
+                                    className="shrink-0 text-[12.5px] font-extrabold text-on-accent bg-accent rounded-xl px-3.5 py-2 cursor-pointer sm:hover:bg-accent-hover transition-colors disabled:opacity-50"
                                 >
                                     {isPicking ? "뽑는 중…" : picked ? "다시 뽑기" : "한 곳 뽑기"}
                                 </button>
@@ -187,11 +187,11 @@ export default function Page() {
                             {picked && (
                                 <button
                                     onClick={() => gotoRestaurant(picked.id)}
-                                    className="w-full text-left flex items-center justify-between gap-3 bg-white border-2 border-[#D2571E] rounded-xl px-3.5 py-3 cursor-pointer"
+                                    className="w-full text-left flex items-center justify-between gap-3 bg-surface border-2 border-accent rounded-xl px-3.5 py-3 cursor-pointer"
                                 >
                                     <span className="min-w-0">
-                                        <span className="block font-extrabold text-[15.5px] text-[#211D17] truncate">{picked.name}</span>
-                                        <span className="block text-[12px] text-[#8A8172] mt-0.5">
+                                        <span className="block font-extrabold text-[15.5px] text-ink truncate">{picked.name}</span>
+                                        <span className="block text-[12px] text-ink3 mt-0.5">
                                             {pickReason(picked)} · 방문 {picked.ordered_count}회
                                         </span>
                                     </span>
@@ -199,49 +199,49 @@ export default function Page() {
                                 </button>
                             )}
                             {pickEmpty && (
-                                <p className="text-[12.5px] text-[#8A8172]">
+                                <p className="text-[12.5px] text-ink3">
                                     {includeDisappointing
                                         ? "이 카테고리에 등록한 음식점이 없어요."
                                         : "뽑을 곳이 없어요. 실망했던 곳도 포함하면 뽑을 수 있을지도 몰라요."}
                                 </p>
                             )}
 
-                            <label className="flex items-center gap-2 text-[12px] text-[#8A8172] font-semibold cursor-pointer">
+                            <label className="flex items-center gap-2 text-[12px] text-ink3 font-semibold cursor-pointer">
                                 <input
                                     id="include-disappointing"
                                     type="checkbox"
                                     checked={includeDisappointing}
                                     onChange={(e) => setIncludeDisappointing(e.target.checked)}
-                                    className="accent-[#D2571E] w-4 h-4"
+                                    className="accent-accent w-4 h-4"
                                 />
                                 실망했던 곳도 포함
                             </label>
-                            <p className="text-[11px] text-[#B7AF9F] leading-relaxed">
+                            <p className="text-[11px] text-ink3 leading-relaxed">
                                 오래 안 간 곳, 만족도가 높았던 곳일수록 잘 뽑혀요.
                             </p>
                         </div>}
 
                         <div className="flex items-center gap-2">
-                            <div className="text-[11px] font-bold tracking-[0.1em] text-[#B7AF9F] uppercase">
+                            <div className="text-[11px] font-bold tracking-[0.1em] text-ink3 uppercase">
                                 {selectedCategoryName || "음식점"} 음식점
                             </div>
                             {restaurants.length > 0 && (
-                                <div className="text-[11px] font-bold text-[#D2571E]">{restaurants.length}</div>
+                                <div className="text-[11px] font-bold text-accent-text">{restaurants.length}</div>
                             )}
                         </div>
 
                         {restaurants.length === 0 ? (
-                            <div className="bg-[#FBFAF6] border border-[#E7E0CF] rounded-2xl px-5 py-6 text-center">
-                                <div className="text-[15px] font-extrabold text-[#211D17] mb-1.5">
+                            <div className="bg-surface rounded-3xl px-5 py-6 text-center">
+                                <div className="text-[15px] font-extrabold text-ink mb-1.5">
                                     오늘은 {selectedCategoryName} 도전!
                                 </div>
-                                <div className="text-[13px] text-[#8A8172] font-semibold leading-relaxed mb-4">
+                                <div className="text-[13px] text-ink3 font-semibold leading-relaxed mb-4">
                                     아직 기록한 {selectedCategoryName} 음식점이 없어요.<br/>
                                     시켜 먹어 보고 맛있었던 곳을 남겨 두세요.
                                 </div>
                                 <button
                                     onClick={() => router.push(RESTAURANT_PAGE.add)}
-                                    className="inline-flex items-center gap-1.5 text-[12.5px] font-extrabold text-white bg-[#D2571E] rounded-xl px-4 py-2.5 cursor-pointer active:scale-[0.98] transition-transform"
+                                    className="inline-flex items-center gap-1.5 text-[12.5px] font-extrabold text-on-accent bg-accent rounded-xl px-4 py-2.5 cursor-pointer active:scale-[0.98] transition-transform"
                                 >
                                     <FiArrowUpRight size={15}/>
                                     {selectedCategoryName} 음식점 등록하기
@@ -251,20 +251,20 @@ export default function Page() {
                             <div className="flex flex-col gap-2.5">
                                 {restaurants.map((restaurant) => (
                                     <div key={restaurant.id}
-                                         className="flex items-center justify-between p-3.5 rounded-2xl border border-[#E7E0CF] bg-white cursor-pointer sm:hover:bg-[#FAF8F2] transition-colors"
+                                         className="flex items-center justify-between p-3.5 rounded-3xl bg-surface cursor-pointer sm:hover:bg-bg transition-colors"
                                          onClick={() => gotoRestaurant(restaurant.id)}
                                     >
                                         <div>
-                                            <p className="font-bold text-[15.5px] text-[#211D17] tracking-tight">{restaurant.name}</p>
-                                            <p className="text-[12.5px] text-[#8A8172] mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
+                                            <p className="font-bold text-[15.5px] text-ink tracking-tight">{restaurant.name}</p>
+                                            <p className="text-[12.5px] text-ink3 mt-0.5 line-clamp-2">{restaurant.description || `${categoryLabel(restaurant.categories)} 음식점`}</p>
                                             <div className="flex flex-row mt-1">
                                                 <div
-                                                    className="text-[12px] text-[#B7AF9F] font-medium">방문 {restaurant.ordered_count} 회
+                                                    className="text-[12px] text-ink3 font-medium">방문 {restaurant.ordered_count} 회
                                                 </div>
                                                 {restaurant.latest_ordered_at && (
                                                     <>
-                                                        <span className="inline-block mx-2 text-[#B7AF9F]">·</span>
-                                                        <div className="text-[12px] text-[#B7AF9F] font-medium">최근
+                                                        <span className="inline-block mx-2 text-ink3">·</span>
+                                                        <div className="text-[12px] text-ink3 font-medium">최근
                                                             방문 {restaurant.latest_ordered_at}</div>
                                                     </>
                                                 )}

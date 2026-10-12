@@ -25,7 +25,7 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="mt-6">
+            <div className="min-h-dvh bg-surface pt-6">
                 <LoginForm/>
             </div>
         </Suspense>

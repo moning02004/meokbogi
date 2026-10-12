@@ -42,19 +42,19 @@ export function BranchManager<T extends BranchItem>({branches, onCreate, onRemov
     return (
         <div className="flex flex-col gap-2">
             {branches.length > 0 && (
-                <ul className="flex flex-col divide-y divide-[#F0EBDD] border border-[#E7E0CF] rounded-lg overflow-hidden">
+                <ul className="flex flex-col divide-y divide-line border border-line rounded-lg overflow-hidden">
                     {branches.map((branch) => (
-                        <li key={branch.id ?? branch.name} className="flex items-center gap-2 px-3 py-2 bg-white">
-                            <span className="flex-1 min-w-0 truncate text-[13.5px] font-semibold text-[#211D17]">{branch.name}</span>
+                        <li key={branch.id ?? branch.name} className="flex items-center gap-2 px-3 py-2 bg-surface">
+                            <span className="flex-1 min-w-0 truncate text-[13.5px] font-semibold text-ink">{branch.name}</span>
                             {branch.review_count !== undefined && (
-                                <span className="shrink-0 text-[11.5px] text-[#B7AF9F] font-semibold">리뷰 {branch.review_count}</span>
+                                <span className="shrink-0 text-[11.5px] text-ink3 font-semibold">리뷰 {branch.review_count}</span>
                             )}
                             {confirming === branch ? (
                                 <>
                                     <button type="button" onClick={() => setConfirming(null)}
-                                            className="shrink-0 text-[12px] font-bold text-[#8A8172] px-1.5 py-1 cursor-pointer">취소</button>
+                                            className="shrink-0 text-[12px] font-bold text-ink3 px-1.5 py-1 cursor-pointer">취소</button>
                                     <button type="button" onClick={() => remove(branch)} disabled={busy}
-                                            className="shrink-0 text-[12px] font-bold text-white bg-[#C23B1E] rounded-md px-2 py-1 cursor-pointer disabled:opacity-50">
+                                            className="shrink-0 text-[12px] font-bold text-white bg-danger rounded-md px-2 py-1 cursor-pointer disabled:opacity-50">
                                         지우기
                                     </button>
                                 </>
@@ -62,14 +62,14 @@ export function BranchManager<T extends BranchItem>({branches, onCreate, onRemov
                                 // 리뷰가 달린 지점만 한 번 더 묻는다
                                 <button type="button" onClick={() => branch.review_count ? setConfirming(branch) : remove(branch)}
                                         aria-label={`${branch.name} 지점 지우기`}
-                                        className="shrink-0 text-[12px] font-bold text-[#C23B1E] px-1.5 py-1 cursor-pointer">지우기</button>
+                                        className="shrink-0 text-[12px] font-bold text-danger-text px-1.5 py-1 cursor-pointer">지우기</button>
                             )}
                         </li>
                     ))}
                 </ul>
             )}
             {confirming !== null && (
-                <p className="text-[11.5px] text-[#8A6A5C]">지워도 그 지점 리뷰는 남고, &ldquo;지점 없음&rdquo;으로 바뀌어요.</p>
+                <p className="text-[11.5px] text-ink3">지워도 그 지점 리뷰는 남고, &ldquo;지점 없음&rdquo;으로 바뀌어요.</p>
             )}
             <div className="flex items-center gap-2">
                 <input
@@ -84,10 +84,10 @@ export function BranchManager<T extends BranchItem>({branches, onCreate, onRemov
                     maxLength={100}
                     placeholder="예: 역삼점"
                     aria-label="추가할 지점 이름"
-                    className="flex-1 min-w-0 text-[14px] text-[#211D17] border border-[#E7E0CF] rounded-lg px-3 py-2 outline-none focus:border-[#24564A] placeholder:text-[#B7AF9F]"
+                    className="flex-1 min-w-0 text-[14px] text-ink rounded-xl px-3 py-2 bg-fill outline-none focus:ring-2 focus:ring-strong placeholder:text-ink4"
                 />
                 <button type="button" onClick={add} disabled={!name.trim() || busy}
-                        className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-lg px-3 py-2 cursor-pointer disabled:opacity-40">
+                        className="shrink-0 text-[13px] font-bold text-white bg-strong rounded-lg px-3 py-2 cursor-pointer disabled:opacity-40">
                     지점 추가
                 </button>
             </div>

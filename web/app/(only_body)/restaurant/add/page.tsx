@@ -141,21 +141,21 @@ export default function Page() {
 
     return (
         <Suspense fallback={<LoadingPage/>}>
-            <div className="h-[100%] pb-6">
+            <div className="min-h-[100%] bg-surface pb-6">
 
-                <div className="flex items-center gap-3 px-4 py-4 bg-white border-b border-[#E7E0CF]">
-                    <button onClick={() => router.back()} aria-label="뒤로" className="text-[#211D17] cursor-pointer p-2.5 -m-2.5">
+                <div className="flex items-center gap-1 h-14 px-2">
+                    <button onClick={() => router.back()} aria-label="뒤로" className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill transition-colors">
                         <FaArrowLeft size={16}/>
                     </button>
-                    <div className="text-[15px] font-bold text-[#211D17]">음식점 추가</div>
+                    <div className="text-[17px] font-bold text-ink">음식점 추가</div>
                 </div>
 
-                <div className="px-5 pt-6 flex flex-col gap-5">
+                <div className="px-5 pt-3 flex flex-col gap-5">
 
                     <div>
-                        <div id="restaurant-categories-label" className="text-[12.5px] font-bold text-[#8A8172] mb-2">
-                            카테고리 <span className="text-[#D2571E]">*</span>
-                            <span className="ml-1 font-medium text-[#B7AF9F]">여러 개 고를 수 있어요</span>
+                        <div id="restaurant-categories-label" className="text-[12.5px] font-bold text-ink3 mb-2">
+                            카테고리 <span className="text-accent-text">*</span>
+                            <span className="ml-1 font-medium text-ink3">여러 개 고를 수 있어요</span>
                         </div>
                         <CategoryChips categories={categories} selected={selectedCategoryIds}
                                        onChange={setSelectedCategoryIds} labelledBy="restaurant-categories-label"
@@ -163,8 +163,8 @@ export default function Page() {
                     </div>
 
                     <div className="relative">
-                        <label htmlFor="restaurant-name" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
-                            이름 <span className="text-[#D2571E]">*</span>
+                        <label htmlFor="restaurant-name" className="block text-[12.5px] font-bold text-ink3 mb-2">
+                            이름 <span className="text-accent-text">*</span>
                         </label>
                         <input
                             value={name}
@@ -180,13 +180,13 @@ export default function Page() {
                             placeholder="예: 교촌치킨"
                             maxLength={100}
                             autoComplete="off"
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors placeholder:text-[#B7AF9F]"
+                            className="w-full rounded-[14px] px-3.5 py-3 text-[14.5px] text-ink bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                         />
-                        <p className="mt-1.5 text-[11.5px] text-[#B7AF9F]">이름에는 브랜드만 적고, 지점은 아래에 따로 더해 주세요.</p>
+                        <p className="mt-1.5 text-[11.5px] text-ink3">이름에는 브랜드만 적고, 지점은 아래에 따로 더해 주세요.</p>
                         {showNameSuggestions && visibleNameSuggestions.length > 0 && (
                             <div
-                                className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-[#E7E0CF] rounded-xl shadow-md max-h-56 overflow-y-auto">
-                                <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-[#B7AF9F]">
+                                className="absolute z-10 top-full left-0 right-0 mt-1 bg-surface border border-line rounded-xl shadow-md max-h-56 overflow-y-auto">
+                                <p className="px-3.5 pt-2.5 pb-1 text-[11.5px] font-semibold text-ink3">
                                     {keyword
                                         ? "이름이 비슷한 음식점이 이미 있어요. 눌러서 바로 이동할 수 있어요."
                                         : hasCategory
@@ -198,10 +198,10 @@ export default function Page() {
                                         key={restaurant.id}
                                         type="button"
                                         onMouseDown={() => goToExistingRestaurant(restaurant.id)}
-                                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors"
+                                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left cursor-pointer sm:hover:bg-fill transition-colors"
                                     >
-                                        <span className="text-[13.5px] font-bold text-[#211D17] truncate">{restaurant.name}</span>
-                                        <span className="text-[11.5px] text-[#B7AF9F] font-semibold shrink-0">{categoryLabel(restaurant.categories)}</span>
+                                        <span className="text-[13.5px] font-bold text-ink truncate">{restaurant.name}</span>
+                                        <span className="text-[11.5px] text-ink3 font-semibold shrink-0">{categoryLabel(restaurant.categories)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -209,8 +209,8 @@ export default function Page() {
                     </div>
 
                     <div>
-                        <label htmlFor="restaurant-description" className="block text-[12.5px] font-bold text-[#8A8172] mb-2">
-                            설명 <span className="font-medium text-[#B7AF9F]">(선택)</span>
+                        <label htmlFor="restaurant-description" className="block text-[12.5px] font-bold text-ink3 mb-2">
+                            설명 <span className="font-medium text-ink3">(선택)</span>
                         </label>
                         <textarea
                             id="restaurant-description"
@@ -219,13 +219,13 @@ export default function Page() {
                             rows={2}
                             placeholder="예: 양념은 따로 달라고 하기"
                             maxLength={100}
-                            className="w-full border border-[#E7E0CF] rounded-xl px-3.5 py-3 text-[14.5px] text-[#211D17] outline-none focus:border-[#24564A] transition-colors resize-none leading-relaxed placeholder:text-[#B7AF9F]"
+                            className="w-full rounded-[14px] px-3.5 py-3 text-[14.5px] text-ink bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow resize-none leading-relaxed placeholder:text-ink4"
                         />
                     </div>
 
                     <div>
-                        <div className="text-[12.5px] font-bold text-[#8A8172] mb-2">
-                            지점 <span className="font-medium text-[#B7AF9F]">(선택) 메뉴는 같고 맛이 다른 곳</span>
+                        <div className="text-[12.5px] font-bold text-ink3 mb-2">
+                            지점 <span className="font-medium text-ink3">(선택) 메뉴는 같고 맛이 다른 곳</span>
                         </div>
                         <BranchManager branches={branches} onCreate={addBranch} onRemove={removeBranch}/>
                     </div>
@@ -233,7 +233,7 @@ export default function Page() {
                     <button
                         onClick={registerRestaurant}
                         disabled={isSubmitting}
-                        className="w-full py-3.5 rounded-xl bg-[#D2571E] text-white font-bold text-[15px] cursor-pointer sm:hover:bg-[#b84a19] transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full h-14 rounded-[18px] bg-accent text-on-accent font-bold text-[16px] cursor-pointer sm:hover:bg-accent-hover transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSubmitting ? "등록 중…" : "등록"}
                     </button>

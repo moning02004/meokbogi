@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
         description: "음식점을 기록하고 선택을 위한",
         start_url: "/",
         display: "standalone",
-        background_color: "#FBFAF6",
-        theme_color: "#24564A",
+        background_color: "#F3F4F7",
+        theme_color: "#F3F4F7",
         icons: [
             {
                 src: "/icons/icon-192.png",

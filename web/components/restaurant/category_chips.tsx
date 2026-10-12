@@ -63,8 +63,8 @@ export function CategoryChips({categories, selected, onChange, labelledBy, onCre
                             onClick={() => toggle(category.id)}
                             className={`px-3 py-1.5 rounded-full text-[13px] font-bold border cursor-pointer transition-colors ${
                                 active
-                                    ? "bg-[#24564A] text-white border-[#24564A]"
-                                    : "bg-white text-[#8A8172] border-[#E7E0CF] sm:hover:bg-[#F6F3EC]"
+                                    ? "bg-strong text-white border-strong"
+                                    : "bg-fill text-ink2 border-fill sm:hover:bg-fill-hover"
                             }`}
                         >
                             {category.keyword}
@@ -73,7 +73,7 @@ export function CategoryChips({categories, selected, onChange, labelledBy, onCre
                 })}
                 {onCreate && !isAdding && (
                     <button type="button" onClick={() => setIsAdding(true)}
-                            className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-[#D6D2CC] text-[#8A8172] cursor-pointer">
+                            className="px-3 py-1.5 rounded-full text-[13px] font-bold border border-dashed border-line-strong text-ink3 cursor-pointer">
                         + 새 카테고리
                     </button>
                 )}
@@ -93,14 +93,14 @@ export function CategoryChips({categories, selected, onChange, labelledBy, onCre
                         maxLength={100}
                         placeholder="예: 샐러드"
                         aria-label="새 카테고리 이름"
-                        className="flex-1 min-w-0 text-[14px] text-[#211D17] border border-[#E7E0CF] rounded-xl px-3 py-2 outline-none focus:border-[#24564A] placeholder:text-[#B7AF9F]"
+                        className="flex-1 min-w-0 text-[14px] text-ink rounded-[14px] px-3 py-2 bg-fill outline-none focus:ring-2 focus:ring-strong placeholder:text-ink4"
                     />
                     <button type="button" onClick={create} disabled={!newKeyword.trim() || isCreating}
-                            className="shrink-0 text-[13px] font-bold text-white bg-[#24564A] rounded-xl px-3.5 py-2 cursor-pointer disabled:opacity-40">
+                            className="shrink-0 text-[13px] font-bold text-white bg-strong rounded-xl px-3.5 py-2 cursor-pointer disabled:opacity-40">
                         {isCreating ? "추가 중…" : "추가"}
                     </button>
                     <button type="button" onClick={closeAdding}
-                            className="shrink-0 text-[12.5px] font-bold text-[#8A8172] px-1 cursor-pointer">
+                            className="shrink-0 text-[12.5px] font-bold text-ink3 px-1 cursor-pointer">
                         취소
                     </button>
                 </div>

@@ -55,8 +55,8 @@ export function ActionDrawer({
             <Drawer.Trigger asChild>
                 {trigger ?? (
                     <button aria-label={triggerLabel}
-                            className="drawer-button cursor-pointer sm:hover:bg-gray-200 rounded-full p-2.5 -m-2.5">
-                        <LuEllipsisVertical size={16}/>
+                            className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill-hover transition-colors">
+                        <LuEllipsisVertical size={19}/>
                     </button>
                 )}
             </Drawer.Trigger>
@@ -65,45 +65,45 @@ export function ActionDrawer({
                 <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40"/>
 
                 <Drawer.Content
-                    className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full md:w-[50vw] bg-white outline-none rounded-t-lg shadow-lg">
+                    className="fixed bottom-0 left-0 right-0 z-50 mx-auto w-full max-w-[560px] bg-surface outline-none rounded-t-[28px]">
                     <div className="shrink-0 flex flex-col items-center pt-2.5">
-                        <div className="w-10 h-1 rounded-full bg-[#E7E0CF]" aria-hidden/>
+                        <div className="w-10 h-1 rounded-full bg-line-strong" aria-hidden/>
                     </div>
                     {pending?.confirm ? (
                         <div className="flex flex-col gap-3 p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]">
-                            <Drawer.Title className="text-[15px] font-extrabold text-[#211D17]">
+                            <Drawer.Title className="text-[18px] font-extrabold tracking-tight text-ink">
                                 {pending.confirm.title}
                             </Drawer.Title>
                             {pending.confirm.description && (
-                                <Drawer.Description className="text-[13px] text-[#8A8172] leading-relaxed">
+                                <Drawer.Description className="text-[14px] text-ink3 leading-relaxed">
                                     {pending.confirm.description}
                                 </Drawer.Description>
                             )}
                             <div className="flex gap-2 mt-1">
                                 <button
                                     onClick={() => setPending(null)}
-                                    className="flex-1 py-3 rounded-lg text-[13.5px] font-bold text-[#5B5548] bg-white border border-[#E7E0CF] cursor-pointer sm:hover:bg-[#F6F3EC] transition-colors">
+                                    className="flex-1 h-[52px] rounded-2xl text-[15px] font-bold text-ink bg-fill cursor-pointer sm:hover:bg-fill-hover transition-colors">
                                     취소
                                 </button>
                                 <button
                                     onClick={() => run(pending)}
                                     autoFocus
-                                    className={`flex-1 py-3 rounded-lg text-[13.5px] font-bold text-white cursor-pointer transition-colors ${
-                                        pending.danger ? "bg-[#C23B1E] sm:hover:bg-[#a63118]" : "bg-[#24564A] sm:hover:bg-[#1c443a]"
+                                    className={`flex-1 h-[52px] rounded-2xl text-[15px] font-bold text-white cursor-pointer transition-colors ${
+                                        pending.danger ? "bg-danger sm:hover:bg-danger-hover" : "bg-strong sm:hover:bg-strong-hover"
                                     }`}>
                                     {pending.confirm.confirmLabel ?? pending.label}
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+                        <div className="flex flex-col px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
                             <Drawer.Title className="sr-only">메뉴</Drawer.Title>
                             {items.map((item, i) => (
                                 <button
                                     key={i}
                                     onClick={() => item.confirm ? setPending(item) : run(item)}
-                                    className={`w-full p-3 text-left hover:bg-[#efefef] cursor-pointer rounded border-b border-[#ededed] ${
-                                        item.danger ? "text-red-600" : ""
+                                    className={`w-full h-[52px] px-3 text-left text-[16px] font-semibold rounded-xl cursor-pointer sm:hover:bg-fill transition-colors ${
+                                        item.danger ? "text-danger-text" : "text-ink"
                                     }`}
                                 >
                                     {item.label}
@@ -111,7 +111,7 @@ export function ActionDrawer({
                             ))}
                             {closeLabel &&
                                 <Drawer.Close
-                                    className="w-full p-3 hover:bg-[#efefef] rounded cursor-pointer text-left">
+                                    className="w-full h-[52px] px-3 text-left text-[16px] font-semibold text-ink3 rounded-xl cursor-pointer sm:hover:bg-fill transition-colors">
                                     {closeLabel}
                                 </Drawer.Close>
                             }
