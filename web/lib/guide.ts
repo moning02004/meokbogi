@@ -51,6 +51,13 @@ export const openGuideShare = (guide: number) =>
 export const closeGuideShare = (guide: number) =>
     apiRequest[GUIDE_API.unshare.method]<GuideDetailType>(GUIDE_API.unshare.endpoint({guide}))
 
+// 서버가 만든 팜플렛 PDF를 파일로 받는다 (인증 헤더가 필요해서 링크로는 못 받는다)
+export const fetchGuidePamphlet = async (guide: number, title: string) => {
+    const response = await apiRequest[GUIDE_API.pdf.method]<Response>(
+        GUIDE_API.pdf.endpoint({guide}), {}, {isDownloadFile: true})
+    return new File([await response.blob()], `${title}.pdf`, {type: "application/pdf"})
+}
+
 // 골목 끝에 음식점 하나를 싣는다 (음식점 상세의 "골목에 담기"). 이미 실려 있으면 "exists".
 // 한마디는 비워 둔다. 꾸미기 화면에서 직접 쓴다.
 export const addRestaurantToGuide = async (guide: number, restaurant: number) => {

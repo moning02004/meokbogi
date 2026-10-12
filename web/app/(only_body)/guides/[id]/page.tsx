@@ -11,6 +11,7 @@ import {
     closeGuideShare,
     deleteGuide,
     fetchGuide,
+    fetchGuidePamphlet,
     GuideEntryInput,
     GuideFields,
     MAX_GUIDE_ENTRIES,
@@ -81,6 +82,10 @@ export default function Page() {
     const [isSaving, setIsSaving] = useState(false)
     const [isSharing, setIsSharing] = useState(false)
     const [isPickerOpen, setIsPickerOpen] = useState(false)
+    // 만들어 둔 팜플렛 PDF. 만들기와 보내기를 나눈 것은, 휴대폰의 공유 창은 누른 직후에만 열 수 있어서
+    // 서버에서 파일을 받은 뒤에는 한 번 더 눌러야 하기 때문이다.
+    const [pamphlet, setPamphlet] = useState<File | null>(null)
+    const [isMakingPamphlet, setIsMakingPamphlet] = useState(false)
 
     const apply = (detail: GuideDetailType) => {
         const nextFields = {
@@ -96,6 +101,8 @@ export default function Page() {
         setFields(nextFields)
         setEntries(nextEntries)
         setSaved(snapshot(nextFields, nextEntries))
+        // 저장하면 내용이 달라졌으니 만들어 둔 PDF는 버린다
+        setPamphlet(null)
     }
 
     useEffect(() => {
@@ -230,6 +237,42 @@ export default function Page() {
             })
             .catch((error) => toast.error(errorMessage(error, "골목을 지우지 못했어요.")))
     }
+
+    // PDF도 저장된 내용으로 만들어지므로 고친 게 있으면 먼저 저장한다
+    const makePamphlet = async () => {
+        if (isMakingPamphlet) return
+        setIsMakingPamphlet(true)
+        try {
+            if (isDirty && !(await save())) return
+            setPamphlet(await fetchGuidePamphlet(guideId, fields.title.trim()))
+        } catch (error) {
+            toast.error(error instanceof ApiError && error.status === 503
+                ? "이 서버에는 PDF를 만드는 도구가 설치되어 있지 않아요."
+                : errorMessage(error, "PDF를 만들지 못했어요."))
+        } finally {
+            setIsMakingPamphlet(false)
+        }
+    }
+
+    const savePamphlet = (file: File) => {
+        const url = URL.createObjectURL(file)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = file.name
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+
+    const sendPamphlet = (file: File) => {
+        navigator.share({files: [file], title: guide.title}).catch(() => null)
+    }
+
+    // 고친 뒤에는 예전 내용의 PDF를 내밀지 않는다
+    const readyPamphlet = isDirty ? null : pamphlet
+    const canSendFile = !!readyPamphlet && typeof navigator.canShare === "function"
+        && navigator.canShare({files: [readyPamphlet]})
 
     const shareUrl = guide.share_token ? `${window.location.origin}${GUIDE_PAGE.public(guide.share_token)}` : ""
 
@@ -472,6 +515,36 @@ export default function Page() {
                     )}
                 </div>
             </div>
+
+                <div className="mx-4 mb-4 bg-surface rounded-3xl p-4 flex flex-col gap-3">
+                    <div>
+                        <p className="text-[14px] font-semibold text-ink">팜플렛 PDF</p>
+                        <p className="text-[13px] text-ink2 leading-relaxed mt-0.5">
+                            A4 가로 3단으로 접는 모양이에요. 공개하지 않은 골목도 만들 수 있고, 만든 날짜가 찍혀요.
+                        </p>
+                    </div>
+                    {readyPamphlet ? (
+                        <div className="flex gap-2">
+                            {canSendFile && (
+                                <button onClick={() => sendPamphlet(readyPamphlet)}
+                                        className="flex-1 h-12 rounded-[16px] bg-strong text-white font-bold text-[14.5px] cursor-pointer sm:hover:bg-strong-hover transition-colors">
+                                    PDF 보내기
+                                </button>
+                            )}
+                            <button onClick={() => savePamphlet(readyPamphlet)}
+                                    className={`flex-1 h-12 rounded-[16px] font-bold text-[14.5px] cursor-pointer transition-colors ${
+                                        canSendFile ? "bg-fill text-ink sm:hover:bg-fill-hover" : "bg-strong text-white sm:hover:bg-strong-hover"
+                                    }`}>
+                                PDF 저장
+                            </button>
+                        </div>
+                    ) : (
+                        <button onClick={makePamphlet} disabled={isMakingPamphlet}
+                                className="w-full h-12 rounded-[16px] bg-fill text-ink font-bold text-[14.5px] cursor-pointer sm:hover:bg-fill-hover transition-colors disabled:opacity-50">
+                            {isMakingPamphlet ? "만드는 중…" : isDirty ? "저장하고 PDF 만들기" : "PDF 만들기"}
+                        </button>
+                    )}
+                </div>
 
             {/* 저장 버튼은 스크롤해도 화면 아래에 붙어 있다 */}
             <div className="sticky bottom-0 bg-bg px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+12px)]">

@@ -2,8 +2,6 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,6 +23,10 @@ jobs:
           cache-dependency-path: |
             api/requirements.txt
             api/requirements-dev.txt
+
+      # 먹골목 팜플렛 PDF(WeasyPrint)가 쓰는 시스템 라이브러리. 없으면 PDF 테스트가 건너뛰어진다.
+      - name: Install PDF libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
 
       - name: Install
         run: pip install -r requirements-dev.txt
@@ -90,6 +92,7 @@ jobs:
 
       - name: Install
         run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
           pip install -r ../api/requirements.txt
           npm ci
           npx playwright install --with-deps chromium

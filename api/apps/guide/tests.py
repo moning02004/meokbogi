@@ -1,5 +1,6 @@
 import json
 from datetime import date
+from unittest import mock, skipUnless
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -7,10 +8,20 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from apps.guide.models import MAX_ENTRIES, Guide
+from apps.guide.pamphlet import PamphletUnavailable, pamphlet_context
 from apps.restaurant.branch_merge import find_candidates, merge
 from apps.restaurant.models import Branch
 from apps.restaurant.testing import make_category, make_restaurant, make_review
 from apps.zone.models import Zone
+
+
+def can_render_pdf():
+    # WeasyPrint는 pango가 없으면 불러오는 데서 실패한다. 그런 환경에서는 실제 PDF 검사만 건너뛴다.
+    try:
+        import weasyprint  # noqa: F401
+    except (ImportError, OSError):
+        return False
+    return True
 
 
 class GuideTestCase(TestCase):
@@ -231,3 +242,69 @@ class GuideTestCase(TestCase):
         self.assertEqual((entry["restaurant"]["id"], entry["comment"], entry["menus"], entry["visit_count"]),
                          (brand.id, "바삭해요", ["허니콤보"], 1))
         self.assertEqual(entry["branch"], Branch.objects.get(restaurant=brand, name="역삼점").id)
+
+    # ---- 팜플렛 PDF
+
+    def test_pamphlet_layout_and_contents(self):
+        guide_id = self.create_guide(intro="먹어본 집만")
+        extras = [make_restaurant(self.category, name=f"집{index}") for index in range(MAX_ENTRIES - 1)]
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id, "comment": "넉넉해요", "menus": ["손만두"]}]
+                         + [{"restaurant": restaurant.id} for restaurant in extras])
+        guide = Guide.objects.prefetch_related("entries").get(pk=guide_id)
+
+        context = pamphlet_context(guide, date(2026, 10, 13))
+        # 첫 장은 표지 옆 두 단에 여섯 집, 다음 장은 세 단에 아홉 집
+        self.assertEqual([len(column) for column in context["first_columns"]], [3, 3])
+        self.assertEqual([[len(column) for column in page] for page in context["other_pages"]], [[3, 3, 3]])
+        first = context["first_columns"][0][0]
+        self.assertEqual((first["name"], first["visit_count"], first["first_ordered"], first["menu"], first["address"]),
+                         ("진미손칼국수", 2, "2024.11", "손만두", "을지로 12"))
+        # 한마디는 낱말 중간에서 줄이 바뀌지 않게 글자 사이에 붙임표가 들어간다 (띄어쓰기는 그대로)
+        self.assertEqual(first["comment"].replace("\u2060", ""), "넉넉해요")
+        self.assertEqual(context["guide"]["intro"].replace("\u2060", ""), "먹어본 집만")
+        self.assertEqual(context["guide"]["intro"].count(" "), 1)
+        self.assertEqual(context["today"], "2026.10.13")
+        self.assertNotIn("나만 보는 메모", str(context))
+        self.assertNotIn("우리집", str(context))
+
+        # 집이 적으면 빈 단을 남겨 단 폭을 지키고, 둘째 장은 만들지 않는다
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
+        context = pamphlet_context(Guide.objects.get(pk=guide_id), date(2026, 10, 13))
+        self.assertEqual([len(column) for column in context["first_columns"]], [1, 0])
+        self.assertEqual(context["other_pages"], [])
+
+    def test_pamphlet_follows_display_settings(self):
+        guide_id = self.create_guide(show_address=False, show_visits=False)
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id}])
+        context = pamphlet_context(Guide.objects.get(pk=guide_id), date(2026, 10, 13))
+        entry = context["first_columns"][0][0]
+        self.assertEqual((entry.get("address"), entry.get("visit_count"), entry["first_ordered"]), (None, None, ""))
+        self.assertFalse(context["show_visits"])
+
+    @skipUnless(can_render_pdf(), "WeasyPrint를 불러올 수 없는 환경 (pango 없음)")
+    def test_pamphlet_pdf_download(self):
+        guide_id = self.create_guide(intro="먹어본 집만")
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id, "comment": "넉넉해요"}])
+        # 공개하지 않은 골목도 주인은 받는다
+        response = self.client.get(reverse("guide-pdf", kwargs={"guide_pk": guide_id}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn("filename*=utf-8''", response["Content-Disposition"])
+
+    def test_pamphlet_pdf_is_owner_only(self):
+        guide_id = self.create_guide()
+        url = reverse("guide-pdf", kwargs={"guide_pk": guide_id})
+        self.assertIn(Client().get(url).status_code, (401, 403))
+        User.objects.create_user(username="other", password="123")
+        other = Client()
+        other.login(username="other", password="123")
+        self.assertEqual(other.get(url).status_code, 404)
+
+    def test_pamphlet_pdf_without_renderer(self):
+        guide_id = self.create_guide()
+        with mock.patch("apps.guide.views.render_pamphlet", side_effect=PamphletUnavailable("no pango")):
+            response = self.client.get(reverse("guide-pdf", kwargs={"guide_pk": guide_id}))
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("PDF", response.json()["detail"])

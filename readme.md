@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/moning02004/meokbogi/main/install.s
 | 음식점 기록 | 등록·수정·삭제, 지점(같은 브랜드의 역삼점·본점), 방문일·메뉴·한줄평·만족도를 바텀시트로 기록, "또 먹었어요" |
 | 메뉴별 요약 | 같은 가게라도 `간장치킨 최고(3회) / 후라이드 무난(2회)`처럼 메뉴별 집계, 지점별로 거르기 |
 | 뽑기 | 카드 셔플로 카테고리를 뽑고, 오래 안 간 곳·만족한 곳일수록 잘 나오게 음식점까지 뽑기 |
-| 먹골목 | 먹어본 집을 골라 한마디·권하는 메뉴를 붙인 목록("골목")을 만들고, 로그인 없이 열리는 **링크로 공유**. 주문 횟수가 "N번 먹음"으로 찍힘. 리뷰 글·만족도·장소 이름은 나가지 않음 |
+| 먹골목 | 먹어본 집을 골라 한마디·권하는 메뉴를 붙인 목록("골목")을 만들고, 로그인 없이 열리는 **링크로 공유**하거나 **A4 가로 3단 팜플렛 PDF**로 받기. 주문 횟수가 "N번 먹음"으로 찍힘. 리뷰 글·만족도·장소 이름은 나가지 않음 |
 | 백업 | 내 기록(골목 포함)을 JSON(가져오기 가능)·CSV로 내보내기 |
 | 알림 | 웹 푸시. 외부 스케줄러(n8n 등)가 `POST /push/send`로 보냄 |
 | PWA | 홈 화면에 추가하면 주소창 없이 앱처럼 실행, iOS/Android 구분 설치 안내 |
@@ -204,6 +204,7 @@ npm run dev
 | 기본 설정 | `DJANGO_SETTINGS_MODULE` 미지정 시 SQLite(`api/db.sqlite3`) 사용 |
 | PostgreSQL로 개발 | `DJANGO_SETTINGS_MODULE=meokbogi_api.settings.local` + `DB_NAME`/`DB_USER`/`DB_PASSWORD`/`DB_HOST`/`DB_PORT` |
 | 접속 주소 | 개발 설정의 `ALLOWED_HOSTS` 때문에 `127.0.0.1:8000` 대신 **`localhost:8000`** |
+| 팜플렛 PDF | 시스템 라이브러리 pango가 필요 (`brew install pango` / `apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0`). 글꼴은 `python scripts/fetch_fonts.py`로 받음. 없으면 `/guides/{id}/pdf`만 `503`이고 나머지는 그대로 동작. Docker 이미지에는 둘 다 들어 있음 |
 | npm 스크립트 | `dev`(개발 서버) / `build`(프로덕션 빌드) / `start`(빌드 결과 실행) / `lint` |
 
 ---
@@ -259,6 +260,7 @@ npm run dev
 | `GET` `PATCH` `DELETE` | `/guides/{guide_pk}` | ✅ | 골목 상세(실린 집 포함) / 제목·소개·표시 설정 수정 / 삭제 |
 | `PUT` | `/guides/{guide_pk}/entries` | ✅ | 실린 집을 순서째로 통째로 저장 (최대 15곳, 집마다 메뉴 3개) |
 | `POST` `DELETE` | `/guides/{guide_pk}/share` | ✅ | 공개 주소 만들기 / 공개 끄기 (다시 켜면 새 주소) |
+| `GET` | `/guides/{guide_pk}/pdf` | ✅ | 골목을 A4 가로 팜플렛 PDF로 받기 (공개하지 않은 골목도 됨, 내용은 공개 화면과 같음) |
 | `GET` | `/public/guides/{token}` | — | 공개 주소로 골목 읽기. 골목에 적은 내용과 가게 이름·카테고리, 설정에 따라 주소·주문 횟수만 나감 |
 | `GET` | `/push/config` | ✅ | 푸시 공개키 |
 | `POST` `DELETE` | `/push/subscriptions` | ✅ | 이 기기 알림 켜기 / 끄기 |

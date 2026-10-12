@@ -1,6 +1,9 @@
 from django.db import transaction
 from django.db.models import Count, Prefetch
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.http import content_disposition_header
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny
@@ -8,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.guide.models import Guide, GuideEntry
+from apps.guide.pamphlet import PamphletUnavailable, render_pamphlet
 from apps.guide.serializers import EntriesWriteSerializer, GuideDetailSerializer, GuideSerializer, public_guide
 from apps.restaurant.menus import normalize_menu
 from apps.restaurant.models import Restaurant, RestaurantReview
@@ -115,6 +119,24 @@ class GuideShareAPIView(APIView):
         guide = my_guide_or_404(request, self.kwargs["guide_pk"])
         guide.close_share()
         return Response(GuideDetailSerializer(guide).data)
+
+
+class GuidePamphletAPIView(APIView):
+    """골목을 A4 가로 팜플렛 PDF로 내려준다. 공개하지 않은 골목도 주인은 받을 수 있다.
+
+    내용은 공개 화면과 같고(리뷰 글·장소 이름 없음), 파일에는 만든 날짜가 찍힌다.
+    """
+
+    def get(self, request, *args, **kwargs):
+        guide = my_guide_or_404(request, self.kwargs["guide_pk"])
+        try:
+            pdf = render_pamphlet(guide, timezone.localdate())
+        except PamphletUnavailable:
+            return Response({"detail": "이 서버에는 PDF를 만드는 도구가 설치되어 있지 않아요."}, status=503)
+        response = HttpResponse(pdf, content_type="application/pdf")
+        # 한글 제목이 파일 이름에 그대로 들어가게 한다 (filename*=UTF-8''…)
+        response["Content-Disposition"] = content_disposition_header(True, f"{guide.title}.pdf")
+        return response
 
 
 class PublicGuideAPIView(APIView):
