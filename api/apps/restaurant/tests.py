@@ -720,7 +720,7 @@ class ArchiveTestCase(TestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         archive = json.loads(response.content)
 
-        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 4))
+        self.assertEqual((archive["format"], archive["version"]), ("meokbogi-archive", 5))
         # 카테고리는 사용자 것이라 파일 맨 위에 한 번
         self.assertEqual(archive["categories"], ["치킨", "피자"])
         zone = archive["zones"][0]
@@ -730,7 +730,8 @@ class ArchiveTestCase(TestCase):
         self.assertEqual((kyochon["name"], kyochon["address"]), ("교촌치킨", "역 앞"))
         # 리뷰는 먹은 날 순서
         self.assertEqual([r["menu"] for r in kyochon["reviews"]], ["레드콤보", "허니콤보"])
-        self.assertNotIn("id", json.dumps(archive))
+        # "guides"에도 id라는 글자가 들어 있어서 키 이름으로 본다
+        self.assertNotRegex(json.dumps(archive), r'"\w*id"')
 
     def test_export_only_my_records(self):
         other = User.objects.create_user(username="other", password="123")

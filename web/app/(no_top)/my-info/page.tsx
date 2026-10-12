@@ -5,7 +5,7 @@ import {useRouter} from "next/navigation"
 import {LuChevronRight} from "react-icons/lu";
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
-import {USER_API} from "@/constants/routeUrl";
+import {GUIDE_PAGE, USER_API} from "@/constants/routeUrl";
 import {apiRequest, errorMessage} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
@@ -177,7 +177,21 @@ export default function Page() {
                 </div>
 
                 {/* ---- 카테고리별 음식점: 길어서 별도 페이지 ---- */}
+                {/* ---- 먹골목 ---- */}
                 <div className="px-5 pt-5">
+                    <button
+                        onClick={() => router.push(GUIDE_PAGE.list)}
+                        className="w-full flex items-center justify-between bg-surface rounded-3xl px-4 py-3.5 cursor-pointer sm:hover:bg-fill transition-colors"
+                    >
+                        <span className="text-left">
+                            <span className="block text-[14px] font-semibold text-ink">먹골목</span>
+                            <span className="block text-[12px] text-ink3">먹어본 집을 골라 링크로 건네기</span>
+                        </span>
+                        <LuChevronRight size={16} className="shrink-0 text-ink3"/>
+                    </button>
+                </div>
+
+                <div className="px-5 pt-3">
                     <button
                         onClick={() => router.push("/categories")}
                         className="w-full flex items-center justify-between bg-surface rounded-3xl px-4 py-3.5 cursor-pointer sm:hover:bg-fill transition-colors"

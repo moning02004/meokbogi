@@ -48,7 +48,9 @@ def find_candidates(queryset=None):
 
 @transaction.atomic
 def merge(candidate):
-    """리뷰를 브랜드로 옮기고 지점을 붙인다. 메뉴는 브랜드 메뉴로 합치고, 카테고리는 합집합, 설명은 비어 있을 때만 가져온다."""
+    """리뷰를 브랜드로 옮기고 지점을 붙인다. 메뉴는 브랜드 메뉴로 합치고, 카테고리는 합집합, 설명은 비어 있을 때만 가져온다.
+
+    골목(먹골목)에 실려 있던 집도 브랜드로 옮긴다."""
     source, brand = candidate.source, candidate.brand
     branch, _ = Branch.objects.get_or_create(restaurant=brand, name_key=normalize_menu(candidate.branch_name),
                                              defaults={"name": candidate.branch_name})
@@ -62,6 +64,7 @@ def merge(candidate):
         review.save(update_fields=["restaurant", "menu", "branch"])
         moved += 1
 
+    _move_guide_entries(source, brand, branch)
     brand.categories.add(*source.categories.all())
     if not brand.description and source.description:
         brand.description = source.description
@@ -73,3 +76,16 @@ def merge(candidate):
 def _branch_on(brand, name):
     branch, _ = Branch.objects.get_or_create(restaurant=brand, name_key=normalize_menu(name), defaults={"name": name})
     return branch
+
+
+def _move_guide_entries(source, brand, branch):
+    """골목에 실린 "교촌치킨 역삼점"을 "교촌치킨"의 역삼점으로 바꾼다. 같은 골목에 브랜드가 이미 실려 있으면 그쪽을 남긴다."""
+    for entry in source.guide_entries.select_related("branch").prefetch_related("menus"):
+        if brand.guide_entries.filter(guide_id=entry.guide_id).exists():
+            entry.delete()
+            continue
+        menus = [get_or_create_menu(brand, menu.name) for menu in entry.menus.all()]
+        entry.restaurant = brand
+        entry.branch = branch if entry.branch_id is None else _branch_on(brand, entry.branch.name)
+        entry.save(update_fields=["restaurant", "branch"])
+        entry.menus.set(menus)

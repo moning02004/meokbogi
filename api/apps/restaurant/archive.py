@@ -1,8 +1,9 @@
 """내 기록 내보내기·가져오기.
 
-파일 형식(JSON, version 4)은 장소 → 음식점 → 리뷰를 중첩한다. 카테고리는 사용자 것이라 파일 맨 위의
+파일 형식(JSON, version 5)은 장소 → 음식점 → 리뷰를 중첩한다. 카테고리는 사용자 것이라 파일 맨 위의
 목록과 음식점마다 붙은 이름으로, 지점은 음식점의 지점 이름 목록과 리뷰마다 지점 이름으로 담는다.
-id를 담지 않아 다른 서버로 옮겨도 그대로 되살릴 수 있다.
+골목(먹골목)은 파일 맨 위의 guides에 담고, 실린 집은 장소 이름과 음식점 이름으로 가리킨다 (version 5부터).
+id를 담지 않아 다른 서버로 옮겨도 그대로 되살릴 수 있다. 공개 주소는 담지 않으므로 가져온 골목은 비공개로 시작한다.
 예전 파일도 가져온다: version 1(1.4~1.5, 장소 → 카테고리 → 음식점)은 version 2 모양으로 바꾸고,
 version 2·3의 장소별 카테고리 목록은 사용자 카테고리로 합친다.
 
@@ -12,6 +13,7 @@ version 2·3의 장소별 카테고리 목록은 사용자 카테고리로 합�
 - 지점은 음식점 안에서 공백·대소문자를 무시한 이름으로 같은 것을 찾는다.
 - 리뷰는 (먹은 날, 메뉴, 지점, 만족도, 한줄평)이 모두 같으면 이미 있는 것으로 보고 건너뛴다.
   같은 파일을 두 번 가져와도 늘어나지 않는다.
+- 골목은 제목이 같은 것이 이미 있으면 건너뛴다 (지금 서버에서 꾸민 쪽을 남긴다).
 """
 import csv
 import io
@@ -26,7 +28,7 @@ from apps.restaurant.models import Branch, Restaurant, RestaurantReview
 from apps.zone.models import Category, Zone
 
 ARCHIVE_FORMAT = "meokbogi-archive"
-ARCHIVE_VERSION = 4
+ARCHIVE_VERSION = 5
 POINT_LABELS = {1: "만족", 0: "보통", -1: "실망"}
 
 
@@ -72,6 +74,27 @@ def build_archive(user):
                 ],
             }
             for zone in zones
+        ],
+        "guides": [
+            {
+                "title": guide.title,
+                "intro": guide.intro,
+                "edition": guide.edition,
+                "show_address": guide.show_address,
+                "show_visits": guide.show_visits,
+                "entries": [
+                    {
+                        "zone": entry.restaurant.zone.name,
+                        "restaurant": entry.restaurant.name,
+                        "branch": entry.branch.name if entry.branch_id else "",
+                        "comment": entry.comment,
+                        "menus": [menu.name for menu in entry.menus.all()],
+                    }
+                    for entry in sorted(guide.entries.all(), key=lambda e: (e.position, e.id))
+                ],
+            }
+            for guide in user.guides.order_by("id").prefetch_related(
+                "entries__restaurant__zone", "entries__branch", "entries__menus")
         ],
     }
 
@@ -123,11 +146,30 @@ class ZoneArchiveSerializer(serializers.Serializer):
     restaurants = RestaurantArchiveSerializer(many=True, default=list)
 
 
+class GuideEntryArchiveSerializer(serializers.Serializer):
+    zone = serializers.CharField(max_length=100)
+    restaurant = serializers.CharField(max_length=100)
+    branch = serializers.CharField(max_length=100, allow_blank=True, default="")
+    comment = serializers.CharField(max_length=100, allow_blank=True, default="")
+    menus = serializers.ListField(child=serializers.CharField(max_length=255), default=list)
+
+
+class GuideArchiveSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=50)
+    intro = serializers.CharField(max_length=200, allow_blank=True, default="")
+    edition = serializers.CharField(max_length=20, allow_blank=True, default="")
+    show_address = serializers.BooleanField(default=True)
+    show_visits = serializers.BooleanField(default=True)
+    entries = GuideEntryArchiveSerializer(many=True, default=list)
+
+
 class ArchiveSerializer(serializers.Serializer):
     format = serializers.CharField()
     version = serializers.IntegerField()
     categories = serializers.ListField(child=serializers.CharField(max_length=100), default=list)
     zones = ZoneArchiveSerializer(many=True)
+    # version 5부터. 예전 파일에는 없다.
+    guides = GuideArchiveSerializer(many=True, default=list)
 
     def validate_format(self, value):
         if value != ARCHIVE_FORMAT:
@@ -174,7 +216,8 @@ def import_archive(user, archive, dry_run=False):
     dry_run이면 같은 계산을 하고 되돌린다 (가져오기 전 미리보기).
     """
     summary = {key: 0 for key in ("zones_created", "categories_created", "restaurants_created",
-                                  "restaurants_matched", "reviews_created", "reviews_skipped")}
+                                  "restaurants_matched", "reviews_created", "reviews_skipped",
+                                  "guides_created", "guides_skipped")}
 
     with transaction.atomic():
         zones_by_name = {zone.name.strip(): zone for zone in Zone.objects.filter(user=user)}
@@ -238,6 +281,8 @@ def import_archive(user, archive, dry_run=False):
                     branch_for(name)
                 _merge_reviews(user, restaurant, restaurant_data["reviews"], summary, branch_for)
 
+        _merge_guides(user, archive["guides"], summary)
+
         if dry_run:
             transaction.set_rollback(True)
 
@@ -266,3 +311,37 @@ def _merge_reviews(user, restaurant, reviews, summary, branch_for):
 
     RestaurantReview.objects.bulk_create(to_create)
     summary["reviews_created"] += len(to_create)
+
+
+def _merge_guides(user, guides, summary):
+    """골목을 되살린다. 음식점·리뷰를 다 합친 뒤에 불러서 실린 집과 메뉴를 이름으로 찾는다.
+
+    찾지 못한 집·지점·메뉴는 조용히 뺀다 (파일을 손으로 고친 경우). 같은 집이 두 번 나오면 처음 것만 싣는다.
+    """
+    titles = {_name_key(guide.title) for guide in user.guides.all()}
+    restaurants = {(r.zone.name.strip(), _name_key(r.name)): r for r in
+                   Restaurant.objects.filter(zone__user=user).select_related("zone")
+                   .prefetch_related("branches", "menus")}
+
+    for guide_data in guides:
+        title = guide_data["title"].strip()
+        if _name_key(title) in titles:
+            summary["guides_skipped"] += 1
+            continue
+        titles.add(_name_key(title))
+        guide = user.guides.create(title=title, intro=guide_data["intro"], edition=guide_data["edition"],
+                                   show_address=guide_data["show_address"], show_visits=guide_data["show_visits"])
+        summary["guides_created"] += 1
+
+        seen = set()
+        for entry_data in guide_data["entries"]:
+            restaurant = restaurants.get((entry_data["zone"].strip(), _name_key(entry_data["restaurant"])))
+            if restaurant is None or restaurant.id in seen:
+                continue
+            seen.add(restaurant.id)
+            branches = {branch.name_key: branch for branch in restaurant.branches.all()}
+            menus = {menu.name_key: menu for menu in restaurant.menus.all()}
+            entry = guide.entries.create(restaurant=restaurant, position=len(seen) - 1,
+                                         branch=branches.get(normalize_menu(entry_data["branch"])),
+                                         comment=entry_data["comment"].strip())
+            entry.menus.set([menus[key] for key in map(normalize_menu, entry_data["menus"]) if key in menus])

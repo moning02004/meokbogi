@@ -30,6 +30,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
     const [categoryIds, setCategoryIds] = useState(() => restaurant.categories.map((category) => category.id))
     const [name, setName] = useState(restaurant.name)
     const [description, setDescription] = useState(restaurant.description ?? "")
+    const [address, setAddress] = useState(restaurant.address ?? "")
     const [error, setError] = useState("")
     const [isSaving, setIsSaving] = useState(false)
 
@@ -75,6 +76,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                 category_ids: categoryIds,
                 name: name.trim(),
                 description: description.trim(),
+                address: address.trim(),
             })
         }).then(() => {
             onOpenChange(false)
@@ -153,6 +155,21 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                                 rows={2}
                                 placeholder="예: 양념은 따로 달라고 하기"
                                 className="w-full text-[14px] text-ink rounded-[14px] px-3.5 py-2.5 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4 resize-none leading-relaxed"
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="edit-address" className="block text-[13px] font-semibold text-ink3 mb-2">
+                                주소 <span className="font-medium text-ink3">(선택)</span>
+                            </label>
+                            <input
+                                id="edit-address"
+                                value={address}
+                                onChange={(e) => setAddress(e.target.value)}
+                                maxLength={255}
+                                placeholder="예: 을지로12길 3"
+                                autoComplete="off"
+                                className="w-full text-[15px] text-ink rounded-[14px] px-3.5 py-3 bg-fill outline-none focus:ring-2 focus:ring-strong transition-shadow placeholder:text-ink4"
                             />
                         </div>
 

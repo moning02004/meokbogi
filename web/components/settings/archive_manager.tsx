@@ -56,7 +56,7 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
 
     const preview = pending?.preview
     const nothingNew = preview && !preview.zones_created && !preview.categories_created
-        && !preview.restaurants_created && !preview.reviews_created
+        && !preview.restaurants_created && !preview.reviews_created && !preview.guides_created
 
     return (
         <>
@@ -139,6 +139,11 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
                                     </div>
                                 ))}
                             </dl>
+                        )}
+                        {preview.guides_created > 0 && (
+                            <p className="text-[12px] text-ink3 leading-relaxed">
+                                먹골목의 골목 {preview.guides_created}개도 가져와요. 가져온 골목은 비공개로 시작해요.
+                            </p>
                         )}
                         {(preview.restaurants_matched > 0 || preview.reviews_skipped > 0) && (
                             <p className="text-[12px] text-ink3 leading-relaxed">
