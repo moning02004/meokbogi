@@ -1,0 +1,14 @@
+<div class="entry">
+  <div class="head">
+    <div class="text">
+      {% if entry.category %}<p class="category">{{ entry.category }}</p>{% endif %}
+      <h2 class="name">{{ entry.name }}{% if entry.branch %} <span class="branch">{{ entry.branch }}</span>{% endif %}</h2>
+    </div>
+    {% if entry.visit_count %}<div class="stamp"><b>{{ entry.visit_count }}</b><i>번</i></div>{% endif %}
+  </div>
+  {% if entry.comment %}<p class="comment">{{ entry.comment }}</p>{% endif %}
+  {% if entry.menu %}<p class="menu">{{ entry.menu }}</p>{% endif %}
+  {% if entry.address or entry.first_ordered %}
+  <p class="meta">{{ entry.address }}{% if entry.address and entry.first_ordered %} · {% endif %}{% if entry.first_ordered %}첫 주문 {{ entry.first_ordered }}{% endif %}</p>
+  {% endif %}
+</div>

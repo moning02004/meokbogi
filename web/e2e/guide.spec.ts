@@ -81,6 +81,44 @@ test.describe("먹골목", () => {
         await expect(visitor.getByText("열 수 없는 골목이에요")).toBeVisible()
     })
 
+    test("공개하지 않은 골목도 팜플렛 PDF로 받는다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        const zone = await api.createZone("우리집")
+        const restaurant = await api.createRestaurant(zone.id, category(zone, "치킨").id, "교촌치킨")
+        await api.createReview(restaurant.id, {menu: "허니콤보"})
+        await loginUi(page, user)
+        await expect(page.getByText("우리집 기록")).toBeVisible()
+
+        await page.goto("/guides")
+        await page.getByLabel("새 골목").fill("야식 골목")
+        await page.getByRole("button", {name: "골목 만들기"}).click()
+        await expect(page.getByText("골목 꾸미기")).toBeVisible()
+
+        // PDF를 만드는 라이브러리(pango)가 없는 개발 환경에서는 서버가 503을 준다. 그때는 화면 흐름만 본다.
+        await page.route("**/guides/*/pdf", async (route) => {
+            const response = await route.fetch()
+            if (response.status() !== 503) return route.fulfill({response})
+            return route.fulfill({status: 200, contentType: "application/pdf", body: "%PDF-1.4\n%%EOF"})
+        })
+
+        await page.getByRole("button", {name: "음식점 고르기"}).click()
+        await page.getByRole("dialog").getByRole("button", {name: /교촌치킨/}).click()
+        await page.getByRole("dialog").getByRole("button", {name: "닫기"}).click()
+
+        // 고친 게 있으면 저장부터 한다
+        await page.getByRole("button", {name: "저장하고 PDF 만들기"}).click()
+        const downloading = page.waitForEvent("download")
+        await page.getByRole("button", {name: "PDF 저장"}).click()
+        const download = await downloading
+        expect(download.suggestedFilename()).toBe("야식 골목.pdf")
+        await expect(page.getByRole("button", {name: "저장됨"})).toBeVisible()
+
+        // 다시 고치면 예전 PDF는 내밀지 않는다
+        await page.getByLabel("한마디").fill("바삭해요")
+        await expect(page.getByRole("button", {name: "저장하고 PDF 만들기"})).toBeVisible()
+    })
+
     test("음식점 상세에서 골목에 담는다", async ({page, request}) => {
         const user = createUser()
         const api = await Api.login(request, user)

@@ -1,9 +1,13 @@
 FROM python:3.13-slim
 
-# 휠이 없는 아키텍처에서 패키지를 빌드할 때만 필요하다
+# build-essential·libffi-dev: 휠이 없는 아키텍처에서 패키지를 빌드할 때만 필요하다
+# libpango…: 먹골목 팜플렛 PDF(WeasyPrint)가 글자를 그릴 때 쓴다
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libffi-dev \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libharfbuzz-subset0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -13,6 +17,9 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements-dev.txt
+
+COPY scripts/fetch_fonts.py scripts/fetch_fonts.py
+RUN python scripts/fetch_fonts.py
 
 COPY . .
 

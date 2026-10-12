@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{{ guide.title }}</title>
+<style>
+/* 종이는 화면 테마와 상관없이 한 가지 색. 포인트는 앱의 연두(#BBDB7A)와 그 진한 색. */
+@font-face { font-family: "Pretendard"; font-weight: 400; src: url("{{ font_dir }}/Pretendard-Regular.otf"); }
+@font-face { font-family: "Pretendard"; font-weight: 600; src: url("{{ font_dir }}/Pretendard-SemiBold.otf"); }
+@font-face { font-family: "Pretendard"; font-weight: 800; src: url("{{ font_dir }}/Pretendard-ExtraBold.otf"); }
+@font-face { font-family: "Gowun Batang"; font-weight: 700; src: url("{{ font_dir }}/GowunBatang-Bold.ttf"); }
+
+@page { size: A4 landscape; margin: 0; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Pretendard", sans-serif; font-size: 9.5pt; line-height: 1.5; color: #1B1E17; letter-spacing: -0.01em; overflow-wrap: break-word; }
+p, h1, h2 { margin: 0; }
+
+.sheet { width: 297mm; height: 210mm; display: flex; background: #FCFCF8; page-break-after: always; overflow: hidden; }
+.sheet:last-child { page-break-after: auto; }
+.panel { width: 99mm; height: 210mm; box-sizing: border-box; padding: 14mm 11mm; }
+/* 접는 자리 */
+.panel + .panel { border-left: 0.2mm dashed #DDE1D3; }
+
+.cover { background: #F1F8E4; display: flex; flex-direction: column; justify-content: space-between; }
+.mark { font-size: 10pt; font-weight: 800; color: #4A7A12; }
+.edition { font-size: 10pt; color: #50564A; margin-bottom: 3mm; }
+.title { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 30pt; line-height: 1.2; letter-spacing: -0.03em; }
+.intro { margin-top: 6mm; font-size: 10.5pt; line-height: 1.7; color: #50564A; white-space: pre-line; }
+.legend { border-top: 0.3mm solid #1B1E17; padding-top: 4mm; display: flex; align-items: center; font-size: 9pt; color: #50564A; }
+.legend .stamp { margin-right: 4mm; }
+.legend p { flex: 1; }
+.foot { margin-top: 4mm; font-size: 8pt; color: #7C8275; }
+
+/* 한 단에 세 집. 글이 길어도 다음 집을 밀어내지 않게 칸 높이를 고정한다. */
+.entry { height: 60.6mm; box-sizing: border-box; overflow: hidden; padding: 0 0 4mm; }
+.entry + .entry { border-top: 0.2mm solid #DDE1D3; padding-top: 5mm; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; }
+.head .text { flex: 1; padding-right: 3mm; }
+.category { font-size: 8.5pt; font-weight: 600; color: #4A7A12; }
+.name { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 15.5pt; line-height: 1.25; letter-spacing: -0.03em; }
+.branch { font-family: "Pretendard", sans-serif; font-size: 9.5pt; font-weight: 600; color: #50564A; }
+.comment { margin-top: 2.5mm; font-size: 9.8pt; line-height: 1.55; }
+.menu { margin-top: 2mm; font-size: 8.8pt; font-weight: 600; color: #50564A; }
+/* 주소가 길면 한 줄에서 줄인다 */
+.meta { margin-top: 0.8mm; font-size: 8.3pt; color: #7C8275; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.stamp { width: 12.5mm; height: 12.5mm; box-sizing: border-box; border: 0.5mm solid #4A7A12; border-radius: 50%; color: #4A7A12; text-align: center; transform: rotate(-8deg); flex: none; }
+.stamp b { display: block; margin-top: 1.7mm; font-size: 13pt; font-weight: 800; line-height: 1; }
+.stamp i { display: block; margin-top: 0.3mm; font-style: normal; font-size: 6.5pt; font-weight: 600; line-height: 1; }
+
+.empty { color: #7C8275; font-size: 10pt; }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="panel cover">
+    <p class="mark">먹골목</p>
+    <div>
+      {% if guide.edition %}<p class="edition">{{ guide.edition }}</p>{% endif %}
+      <h1 class="title">{{ guide.title }}</h1>
+      {% if guide.intro %}<p class="intro">{{ guide.intro }}</p>{% endif %}
+    </div>
+    <div>
+      {% if show_visits %}
+      <div class="legend">
+        <div class="stamp"><b>N</b><i>번</i></div>
+        <p>도장의 숫자는 제가 그 집에서<br>주문한 횟수입니다.</p>
+      </div>
+      {% endif %}
+      <p class="foot">먹어본 집만 실었습니다 · {{ today }} 기준 · 먹보기</p>
+    </div>
+  </div>
+  {% for column in first_columns %}
+  <div class="panel">
+    {% for entry in column %}{% include "guide/pamphlet_entry.html" %}{% empty %}
+    {% if forloop.first %}<p class="empty">아직 실린 집이 없습니다.</p>{% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+{% for page in other_pages %}
+<div class="sheet">
+  {% for column in page %}
+  <div class="panel">
+    {% for entry in column %}{% include "guide/pamphlet_entry.html" %}{% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+</body>
+</html>

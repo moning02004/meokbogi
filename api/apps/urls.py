@@ -68,6 +68,7 @@ urlpatterns = [
     path("guides/<int:guide_pk>", guide_views.GuideDetailAPIView.as_view(), name="guide-detail"),
     path("guides/<int:guide_pk>/entries", guide_views.GuideEntriesAPIView.as_view(), name="guide-entries"),
     path("guides/<int:guide_pk>/share", guide_views.GuideShareAPIView.as_view(), name="guide-share"),
+    path("guides/<int:guide_pk>/pdf", guide_views.GuidePamphletAPIView.as_view(), name="guide-pdf"),
     # 로그인 없이 읽는 공개 주소
     path("public/guides/<str:token>", guide_views.PublicGuideAPIView.as_view(), name="public-guide"),
 ]

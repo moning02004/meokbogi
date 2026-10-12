@@ -1,3 +1,5 @@
 venv
 db.sqlite3
 e2e.sqlite3
+# 팜플렛 PDF 글꼴 (scripts/fetch_fonts.py 로 받는다)
+apps/guide/fonts/

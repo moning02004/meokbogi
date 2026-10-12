@@ -175,6 +175,11 @@ export const GUIDE_API = {
         method: "delete",
         endpoint: (args: EndpointArgs) => `/guides/${args.guide}/share`
     },
+    // A4 가로 팜플렛 PDF
+    pdf: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/guides/${args.guide}/pdf`
+    },
 } satisfies Record<string, StaticApiEndpointConfig | DynamicApiEndpointConfig>;
 
 export const USER_API = {
