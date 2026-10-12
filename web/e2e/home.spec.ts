@@ -19,6 +19,44 @@ test.describe("홈과 설정", () => {
         await expect(page.getByText("요즘 맛집")).toHaveCount(0)
     })
 
+    test("홈 카드를 누르면 통계 화면에서 월별 주문과 카테고리 순위를 본다", async ({page, request}) => {
+        const user = createUser()
+        const api = await Api.login(request, user)
+        const zone = await api.createZone("우리집")
+        const chicken = await api.createRestaurant(zone.id, category(zone, "치킨").id, "교촌치킨")
+        const snack = await api.createRestaurant(zone.id, category(zone, "분식").id, "김밥천국")
+        await api.createReview(chicken.id, {menu: "허니콤보", ordered_at: daysAgo(0)})
+        // 같은 날 같은 가게에서 메뉴를 하나 더 기록해도 방문은 한 번
+        await api.createReview(chicken.id, {menu: "레드콤보", ordered_at: daysAgo(0)})
+        await api.createReview(chicken.id, {menu: "허니콤보", ordered_at: daysAgo(40)})
+        await api.createReview(snack.id, {menu: "김밥", ordered_at: daysAgo(40)})
+        await loginUi(page, user)
+
+        await page.getByRole("button", {name: "통계 보기"}).click()
+        await expect(page.getByRole("heading", {name: "월별 주문"})).toBeVisible()
+        await expect(page.getByText("치킨을 가장 많이 먹었어요")).toBeVisible()
+
+        // 처음에는 이번 달, 막대를 누르면 그 달의 횟수로 바뀐다
+        const now = new Date()
+        await expect(page.getByRole("button", {name: `${now.getFullYear()}년 ${now.getMonth() + 1}월 1번`})).toHaveAttribute("aria-pressed", "true")
+        const before = new Date()
+        before.setDate(before.getDate() - 40)
+        await page.getByRole("button", {name: `${before.getFullYear()}년 ${before.getMonth() + 1}월 2번`}).click()
+        await expect(page.getByText(`${before.getFullYear()}년 ${before.getMonth() + 1}월`, {exact: true})).toBeVisible()
+
+        // 고른 달의 달력에 기록한 날이 표시되고, 아래에 날짜별로 간 곳이 나온다
+        const days = page.getByRole("region", {name: `${before.getMonth() + 1}월 기록`})
+        await expect(days.getByText(`${before.getMonth() + 1}월에 2번 기록했어요`)).toBeVisible()
+        await expect(days.getByText("기록을 남긴 날은 모두 1일이에요.")).toBeVisible()
+        await expect(days.getByRole("button", {name: `${before.getMonth() + 1}월 ${before.getDate()}일, 기록 2곳`})).toBeVisible()
+        await expect(days.getByRole("button", {name: /교촌치킨.*허니콤보/})).toBeVisible()
+        await expect(days.getByRole("button", {name: /김밥천국.*김밥/})).toBeVisible()
+
+        // 음식점을 누르면 그 음식점 상세로 간다
+        await days.getByRole("button", {name: /김밥천국/}).click()
+        await expect(page.getByRole("heading", {name: "김밥천국"})).toBeVisible()
+    })
+
     test("장소 이름을 바꾸면 상단바에도 바로 반영된다", async ({page, request}) => {
         const user = createUser()
         await (await Api.login(request, user)).createZone("우리집")

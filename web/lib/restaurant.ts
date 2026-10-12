@@ -1,6 +1,7 @@
 import {apiRequest} from "@/lib/api";
 import {RESTAURANT_API, ZONE_API} from "@/constants/routeUrl";
 import {CategoryType} from "@/types/zone";
+import {MonthlyVisit} from "@/lib/stats";
 
 // "치킨 · 분식" 처럼 음식점의 카테고리를 한 줄로
 export const categoryLabel = (categories: CategoryType[]) => categories.map((category) => category.keyword).join(" · ")
@@ -15,6 +16,7 @@ export interface DashboardResponseType {
     restaurant_count: number;
     review_count: number;
     monthly_visited_count: number;
+    monthly_visits: MonthlyVisit[];   // 최근 6개월, 오래된 달부터
 }
 
 export const fetchZoneDashboard = async (zoneId: number) => {

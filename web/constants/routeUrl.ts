@@ -2,6 +2,8 @@ export const ZONE_PAGE = {
     add: "/zone/add"
 }
 
+export const STATS_PAGE = "/stats"
+
 type ApiMethod = "get" | "post" | "patch" | "delete"
 
 interface StaticApiEndpointConfig {
@@ -27,6 +29,10 @@ export const ZONE_API = {
     dashboard: {
         method: "get",
         endpoint: (args: EndpointArgs) => `/zones/${args.zone}/dashboard`
+    },
+    stats: {
+        method: "get",
+        endpoint: (args: EndpointArgs) => `/zones/${args.zone}/stats`
     },
     update: {
         method: "patch",

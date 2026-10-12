@@ -5,7 +5,9 @@ import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {errorMessage} from "@/lib/api";
 import {syncZones} from "@/lib/zone";
-import {RESTAURANT_PAGE, ZONE_PAGE} from "@/constants/routeUrl";
+import {RESTAURANT_PAGE, STATS_PAGE, ZONE_PAGE} from "@/constants/routeUrl";
+import {MonthlyBars} from "@/components/chart/monthly_bars";
+import {MonthlyVisit} from "@/lib/stats";
 import {useZoneStore} from "@/store/zone";
 import {daysSince} from "@/lib/date";
 import toast from "react-hot-toast";
@@ -29,6 +31,7 @@ export default function Page() {
     const [restaurantCount, setRestaurantCount] = useState(0)
     const [reviewCount, setReviewCount] = useState(0)
     const [monthlyVisitedCount, setMonthlyVisitedCount] = useState(0)
+    const [monthlyVisits, setMonthlyVisits] = useState<MonthlyVisit[]>([])
     const [deliciousRestaurants, setDeliciousRestaurants] = useState<DeliciousRestaurant[]>([])
     const [recentRegisteredRestaurants, setRecentRegisteredRestaurants] = useState<RecentRegisteredRestaurant[]>([])
     const [forgottenRestaurants, setForgottenRestaurants] = useState<RecentRegisteredRestaurant[]>([])
@@ -55,6 +58,7 @@ export default function Page() {
                 setRestaurantCount(res.restaurant_count)
                 setReviewCount(res.review_count)
                 setMonthlyVisitedCount(res.monthly_visited_count)
+                setMonthlyVisits(res.monthly_visits ?? [])
             }
         ).catch((error) => toast.error(errorMessage(error)))
         return () => {
@@ -90,19 +94,29 @@ export default function Page() {
 
                 {/* ---- 이번 달 기록 카드 ---- */}
                 <section className="shrink-0 rounded-3xl bg-surface px-[22px] pt-[22px] pb-[18px] flex flex-col gap-[18px]">
-                    <div>
-                        <div className="flex items-center gap-1.5 text-[14px] font-semibold text-ink3">
-                            <BsForkKnife size={13}/>
-                            {selectedZone.name} 기록
-                        </div>
-                        <div className="flex items-baseline gap-1 mt-2">
-                            <span className="text-[44px] leading-none font-extrabold tracking-tight tabular-nums text-ink">
-                                {monthlyVisitedCount}
+                    {/* 누르면 통계 화면으로. 오른쪽은 최근 여섯 달의 흐름 */}
+                    <button type="button" aria-label="통계 보기" onClick={() => router.push(STATS_PAGE)}
+                            className="flex items-end justify-between gap-4 text-left cursor-pointer">
+                        <span className="block min-w-0">
+                            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink3">
+                                <BsForkKnife size={13}/>
+                                {selectedZone.name} 기록
+                                <LuChevronRight size={15} className="text-ink4 -ml-0.5"/>
                             </span>
-                            <span className="text-[20px] font-bold text-ink">번</span>
-                            <span className="ml-1.5 text-[14px] font-semibold text-ink3">이번 달 주문</span>
-                        </div>
-                    </div>
+                            <span className="flex items-baseline gap-1 mt-2">
+                                <span className="text-[44px] leading-none font-extrabold tracking-tight tabular-nums text-ink">
+                                    {monthlyVisitedCount}
+                                </span>
+                                <span className="text-[20px] font-bold text-ink">번</span>
+                                <span className="ml-1.5 text-[14px] font-semibold text-ink3 whitespace-nowrap">이번 달 주문</span>
+                            </span>
+                        </span>
+                        {monthlyVisits.length > 0 && (
+                            <span className="block w-[108px] shrink-0">
+                                <MonthlyBars months={monthlyVisits} height={48} compact/>
+                            </span>
+                        )}
+                    </button>
                     <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-2xl bg-fill px-3.5 py-3">
                             <p className="text-[12.5px] font-semibold text-ink3">등록한 음식점</p>

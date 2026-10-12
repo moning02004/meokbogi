@@ -30,6 +30,11 @@
   --accent-text: #4A7A12;
   --accent-soft: #F1F8E4;
 
+  /* 차트 막대. 고른 달은 진하게, 나머지는 옅게 */
+  --chart: #5F9A22;
+  --on-chart: #FFFFFF;
+  --chart-muted: #CFE3AD;
+
   /* 만족도 */
   --good: #0A6B4A;
   --good-soft: #E3F4EC;
@@ -68,6 +73,10 @@
     --accent-text: #BBDB7A;
     --accent-soft: #26301A;
 
+    --chart: #BBDB7A;
+    --on-chart: #17191F;
+    --chart-muted: #47562D;
+
     --good: #5FD3A2;
     --good-soft: #16302A;
     --warn: #F2C45A;
@@ -100,6 +109,9 @@
   --color-on-accent: var(--on-accent);
   --color-accent-text: var(--accent-text);
   --color-accent-soft: var(--accent-soft);
+  --color-chart: var(--chart);
+  --color-on-chart: var(--on-chart);
+  --color-chart-muted: var(--chart-muted);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
   --color-warn: var(--warn);
