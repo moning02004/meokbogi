@@ -1,5 +1,5 @@
 import {expect, test} from "@playwright/test";
-import {Api, category, createUser, daysAgo, loginUi} from "./helpers";
+import {Api, category, createUser, daysAgo, loginUi, seoulToday} from "./helpers";
 
 test.describe("홈과 설정", () => {
     test("만족했지만 오래 안 간 곳이 '오랜만에 가볼 곳'에 나온다", async ({page, request}) => {
@@ -37,9 +37,9 @@ test.describe("홈과 설정", () => {
         await expect(page.getByText("치킨을 가장 많이 먹었어요")).toBeVisible()
 
         // 처음에는 이번 달, 막대를 누르면 그 달의 횟수로 바뀐다
-        const now = new Date()
+        const now = seoulToday()
         await expect(page.getByRole("button", {name: `${now.getFullYear()}년 ${now.getMonth() + 1}월 1번`})).toHaveAttribute("aria-pressed", "true")
-        const before = new Date()
+        const before = seoulToday()
         before.setDate(before.getDate() - 40)
         await page.getByRole("button", {name: `${before.getFullYear()}년 ${before.getMonth() + 1}월 2번`}).click()
         await expect(page.getByText(`${before.getFullYear()}년 ${before.getMonth() + 1}월`, {exact: true})).toBeVisible()
