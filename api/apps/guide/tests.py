@@ -328,8 +328,8 @@ class GuideTestCase(TestCase):
             self.assertEqual(response.json()["pamphlet_layout"], layout)
             return pamphlet_context(Guide.objects.get(pk=guide_id))
 
-        # 세로 책자: 네 집씩 (표지는 템플릿이 따로 한 장 붙인다)
-        self.assertEqual([len(page) for page in context_for("booklet")["pages"]], [4, 4, 4, 3])
+        # 세로 책자: 여섯 집씩 (표지는 템플릿이 따로 한 장 붙인다)
+        self.assertEqual([len(page) for page in context_for("booklet")["pages"]], [6, 6, 3])
         # 한 장 목록: 한 장에 모두, 메뉴는 가장 많이 먹은 것 하나
         context = context_for("list")
         self.assertEqual([len(page) for page in context["pages"]], [MAX_ENTRIES])

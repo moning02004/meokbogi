@@ -18,14 +18,14 @@ export function LayoutIcon({layout}: { layout: PamphletLayout }) {
                     <rect x="9" y="2" width="24" height="33" rx="2" opacity="0.55"/>
                     <rect x="15" y="5" width="24" height="33" rx="2" fill="var(--surface)"/>
                     <rect x="15" y="5" width="24" height="33" rx="2" opacity="0.18"/>
-                    {/* 2×2 네 칸 */}
-                    {[[18, 9], [28.5, 9], [18, 23], [28.5, 23]].map(([x, y]) => (
+                    {/* 가로 2 × 세로 3, 여섯 칸 */}
+                    {[8.5, 18.5, 28.5].flatMap((y) => [18, 28.5].map((x) => (
                         <g key={`${x}-${y}`}>
-                            <circle cx={x + 1.8} cy={y + 1.8} r="1.8"/>
-                            <rect x={x} y={y + 5.5} width="7.5" height="1.4" rx="0.7"/>
-                            <rect x={x} y={y + 8.5} width="5.5" height="1.4" rx="0.7"/>
+                            <rect x={x} y={y} width="5" height="1.4" rx="0.7"/>
+                            <rect x={x} y={y + 3} width="7.5" height="1.2" rx="0.6" opacity="0.6"/>
+                            <circle cx={x + 7.2} cy={y + 0.6} r="1.3"/>
                         </g>
-                    ))}
+                    )))}
                 </>
             )}
             {layout === "list" && (

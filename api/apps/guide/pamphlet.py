@@ -1,7 +1,7 @@
 """골목을 A4 팜플렛 PDF로 만든다. 모양은 골목마다 고른다 (Guide.pamphlet_layout).
 
 - menu(차림표, 기본): 가로. 왼쪽에 골목 정보, 오른쪽에 집을 한 줄씩. 한 장에 여섯 집
-- booklet(세로 책자): 세로. 첫 장은 표지만, 둘째 장부터 2×2로 네 집씩
+- booklet(세로 책자): 세로. 첫 장은 표지만, 둘째 장부터 가로 2 × 세로 3으로 여섯 집씩
 - list(한 장 목록): 세로 한 장에 모두. 한마디 없이 이름·주소·대표 메뉴·횟수만
 - receipt(영수증): 가로. 왼쪽에 골목 정보, 오른쪽에 영수증 두 장, 한 장에 세 집씩
 
@@ -22,7 +22,7 @@ from apps.guide.serializers import public_guide
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
 
 # 모양마다 한 장에 싣는 집 수. list는 골목 한도(15곳)를 한 장에 다 싣는다.
-PER_PAGE = {"menu": 6, "booklet": 4, "list": MAX_ENTRIES, "receipt": 6}
+PER_PAGE = {"menu": 6, "booklet": 6, "list": MAX_ENTRIES, "receipt": 6}
 # 영수증 한 장(가로 종이에 두 장이 나란히 놓인다)에 싣는 집 수
 PER_RECEIPT = 3
 
