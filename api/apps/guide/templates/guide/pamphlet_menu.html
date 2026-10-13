@@ -22,8 +22,6 @@
 .count b { font-size: 25pt; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
 .count i { font-style: normal; font-size: 9pt; font-weight: 600; }
 .count p { margin-top: 0.5mm; font-size: 8pt; color: #7C8275; }
-/* 여러 장일 때 마지막 줄 아래의 맺음. 빈 자리가 잘린 게 아니라 끝난 것으로 읽히게 한다 */
-.end { margin-top: 2.5mm; padding-left: 9mm; font-size: 8pt; color: #7C8275; }
 {% endblock %}
 
 {% block body %}
@@ -40,7 +38,6 @@
     {% for entry in page %}{% include "guide/_pamphlet_menu_row.html" %}{% empty %}
     <p class="empty">아직 실린 집이 없습니다.</p>
     {% endfor %}
-    {% if forloop.last and not forloop.first %}<p class="end">여기까지입니다. 먹어본 집만 실었습니다.</p>{% endif %}
   </div>
 </div>
 {% endfor %}
