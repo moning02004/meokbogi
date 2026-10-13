@@ -1,7 +1,12 @@
 "use client"
 
 import {useEffect, useState} from "react"
+import {useRouter} from "next/navigation"
+import {FaArrowLeft} from "react-icons/fa"
 import {API_HOST} from "@/constants/api";
+import {GUIDE_PAGE} from "@/constants/routeUrl";
+import {attemptAutoLogin} from "@/lib/auth";
+import {useAuthStore} from "@/store/auth";
 import {mapSearchUrl} from "@/lib/guide";
 import {PublicGuideType} from "@/types/guide";
 import {Spoons} from "@/components/guide/spoon_grade";
@@ -11,6 +16,33 @@ export type PublicGuideInitial = PublicGuideType | "missing" | null
 
 // "2024-11" → "2024.11"
 const monthLabel = (month: string) => month.replace("-", ".")
+
+// 로그인한 주인이 앱 안에서 "열어 보기"로 들어왔을 때만 보이는 뒤로가기.
+// 홈 화면 앱에는 브라우저의 뒤로 버튼이 없어서, 이게 없으면 공개 화면에서 나갈 길이 앱 종료뿐이었다.
+function BackToApp() {
+    const router = useRouter()
+    const token = useAuthStore((state) => state.token)
+
+    // 새 창으로 열리면 메모리에 토큰이 없다. 로그인 유지 쿠키가 있으면 그걸로 확인한다 (없으면 조용히 실패하고 끝).
+    useEffect(() => {
+        if (!useAuthStore.getState().token) attemptAutoLogin().catch(() => null)
+    }, [])
+
+    if (!token) return null
+
+    // 앱 안에서 넘어왔으면 왔던 화면으로, 이 화면이 처음이면 골목 목록으로
+    const goBack = () => window.history.length > 1 ? router.back() : router.replace(GUIDE_PAGE.list)
+
+    return (
+        <div className="w-full max-w-[560px] mx-auto flex items-center gap-1 h-14 px-2">
+            <button onClick={goBack} aria-label="뒤로"
+                    className="w-11 h-11 flex items-center justify-center rounded-full text-ink cursor-pointer sm:hover:bg-fill transition-colors">
+                <FaArrowLeft size={16}/>
+            </button>
+            <div className="text-[13px] font-semibold text-ink3">받는 사람에게는 이렇게 보여요</div>
+        </div>
+    )
+}
 
 // 받는 사람이 로그인 없이 보는 골목. 색은 앱과 같은 토큰을 쓰고 기기의 다크 모드를 따른다.
 export function PublicGuide({token, initial}: { token: string; initial: PublicGuideInitial }) {
@@ -45,6 +77,8 @@ export function PublicGuide({token, initial}: { token: string; initial: PublicGu
     }
 
     return (
+        <>
+        <BackToApp/>
         <main className="w-full max-w-[560px] mx-auto px-4 pt-6 pb-10 flex flex-col gap-3">
             <header className="px-1 flex flex-col gap-2 pb-2">
                 <div className="flex items-center justify-between text-[12.5px] font-bold text-ink3">
@@ -116,5 +150,6 @@ export function PublicGuide({token, initial}: { token: string; initial: PublicGu
 
             <p className="text-center text-[12px] text-ink3 pt-3">먹어본 집만 실었습니다 · 먹보기</p>
         </main>
+        </>
     )
 }

@@ -73,6 +73,18 @@ test.describe("먹골목", () => {
         await expect(cards.first()).toContainText("을지로12길 3")
         await expect(cards.first().getByRole("list", {name: "권하는 메뉴"})).toHaveText("바지락칼국수")
         await expect(visitor.getByText("나만 보는 메모")).toHaveCount(0)
+        // 로그인하지 않은 사람에게는 앱으로 돌아가는 버튼이 없다
+        await expect(visitor.getByRole("button", {name: "뒤로"})).toHaveCount(0)
+        // 링크 미리보기에 제목과 한 줄 소개가 뜬다
+        await expect(visitor.locator('meta[property="og:title"]')).toHaveAttribute("content", "을지로 점심 골목 · 먹골목")
+        await expect(visitor.locator('meta[property="og:description"]')).toHaveAttribute("content", "먹어본 집 2곳 · 먹어본 집만 골랐어요")
+        await expect(visitor.locator('meta[property="og:image"]')).toHaveAttribute("content", /^http.*\/icons\/icon-512\.png$/)
+
+        // 주인이 앱에서 "열어 보기"로 들어가면 뒤로가기가 있고, 누르면 꾸미기 화면으로 돌아온다
+        await page.getByRole("button", {name: "열어 보기"}).click()
+        await expect(page.getByRole("heading", {name: "을지로 점심 골목"})).toBeVisible()
+        await page.getByRole("button", {name: "뒤로"}).click()
+        await expect(page.getByText("골목 꾸미기")).toBeVisible()
         await expect(visitor.getByText("우리집")).toHaveCount(0)
 
         // 골목에서 적은 주소는 음식점에 저장되어 상세에서도 보인다

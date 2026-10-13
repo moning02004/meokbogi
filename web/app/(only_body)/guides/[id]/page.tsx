@@ -267,7 +267,7 @@ export default function Page() {
     }
 
     const sendPamphlet = (file: File) => {
-        navigator.share({files: [file], title: guide.title}).catch(() => null)
+        navigator.share({files: [file], title: shareTitle, text: shareText}).catch(() => null)
     }
 
     // 고친 뒤에는 예전 내용의 PDF를 내밀지 않는다
@@ -284,8 +284,20 @@ export default function Page() {
     }
 
     // 휴대폰에서는 카톡 등으로 바로 넘기는 공유 창을 띄운다. 창을 그냥 닫은 것은 오류가 아니다.
+    // 받는 쪽 대화창에 제목과 한 줄 소개가 같이 가게 한다 (저장된 내용 기준)
+    const shareTitle = `${guide.title} · 먹골목`
+    const shareText = guide.intro.trim() || `먹어본 집 ${guide.entries.length}곳을 골랐어요.`
+
     const sendLink = () => {
-        navigator.share({title: guide.title, url: shareUrl}).catch(() => null)
+        navigator.share({title: shareTitle, text: shareText, url: shareUrl}).catch(() => null)
+    }
+
+    // 앱 안에서 공개 화면으로 넘어간다 (새 창으로 열면 홈 화면 앱에서 돌아올 길이 없었다).
+    // 공개 화면은 저장된 내용을 보여주고, 넘어가면 고치던 내용이 사라지므로 먼저 저장한다.
+    const openPublic = async () => {
+        if (!guide.share_token) return
+        if (isDirty && !(await save())) return
+        router.push(GUIDE_PAGE.public(guide.share_token))
     }
 
     return (
@@ -483,10 +495,10 @@ export default function Page() {
                                         보내기
                                     </button>
                                 )}
-                                <a href={shareUrl} target="_blank" rel="noreferrer"
-                                   className="flex-1 h-12 rounded-[16px] bg-fill text-ink font-bold text-[14.5px] flex items-center justify-center sm:hover:bg-fill-hover transition-colors">
+                                <button onClick={openPublic}
+                                        className="flex-1 h-12 rounded-[16px] bg-fill text-ink font-bold text-[14.5px] cursor-pointer sm:hover:bg-fill-hover transition-colors">
                                     열어 보기
-                                </a>
+                                </button>
                             </div>
                             <ActionDrawer
                                 trigger={
