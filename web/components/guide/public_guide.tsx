@@ -17,8 +17,8 @@ export type PublicGuideInitial = PublicGuideType | "missing" | null
 // "2024-11" → "2024.11"
 const monthLabel = (month: string) => month.replace("-", ".")
 
-// 로그인한 주인이 앱 안에서 "열어 보기"로 들어왔을 때만 보이는 뒤로가기.
-// 홈 화면 앱에는 브라우저의 뒤로 버튼이 없어서, 이게 없으면 공개 화면에서 나갈 길이 앱 종료뿐이었다.
+// 로그인한 주인이 "열어 보기"로 들어왔을 때만 보이는 뒤로가기.
+// "열어 보기"는 새 창으로 여는데, 홈 화면 앱에는 브라우저의 뒤로 버튼이 없어서 이게 없으면 나갈 길이 앱 종료뿐이었다.
 function BackToApp() {
     const router = useRouter()
     const token = useAuthStore((state) => state.token)
@@ -30,7 +30,7 @@ function BackToApp() {
 
     if (!token) return null
 
-    // 앱 안에서 넘어왔으면 왔던 화면으로, 이 화면이 처음이면 골목 목록으로
+    // 같은 창에서 넘어왔으면 왔던 화면으로, 새 창이라 돌아갈 곳이 없으면 골목 목록으로
     const goBack = () => window.history.length > 1 ? router.back() : router.replace(GUIDE_PAGE.list)
 
     return (

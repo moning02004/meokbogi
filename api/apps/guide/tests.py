@@ -242,7 +242,8 @@ class GuideTestCase(TestCase):
         self.assertEqual([entry["restaurant"]["name"] for entry in detail["entries"]], ["산들김밥"])
 
     def test_archive_round_trip(self):
-        guide_id = self.create_guide(intro="먹어본 집만", edition="2026 가을", show_address=False, grade=2)
+        guide_id = self.create_guide(intro="먹어본 집만", edition="2026 가을", show_address=False, grade=2,
+                                     pamphlet_layout="receipt")
         self.put_entries(guide_id, [{"restaurant": self.gimbap.id},
                                     {"restaurant": self.noodle.id, "comment": "넉넉해요", "menus": ["손만두"]}])
         self.client.post(reverse("guide-share", kwargs={"guide_pk": guide_id}))
@@ -260,8 +261,8 @@ class GuideTestCase(TestCase):
 
         self.assertEqual((load()["guides_created"], load()["guides_skipped"]), (1, 1))
         guide = newbie.get(reverse("guides")).json()[0]
-        self.assertEqual((guide["title"], guide["edition"], guide["show_address"], guide["share_token"], guide["grade"]),
-                         ("을지로 점심 골목", "2026 가을", False, None, 2))
+        self.assertEqual((guide["title"], guide["edition"], guide["show_address"], guide["share_token"], guide["grade"],
+                          guide["pamphlet_layout"]), ("을지로 점심 골목", "2026 가을", False, None, 2, "receipt"))
         entries = newbie.get(reverse("guide-detail", kwargs={"guide_pk": guide["id"]})).json()["entries"]
         self.assertEqual([(e["restaurant"]["name"], e["comment"], e["menus"]) for e in entries],
                          [("산들김밥", "", []), ("진미손칼국수", "넉넉해요", ["손만두"])])
@@ -312,6 +313,50 @@ class GuideTestCase(TestCase):
         # 공개 주소를 주면 표지에 넣을 QR 그림이 생긴다
         qr = pamphlet_context(Guide.objects.get(pk=guide_id), "https://example.com/g/token")["qr"]
         self.assertTrue(qr.startswith("data:image/svg+xml"))
+
+    def test_pamphlet_layouts_split_pages_their_own_way(self):
+        guide_id = self.create_guide()
+        extras = [make_restaurant(self.category, name=f"집{index}") for index in range(MAX_ENTRIES - 1)]
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id, "menus": ["손만두", "바지락칼국수"]}]
+                         + [{"restaurant": restaurant.id} for restaurant in extras])
+        detail = reverse("guide-detail", kwargs={"guide_pk": guide_id})
+        # 기본은 차림표
+        self.assertEqual(self.client.get(detail).json()["pamphlet_layout"], "menu")
+
+        def context_for(layout):
+            response = self.client.patch(detail, data={"pamphlet_layout": layout}, content_type="application/json")
+            self.assertEqual(response.json()["pamphlet_layout"], layout)
+            return pamphlet_context(Guide.objects.get(pk=guide_id))
+
+        # 세로 책자: 네 집씩 (표지는 템플릿이 따로 한 장 붙인다)
+        self.assertEqual([len(page) for page in context_for("booklet")["pages"]], [4, 4, 4, 3])
+        # 한 장 목록: 한 장에 모두, 메뉴는 가장 많이 먹은 것 하나
+        context = context_for("list")
+        self.assertEqual([len(page) for page in context["pages"]], [MAX_ENTRIES])
+        self.assertEqual(context["pages"][0][0]["top_menu"], "바지락칼국수")
+        # 영수증: 한 장에 영수증 두 장, 영수증마다 세 집. 합계는 마지막 영수증에만
+        context = context_for("receipt")
+        self.assertEqual([[len(slip["entries"]) for slip in page] for page in context["pages"]], [[3, 3], [3, 3], [3]])
+        self.assertEqual([slip["is_last"] for page in context["pages"] for slip in page], [False] * 4 + [True])
+        self.assertEqual((context["entry_count"], context["visit_total"]), (MAX_ENTRIES, 2))
+
+        # 집이 없어도 영수증 한 장은 나온다
+        self.put_entries(guide_id, [])
+        self.assertEqual(context_for("receipt")["pages"], [[{"entries": [], "is_last": True}]])
+        self.assertEqual(self.client.patch(detail, data={"pamphlet_layout": "poster"},
+                                           content_type="application/json").status_code, 400)
+
+    @skipUnless(can_render_pdf(), "WeasyPrint를 불러올 수 없는 환경 (pango 없음)")
+    def test_every_pamphlet_layout_renders(self):
+        guide_id = self.create_guide(intro="먹어본 집만", grade=2)
+        self.put_entries(guide_id, [{"restaurant": self.noodle.id, "comment": "넉넉해요", "menus": ["손만두"]},
+                                    {"restaurant": self.gimbap.id}])
+        for layout in ("menu", "booklet", "list", "receipt"):
+            self.client.patch(reverse("guide-detail", kwargs={"guide_pk": guide_id}),
+                              data={"pamphlet_layout": layout}, content_type="application/json")
+            response = self.client.get(reverse("guide-pdf", kwargs={"guide_pk": guide_id}))
+            self.assertEqual(response.status_code, 200, layout)
+            self.assertTrue(response.content.startswith(b"%PDF"), layout)
 
     def test_pamphlet_follows_display_settings(self):
         guide_id = self.create_guide(show_address=False, show_visits=False)

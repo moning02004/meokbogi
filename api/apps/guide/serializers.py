@@ -67,7 +67,7 @@ class GuideSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Guide
-        fields = ["id", "title", "intro", "edition", "grade", "show_address", "show_visits", "share_token", "entry_count",
+        fields = ["id", "title", "intro", "edition", "grade", "pamphlet_layout", "show_address", "show_visits", "share_token", "entry_count",
                   "updated_at"]
         read_only_fields = ["id", "share_token", "updated_at"]
 

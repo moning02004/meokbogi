@@ -1,6 +1,6 @@
 """먹골목 팜플렛 PDF에 쓰는 글꼴을 받아 apps/guide/fonts/ 에 둔다.
 
-글꼴 파일(합쳐서 13MB쯤)은 저장소에 넣지 않고 이미지 빌드 때 받는다. 한글 글꼴이 없으면 PDF의 글자가
+글꼴 파일(합쳐서 18MB쯤)은 저장소에 넣지 않고 이미지 빌드 때 받는다. 한글 글꼴이 없으면 PDF의 글자가
 네모로 나오므로, 받지 못하거나 내용이 다르면 실패로 끝나 빌드를 멈춘다.
 Django 설정 없이 돌도록 표준 라이브러리만 쓴다:  python scripts/fetch_fonts.py
 """
@@ -11,14 +11,18 @@ from pathlib import Path
 
 FONT_DIR = Path(__file__).resolve().parent.parent / "apps" / "guide" / "fonts"
 
-# 둘 다 SIL Open Font License. 버전·커밋을 고정하고 sha256으로 확인한다.
+# 모두 SIL Open Font License. 버전·커밋을 고정하고 sha256으로 확인한다.
 PRETENDARD = "https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/public/static"
+NANUM_CODING = "https://raw.githubusercontent.com/google/fonts/9cb22ac3b8e238d037c48f98ef521f818958e102/ofl/nanumgothiccoding"
 GOWUN_BATANG = "https://raw.githubusercontent.com/google/fonts/539f6c4bb51e9b328dd5826bcbf2fd9b1ce56e19/ofl/gowunbatang"
 FONTS = [
     ("Pretendard-Regular.otf", PRETENDARD, "3ffbacde6ab8411f1d2db54bb9b1f0b3ee2a738932033722cf0388c06aed1c93"),
     ("Pretendard-SemiBold.otf", PRETENDARD, "c89bc43027dc7cde5726e96223376f8eec09302b2fc1f8147fd5b57cfc376118"),
     ("Pretendard-ExtraBold.otf", PRETENDARD, "c35fe941b7568d52a96010561540e47f9d3948dfde66ba25bc1908233e0a40cd"),
     ("GowunBatang-Bold.ttf", GOWUN_BATANG, "dbfcaa646e5831e7478524924f02906f550285a5050699b4e38c9950b3ec4b94"),
+    # 영수증 레이아웃의 고정폭 글꼴
+    ("NanumGothicCoding-Regular.ttf", NANUM_CODING, "787effd7efed2abca88ade231faa8191f4e9fcf85b1805a13ee1dc3724b72089"),
+    ("NanumGothicCoding-Bold.ttf", NANUM_CODING, "77a6de97c176b76ef9a683b565a1e6f4ce40b499c72a2972c4b5bdf7c6b8e7a0"),
 ]
 
 

@@ -1,0 +1,72 @@
+{% extends "guide/pamphlet_base.html" %}
+{# 한 장 목록: 세로 한 장에 골목의 집을 모두. 한마디 없이 이름·주소·대표 메뉴·횟수만 #}
+{% block orientation %}portrait{% endblock %}
+{% block style %}
+.sheet { width: 210mm; height: 297mm; }
+/* 위쪽 띠: 골목 정보. 소개가 길어도 목록 자리를 밀지 않게 높이를 고정한다 */
+.head { height: 66mm; box-sizing: border-box; overflow: hidden; padding: 13mm 16mm 0; background: #F1F8E4; display: flex; justify-content: space-between; }
+.head .info { flex: 1; min-width: 0; padding-right: 8mm; }
+.head .top { display: flex; align-items: center; font-size: 10pt; color: #50564A; margin-bottom: 2.5mm; }
+.head .top p, .head .top div { flex: none; white-space: nowrap; }
+.head .top .mark { margin-right: 3mm; }
+.head .top .grade { margin: 0 3mm 0 0; }
+.head .top .grade svg { width: 1.5mm; height: 4.8mm; }
+.head .title { font-size: 30pt; }
+.head .intro { margin-top: 3mm; font-size: 10pt; line-height: 1.6; }
+.head .code { width: 24mm; flex: none; text-align: center; font-size: 8pt; color: #50564A; }
+.head .code img { width: 24mm; height: 24mm; margin-bottom: 1.5mm; }
+/* 한 줄 높이를 고정해서 15곳이 한 장에 들어가게 한다 */
+.rows { padding: 3mm 16mm 0; }
+.row { height: 13.9mm; box-sizing: border-box; overflow: hidden; display: flex; align-items: center; }
+.row + .row { border-top: 0.2mm solid #DDE1D3; }
+.number { width: 8mm; flex: none; font-size: 8.5pt; font-weight: 600; color: #7C8275; }
+.text { flex: 1; min-width: 0; }
+.name { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 13pt; line-height: 1.25; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name span { font-family: "Pretendard", sans-serif; font-size: 8.5pt; font-weight: 600; letter-spacing: -0.01em; margin-left: 2mm; }
+.branch { color: #50564A; }
+.category { color: #4A7A12; }
+.detail { font-size: 8.3pt; color: #7C8275; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count { width: 20mm; flex: none; text-align: right; color: #4A7A12; }
+.count b { font-size: 15pt; font-weight: 800; letter-spacing: -0.04em; }
+.count i { font-style: normal; font-size: 8.5pt; font-weight: 600; }
+.bottom { padding: 4mm 16mm 0; display: flex; justify-content: space-between; font-size: 8pt; color: #7C8275; }
+.bottom p { flex: none; white-space: nowrap; }
+.bottom svg { width: 1.1mm; height: 3.5mm; margin-right: 0.4mm; vertical-align: -0.6mm; }
+{% endblock %}
+
+{% block body %}
+<div class="sheet">
+  <div class="head">
+    <div class="info">
+      <div class="top">
+        <p class="mark">먹골목</p>
+        {% if guide.grade %}<div class="grade">{% include "guide/_pamphlet_spoons.html" %}</div>{% endif %}
+        {% if guide.edition %}<p>{{ guide.edition }}</p>{% endif %}
+      </div>
+      <h1 class="title">{{ guide.title }}</h1>
+      {% if guide.intro %}<p class="intro">{{ guide.intro }}</p>{% endif %}
+    </div>
+    {% if qr %}<div class="code"><img src="{{ qr }}" alt=""><p>웹에서도 보기</p></div>{% endif %}
+  </div>
+  <div class="rows">
+    {% for entry in pages.0 %}
+    <div class="row">
+      <p class="number">{{ entry.number }}</p>
+      <div class="text">
+        <h2 class="name">{{ entry.name }}{% if entry.branch %}<span class="branch">{{ entry.branch }}</span>{% endif %}{% if entry.category %}<span class="category">{{ entry.category }}</span>{% endif %}</h2>
+        {% if entry.address or entry.top_menu %}
+        <p class="detail">{{ entry.address }}{% if entry.address and entry.top_menu %} · {% endif %}{{ entry.top_menu }}</p>
+        {% endif %}
+      </div>
+      {% if entry.visit_count %}<div class="count"><b>{{ entry.visit_count }}</b><i> 번</i></div>{% endif %}
+    </div>
+    {% empty %}
+    <div class="row"><p class="empty">아직 실린 집이 없습니다.</p></div>
+    {% endfor %}
+  </div>
+  <div class="bottom">
+    <p>{% if guide.grade %}{% include "guide/_pamphlet_spoons.html" %} {{ guide.grade_label }}{% endif %}{% if guide.grade and show_visits %} · {% endif %}{% if show_visits %}오른쪽 숫자는 제가 주문한 횟수입니다.{% endif %}</p>
+    <p>먹어본 집만 실었습니다</p>
+  </div>
+</div>
+{% endblock %}

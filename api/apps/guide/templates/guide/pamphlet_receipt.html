@@ -1,0 +1,62 @@
+{% extends "guide/pamphlet_base.html" %}
+{# 영수증: 가로. 왼쪽에 골목 정보, 오른쪽에 영수증 두 장. 한 장에 세 집, 주문 횟수를 수량처럼 적는다 #}
+{% block style %}
+.sheet { width: 297mm; height: 210mm; display: flex; background: #E9EFDC; }
+.cover { background: transparent; }
+.slips { width: 212mm; height: 210mm; box-sizing: border-box; padding: 11mm 12mm 11mm 4mm; display: flex; }
+.slip { width: 94mm; height: 188mm; box-sizing: border-box; padding: 8mm 8mm 6mm; background: #FFFFFF; font-family: "Nanum Gothic Coding", "Pretendard", monospace; font-size: 9.5pt; }
+.slip + .slip { margin-left: 8mm; }
+.slip-head { padding-bottom: 3mm; border-bottom: 0.25mm dashed #1B1E17; text-align: center; font-weight: 700; }
+/* 한 집의 칸 높이를 고정해서 영수증마다 같은 자리에 놓이게 한다 */
+.item { height: 51mm; box-sizing: border-box; overflow: hidden; padding-top: 4.5mm; }
+.item + .item { border-top: 0.2mm dashed #A9AFA0; }
+/* 가게 이름 ······ x 14. 표로 놓아서 이름과 수량은 제 폭을 지키고 점선이 남는 폭을 채운다
+   (flex로 놓으면 이름이 "진미손칼…"처럼 필요 없이 줄었다). 긴 이름은 템플릿에서 글자 수로 줄인다. */
+.line { display: table; width: 100%; }
+.line span { display: table-cell; vertical-align: bottom; white-space: nowrap; }
+.line .name { font-weight: 700; font-size: 12.5pt; }
+.line .dots { width: 100%; }
+.line .dots i { display: block; margin: 0 2mm 1.3mm; border-bottom: 0.25mm dotted #7C8275; }
+.line .qty { font-weight: 700; font-size: 12.5pt; color: #4A7A12; }
+.item .address, .item .category { font-size: 8.3pt; color: #7C8275; }
+.item .comment { margin-top: 1.5mm; font-family: "Pretendard", sans-serif; line-height: 1.45; }
+.item .menu { margin-top: 1mm; font-size: 8.8pt; color: #50564A; }
+.total { display: flex; justify-content: space-between; padding-top: 3mm; border-top: 0.25mm dashed #1B1E17; font-weight: 700; font-size: 11pt; }
+.total span { white-space: nowrap; }
+.total span + span { color: #4A7A12; }
+{% endblock %}
+
+{% block body %}
+{% for page in pages %}
+<div class="sheet">
+  <div class="cover">
+    {% if forloop.first %}
+    {% include "guide/_pamphlet_cover.html" with visit_legend="영수증의 수량은 제가 그 집에서 주문한 횟수입니다." %}
+    {% else %}
+    <p class="running"><b>먹골목</b> · {{ guide.title }} · {{ forloop.counter }} / {{ pages|length }}</p>
+    {% endif %}
+  </div>
+  <div class="slips">
+    {% for slip in page %}
+    <div class="slip">
+      <p class="slip-head">주문 내역</p>
+      {% for entry in slip.entries %}
+      <div class="item">
+        {% with label=entry.name|add:" "|add:entry.branch %}<div class="line"><span class="name">{{ label|truncatechars:17 }}</span><span class="dots"><i></i></span>{% if entry.visit_count %}<span class="qty">x {{ entry.visit_count }}</span>{% endif %}</div>{% endwith %}
+        {% if entry.address %}<p class="address">{{ entry.address }}</p>{% endif %}
+        {% if entry.comment %}<p class="comment">{{ entry.comment }}</p>{% endif %}
+        {% if entry.menu %}<p class="menu">+ {{ entry.menu }}</p>{% endif %}
+        {% if entry.category %}<p class="category">{{ entry.category }}</p>{% endif %}
+      </div>
+      {% empty %}
+      <div class="item"><p class="empty">아직 실린 집이 없습니다.</p></div>
+      {% endfor %}
+      {% if slip.is_last %}
+      <div class="total"><span>합계 {{ entry_count }}집</span>{% if show_visits %}<span>{{ visit_total }}번 먹음</span>{% endif %}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

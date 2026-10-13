@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>먹골목</title>
+<style>
+/* 종이는 화면 테마와 상관없이 한 가지 색. 포인트는 앱의 연두(#BBDB7A)와 그 진한 색. */
+@font-face { font-family: "Pretendard"; font-weight: 400; src: url("{{ font_dir }}/Pretendard-Regular.otf"); }
+@font-face { font-family: "Pretendard"; font-weight: 600; src: url("{{ font_dir }}/Pretendard-SemiBold.otf"); }
+@font-face { font-family: "Pretendard"; font-weight: 800; src: url("{{ font_dir }}/Pretendard-ExtraBold.otf"); }
+@font-face { font-family: "Gowun Batang"; font-weight: 700; src: url("{{ font_dir }}/GowunBatang-Bold.ttf"); }
+@font-face { font-family: "Nanum Gothic Coding"; font-weight: 400; src: url("{{ font_dir }}/NanumGothicCoding-Regular.ttf"); }
+@font-face { font-family: "Nanum Gothic Coding"; font-weight: 700; src: url("{{ font_dir }}/NanumGothicCoding-Bold.ttf"); }
+
+@page { size: A4 {% block orientation %}landscape{% endblock %}; margin: 0; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Pretendard", sans-serif; font-size: 9.8pt; line-height: 1.5; color: #1B1E17; letter-spacing: -0.01em; overflow-wrap: break-word; }
+p, h1, h2 { margin: 0; }
+
+.sheet { background: #FCFCF8; page-break-after: always; overflow: hidden; box-sizing: border-box; }
+.sheet:last-child { page-break-after: auto; }
+
+/* ---- 골목 정보(표지)에 쓰는 조각. 모양마다 크기만 다시 잡는다 ---- */
+.mark { font-size: 10pt; font-weight: 800; color: #4A7A12; }
+/* 둘째 장부터: 낱장이 흩어져도 어느 골목의 몇 번째 장인지 알 수 있게 이름과 쪽 번호만 작게 */
+.running { font-size: 9pt; color: #50564A; }
+.running b { font-weight: 800; color: #4A7A12; }
+/* 추천 등급: 앱 아이콘의 숟가락. 골목 이름 위에 작게 그리고, 뜻은 아래 범례에 적는다 */
+.grade { margin-bottom: 2.5mm; }
+.grade svg { width: 1.6mm; height: 5.2mm; margin-right: 0.7mm; }
+.edition { font-size: 10pt; color: #50564A; margin-bottom: 3mm; }
+.title { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 30pt; line-height: 1.2; letter-spacing: -0.03em; }
+.intro { margin-top: 5mm; font-size: 10.5pt; line-height: 1.7; color: #50564A; white-space: pre-line; }
+/* 공개 주소 QR: 제목과 소개를 읽고 난 눈이 닿는 표지 아래쪽에 둔다 */
+.qr { display: flex; align-items: center; margin-bottom: 5mm; font-size: 9pt; color: #50564A; }
+.qr img { width: 22mm; height: 22mm; margin-right: 4mm; flex: none; }
+.qr p { flex: 1; }
+.legend { border-top: 0.3mm solid #1B1E17; padding-top: 3.5mm; font-size: 9pt; color: #50564A; }
+.legend p + p { margin-top: 1mm; }
+.legend svg { width: 1.1mm; height: 3.5mm; margin-right: 0.4mm; vertical-align: -0.6mm; }
+.foot { margin-top: 3.5mm; font-size: 8pt; color: #7C8275; }
+/* 가로 모양의 왼쪽 단: 골목 정보. 둘째 장부터는 같은 자리에 배경만 둔다 */
+.cover { width: 85mm; height: 210mm; box-sizing: border-box; padding: 14mm 10.5mm; background: #F1F8E4; display: flex; flex-direction: column; justify-content: space-between; }
+
+.empty { color: #7C8275; font-size: 10pt; }
+{% block style %}{% endblock %}
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>
