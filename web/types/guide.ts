@@ -5,6 +5,7 @@ export interface GuideType {
     intro: string;
     edition: string;          // "2026 가을" 같은 판 이름. 비어 있을 수 있다
     grade: 0 | 1 | 2 | 3;     // 추천 등급: 숟가락 개수. 0은 등급 없음
+    pamphlet_layout: "menu" | "booklet" | "list" | "receipt";   // 팜플렛 PDF의 모양
     show_address: boolean;
     show_visits: boolean;
     share_token: string | null;   // 있으면 공개 중

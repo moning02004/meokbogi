@@ -14,11 +14,21 @@ export const GUIDE_GRADE_LABELS: Record<Exclude<GuideGrade, 0>, string> = {
     3: "이 골목 때문에 그 동네에 갈 만한 골목",
 }
 
+// 팜플렛 PDF의 모양. 서버(apps/guide/models.py의 PAMPHLET_LAYOUTS)와 같게 둔다.
+export type PamphletLayout = "menu" | "booklet" | "list" | "receipt"
+export const PAMPHLET_LAYOUTS: { value: PamphletLayout; label: string; hint: string }[] = [
+    {value: "menu", label: "차림표", hint: "A4 가로. 한 장에 여섯 집을 한 줄씩 적어요."},
+    {value: "booklet", label: "세로 책자", hint: "A4 세로. 첫 장은 표지, 다음 장부터 한 장에 네 칸(2×2)으로 넉넉하게 실어요."},
+    {value: "list", label: "한 장 목록", hint: "A4 세로 한 장에 모두. 한마디 없이 이름·주소·대표 메뉴만 적어요."},
+    {value: "receipt", label: "영수증", hint: "A4 가로. 영수증 두 장에 세 집씩, 주문 횟수를 수량처럼 적어요."},
+]
+
 export interface GuideFields {
     title: string;
     intro: string;
     edition: string;
     grade: GuideGrade;
+    pamphlet_layout: PamphletLayout;
     show_address: boolean;
     show_visits: boolean;
 }

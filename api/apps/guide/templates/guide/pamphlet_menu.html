@@ -1,0 +1,47 @@
+{% extends "guide/pamphlet_base.html" %}
+{# 차림표(기본): 가로. 왼쪽에 골목 정보, 오른쪽에 한 줄에 한 집, 한 장에 여섯 줄 #}
+{% block style %}
+.sheet { width: 297mm; height: 210mm; display: flex; }
+/* 글이 길어도 다음 집을 밀어내지 않게 줄 높이를 고정한다.
+   줄 안에서는 위로 맞춘다 (가운데로 맞추면 주소·메뉴가 없는 집만 이름이 내려가서 줄마다 높이가 달라 보였다). */
+.list { width: 212mm; height: 210mm; box-sizing: border-box; padding: 11mm 14mm; }
+.row { height: 30.4mm; box-sizing: border-box; overflow: hidden; display: flex; align-items: flex-start; padding-top: 3.2mm; }
+.row + .row { border-top: 0.2mm solid #DDE1D3; }
+/* 번호와 주문 횟수는 가게 이름 줄에 맞춘다 */
+.number { width: 9mm; flex: none; margin-top: 2.1mm; font-size: 9pt; font-weight: 600; color: #7C8275; }
+.text { flex: 1; min-width: 0; }
+.name { font-family: "Gowun Batang", serif; font-weight: 700; font-size: 15.5pt; line-height: 1.2; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name span { font-family: "Pretendard", sans-serif; font-size: 9pt; font-weight: 600; letter-spacing: -0.01em; margin-left: 2mm; }
+.branch { color: #50564A; }
+.category { color: #4A7A12; }
+/* 주소는 이름 바로 아래 작은 글씨. 길면 한 줄에서 줄인다 */
+.address { font-size: 8.3pt; color: #7C8275; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comment { margin-top: 0.8mm; line-height: 1.4; }
+.menu { margin-top: 0.3mm; font-size: 8.8pt; font-weight: 600; color: #50564A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count { width: 26mm; flex: none; margin-top: -0.6mm; text-align: right; color: #4A7A12; }
+.count b { font-size: 25pt; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+.count i { font-style: normal; font-size: 9pt; font-weight: 600; }
+.count p { margin-top: 0.5mm; font-size: 8pt; color: #7C8275; }
+/* 여러 장일 때 마지막 줄 아래의 맺음. 빈 자리가 잘린 게 아니라 끝난 것으로 읽히게 한다 */
+.end { margin-top: 2.5mm; padding-left: 9mm; font-size: 8pt; color: #7C8275; }
+{% endblock %}
+
+{% block body %}
+{% for page in pages %}
+<div class="sheet">
+  <div class="cover">
+    {% if forloop.first %}
+    {% include "guide/_pamphlet_cover.html" with visit_legend="오른쪽 숫자는 제가 그 집에서 주문한 횟수입니다." %}
+    {% else %}
+    <p class="running"><b>먹골목</b> · {{ guide.title }} · {{ forloop.counter }} / {{ pages|length }}</p>
+    {% endif %}
+  </div>
+  <div class="list">
+    {% for entry in page %}{% include "guide/_pamphlet_menu_row.html" %}{% empty %}
+    <p class="empty">아직 실린 집이 없습니다.</p>
+    {% endfor %}
+    {% if forloop.last and not forloop.first %}<p class="end">여기까지입니다. 먹어본 집만 실었습니다.</p>{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

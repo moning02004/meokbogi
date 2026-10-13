@@ -1,0 +1,20 @@
+{# 골목 정보(표지). 차림표·영수증에서는 왼쪽 단, 세로 책자에서는 첫 장 전체에 쓴다. visit_legend: 숫자가 무엇인지 설명하는 한 줄 #}
+<p class="mark">먹골목</p>
+<div>
+  {% if guide.grade %}<div class="grade">{% include "guide/_pamphlet_spoons.html" %}</div>{% endif %}
+  {% if guide.edition %}<p class="edition">{{ guide.edition }}</p>{% endif %}
+  <h1 class="title">{{ guide.title }}</h1>
+  {% if guide.intro %}<p class="intro">{{ guide.intro }}</p>{% endif %}
+</div>
+<div>
+  {% if qr %}
+  <div class="qr"><img src="{{ qr }}" alt=""><p>QR을 찍으면<br>웹에서도<br>볼 수 있습니다.</p></div>
+  {% endif %}
+  {% if guide.grade or show_visits %}
+  <div class="legend">
+    {% if guide.grade %}<p>{% include "guide/_pamphlet_spoons.html" %} {{ guide.grade_label }}</p>{% endif %}
+    {% if show_visits %}<p>{{ visit_legend }}</p>{% endif %}
+  </div>
+  {% endif %}
+  <p class="foot">먹어본 집만 실었습니다</p>
+</div>

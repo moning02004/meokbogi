@@ -17,6 +17,7 @@ import {
     MAX_GUIDE_ENTRIES,
     MAX_GUIDE_MENUS,
     openGuideShare,
+    PAMPHLET_LAYOUTS,
     saveGuideEntries,
     updateGuide,
 } from "@/lib/guide";
@@ -26,6 +27,7 @@ import {LoadingPage} from "@/components/loading";
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {RestaurantPicker} from "@/components/guide/restaurant_picker";
 import {SpoonGradePicker} from "@/components/guide/spoon_grade";
+import {LayoutIcon} from "@/components/guide/layout_icon";
 
 // 화면에서 고치는 중인 "실린 집". 저장하기 전까지 서버와 다를 수 있다.
 interface EntryDraft {
@@ -76,7 +78,7 @@ export default function Page() {
 
     const [guide, setGuide] = useState<GuideDetailType | null>(null)
     const [fields, setFields] = useState<GuideFields>({
-        title: "", intro: "", edition: "", grade: 0, show_address: true, show_visits: true,
+        title: "", intro: "", edition: "", grade: 0, pamphlet_layout: "menu", show_address: true, show_visits: true,
     })
     const [entries, setEntries] = useState<EntryDraft[]>([])
     const [saved, setSaved] = useState("")
@@ -91,6 +93,7 @@ export default function Page() {
     const apply = (detail: GuideDetailType) => {
         const nextFields = {
             title: detail.title, intro: detail.intro, edition: detail.edition, grade: detail.grade,
+            pamphlet_layout: detail.pamphlet_layout,
             show_address: detail.show_address, show_visits: detail.show_visits,
         }
         const nextEntries = detail.entries.map((entry) => ({
@@ -292,14 +295,6 @@ export default function Page() {
         navigator.share({title: shareTitle, text: shareText, url: shareUrl}).catch(() => null)
     }
 
-    // 앱 안에서 공개 화면으로 넘어간다 (새 창으로 열면 홈 화면 앱에서 돌아올 길이 없었다).
-    // 공개 화면은 저장된 내용을 보여주고, 넘어가면 고치던 내용이 사라지므로 먼저 저장한다.
-    const openPublic = async () => {
-        if (!guide.share_token) return
-        if (isDirty && !(await save())) return
-        router.push(GUIDE_PAGE.public(guide.share_token))
-    }
-
     return (
         <div className="min-h-[100%] flex flex-col">
             <div className="flex items-center gap-1 h-14 px-2">
@@ -495,10 +490,11 @@ export default function Page() {
                                         보내기
                                     </button>
                                 )}
-                                <button onClick={openPublic}
-                                        className="flex-1 h-12 rounded-[16px] bg-fill text-ink font-bold text-[14.5px] cursor-pointer sm:hover:bg-fill-hover transition-colors">
+                                {/* 새 창으로 연다. 홈 화면 앱에서는 공개 화면의 뒤로가기로 돌아온다 */}
+                                <a href={shareUrl} target="_blank" rel="noreferrer"
+                                   className="flex-1 h-12 rounded-[16px] bg-fill text-ink font-bold text-[14.5px] flex items-center justify-center sm:hover:bg-fill-hover transition-colors">
                                     열어 보기
-                                </button>
+                                </a>
                             </div>
                             <ActionDrawer
                                 trigger={
@@ -537,7 +533,31 @@ export default function Page() {
                     <div>
                         <p className="text-[14px] font-semibold text-ink">팜플렛 PDF</p>
                         <p className="text-[13px] text-ink2 leading-relaxed mt-0.5">
-                            A4 가로 한 장에 여섯 집씩 들어가요. 공개하지 않은 골목도 만들 수 있고, 링크를 만든 골목은 표지에 QR이 찍혀요.
+                            {guide.share_token
+                                ? "어느 모양이든 첫 장에 공개 링크의 QR이 찍혀요."
+                                : "공개하지 않은 골목도 만들 수 있어요. 다만 아직 링크가 없어서 QR 없이 만들어져요. 위에서 링크를 만들면 첫 장에 QR이 찍혀요."}
+                        </p>
+                    </div>
+                    {/* 모양은 골목에 저장된다. 바꾸면 저장하고 다시 만든다 */}
+                    <div>
+                        <div role="radiogroup" aria-label="팜플렛 모양" className="grid grid-cols-4 gap-1.5">
+                            {PAMPHLET_LAYOUTS.map((layout) => {
+                                const active = fields.pamphlet_layout === layout.value
+                                return (
+                                    <button key={layout.value} type="button" role="radio" aria-checked={active}
+                                            aria-label={layout.label}
+                                            onClick={() => setField("pamphlet_layout", layout.value)}
+                                            className={`h-[76px] rounded-[14px] flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
+                                                active ? "bg-strong text-white" : "bg-fill text-ink2 sm:hover:bg-fill-hover"
+                                            }`}>
+                                        <LayoutIcon layout={layout.value}/>
+                                        <span className={`text-[11.5px] ${active ? "font-bold" : "font-semibold"}`}>{layout.label}</span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <p className="mt-1.5 text-[12px] text-ink3">
+                            {PAMPHLET_LAYOUTS.find((layout) => layout.value === fields.pamphlet_layout)?.hint}
                         </p>
                     </div>
                     {readyPamphlet ? (

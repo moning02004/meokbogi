@@ -80,10 +80,15 @@ test.describe("먹골목", () => {
         await expect(visitor.locator('meta[property="og:description"]')).toHaveAttribute("content", "먹어본 집 2곳 · 먹어본 집만 골랐어요")
         await expect(visitor.locator('meta[property="og:image"]')).toHaveAttribute("content", /^http.*\/icons\/icon-512\.png$/)
 
-        // 주인이 앱에서 "열어 보기"로 들어가면 뒤로가기가 있고, 누르면 꾸미기 화면으로 돌아온다
-        await page.getByRole("button", {name: "열어 보기"}).click()
-        await expect(page.getByRole("heading", {name: "을지로 점심 골목"})).toBeVisible()
-        await page.getByRole("button", {name: "뒤로"}).click()
+        // 주인이 "열어 보기"를 누르면 새 창으로 열리고, 거기에는 앱으로 돌아가는 뒤로가기가 있다
+        const opening = page.context().waitForEvent("page")
+        await page.getByRole("link", {name: "열어 보기"}).click()
+        const opened = await opening
+        await expect(opened.getByRole("heading", {name: "을지로 점심 골목"})).toBeVisible()
+        await opened.getByRole("button", {name: "뒤로"}).click()
+        await expect(opened.getByText("내 골목")).toBeVisible()
+        await opened.close()
+        // 원래 창의 꾸미기 화면은 그대로 남아 있다
         await expect(page.getByText("골목 꾸미기")).toBeVisible()
         await expect(visitor.getByText("우리집")).toHaveCount(0)
 
@@ -135,6 +140,11 @@ test.describe("먹골목", () => {
         await page.getByRole("dialog").getByRole("button", {name: /교촌치킨/}).click()
         await page.getByRole("dialog").getByRole("button", {name: "닫기"}).click()
 
+        // 모양을 고르면 무엇이 다른지 알려준다. 고른 모양은 골목에 저장된다.
+        await expect(page.getByRole("radio", {name: "차림표"})).toHaveAttribute("aria-checked", "true")
+        await page.getByRole("radio", {name: "영수증"}).click()
+        await expect(page.getByText(/영수증 두 장에 세 집씩/)).toBeVisible()
+
         // 고친 게 있으면 저장부터 한다
         await page.getByRole("button", {name: "저장하고 PDF 만들기"}).click()
         const downloading = page.waitForEvent("download")
@@ -142,6 +152,9 @@ test.describe("먹골목", () => {
         const download = await downloading
         expect(download.suggestedFilename()).toBe("야식 골목.pdf")
         await expect(page.getByRole("button", {name: "저장됨"})).toBeVisible()
+
+        await page.reload()
+        await expect(page.getByRole("radio", {name: "영수증"})).toHaveAttribute("aria-checked", "true")
 
         // 다시 고치면 예전 PDF는 내밀지 않는다
         await page.getByLabel("한마디").fill("바삭해요")

@@ -17,6 +17,14 @@ GRADE_LABELS = {
     3: "이 골목 때문에 그 동네에 갈 만한 골목",
 }
 
+# 팜플렛 PDF의 모양. 골목마다 고른다.
+PAMPHLET_LAYOUTS = [
+    ("menu", "차림표"),      # A4 가로, 한 장에 여섯 줄 (기본)
+    ("booklet", "세로 책자"),  # A4 세로, 첫 장은 표지, 둘째 장부터 2×2 네 칸씩
+    ("list", "한 장 목록"),   # A4 세로 한 장에 모두, 한마디 없이
+    ("receipt", "영수증"),    # A4 가로, 영수증 두 장에 세 집씩
+]
+
 
 class Guide(models.Model):
     """먹골목의 골목 하나: 먹어본 집을 골라 남에게 건네는 목록.
@@ -29,6 +37,7 @@ class Guide(models.Model):
     # "2026 가을" 같은 판 이름. 비워도 된다.
     edition = models.CharField(max_length=20, default="", blank=True)
     grade = models.PositiveSmallIntegerField(default=0, choices=[(0, 0), (1, 1), (2, 2), (3, 3)])
+    pamphlet_layout = models.CharField(max_length=20, default="menu", choices=PAMPHLET_LAYOUTS)
     share_token = models.CharField(max_length=43, null=True, blank=True, unique=True)
     # 공개 화면에 주소·주문 횟수를 보여줄지
     show_address = models.BooleanField(default=True)
