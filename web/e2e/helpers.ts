@@ -64,8 +64,17 @@ export class Api {
     }
 }
 
+// 한국 날짜의 오늘. 브라우저(Asia/Seoul)와 서버가 한국 날짜로 "며칠 전"·"이번 달"을 따지는데,
+// 테스트를 돌리는 컴퓨터가 UTC면(CI) 한국 시각 0~9시에는 날짜가 하루 어긋나 "90일 전"이 "91일 전"이 됐다.
+// 돌려주는 Date는 getFullYear()/getMonth()/getDate()가 한국 날짜와 같다.
+export function seoulToday() {
+    const [year, month, day] = new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Seoul"})
+        .format(new Date()).split("-").map(Number)
+    return new Date(year, month - 1, day)
+}
+
 export function daysAgo(days: number) {
-    const date = new Date()
+    const date = seoulToday()
     date.setDate(date.getDate() - days)
     const pad = (n: number) => String(n).padStart(2, "0")
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`

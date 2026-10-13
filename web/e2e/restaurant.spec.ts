@@ -1,5 +1,5 @@
 import {expect, Page, test} from "@playwright/test";
-import {Api, category, createUser, daysAgo, loginUi} from "./helpers";
+import {Api, category, createUser, daysAgo, loginUi, seoulToday} from "./helpers";
 
 // 음식점 등록·수정 화면의 카테고리: 수정 화면처럼 모두 펼쳐 두고 눌러서 여러 개 고른다
 const categoryChip = (page: Page, keyword: string) =>
@@ -229,7 +229,7 @@ test.describe("음식점과 리뷰", () => {
         await sheet.getByRole("button", {name: /먹은 날 오늘/}).click()
         await sheet.getByRole("button", {name: "이전 달"}).click()
         await sheet.locator(".react-datepicker__day--015:not(.react-datepicker__day--outside-month)").click()
-        const lastMonth = new Date()
+        const lastMonth = seoulToday()
         lastMonth.setDate(1)
         lastMonth.setMonth(lastMonth.getMonth() - 1)
         await expect(sheet.getByRole("button", {name: new RegExp(`먹은 날 ${lastMonth.getMonth() + 1}월 15일`)})).toBeVisible()
