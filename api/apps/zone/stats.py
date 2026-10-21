@@ -58,8 +58,10 @@ def month_days(zone, year, month):
 
     [{"date": "2026-10-12", "visits": [{"restaurant": {"id", "name"}, "menus": [{"menu", "point", "branch"}]}]}]
     """
+    start = date(year, month, 1)
+    end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
     reviews = RestaurantReview.objects.filter(
-        restaurant__zone=zone, ordered_at__year=year, ordered_at__month=month,
+        restaurant__zone=zone, ordered_at__gte=start, ordered_at__lt=end,
     ).select_related("restaurant", "menu", "branch").order_by("-ordered_at", "restaurant__name", "restaurant_id", "id")
 
     days = {}

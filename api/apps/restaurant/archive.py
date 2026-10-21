@@ -23,8 +23,9 @@ from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.restaurant.menus import get_or_create_menu, normalize_menu, tidy_menu
-from apps.restaurant.models import Branch, Restaurant, RestaurantReview
+from apps.guide.models import GuideEntry
+from apps.restaurant.menus import normalize_menu, tidy_menu
+from apps.restaurant.models import Branch, Menu, Restaurant, RestaurantReview
 from apps.zone.models import Category, Zone
 
 ARCHIVE_FORMAT = "meokbogi-archive"
@@ -216,10 +217,39 @@ def _name_key(value):
     return normalize_menu(value)
 
 
+class _Place:
+    """가져오는 동안 음식점 하나에 대해 알고 있는 것. 새 음식점은 아직 저장 전이라 id가 없다."""
+
+    def __init__(self, restaurant):
+        self.restaurant = restaurant
+        self.category_ids = set()
+        self.branches = {}   # name_key → Branch
+        self.menus = {}      # name_key → Menu
+        self.seen = set()    # 이미 있는 리뷰의 (먹은 날, 메뉴, 지점, 만족도, 한줄평)
+
+
+def _existing_places(user):
+    """사용자의 음식점과 태그·지점·메뉴·리뷰를 한 번에 읽는다. 음식점마다 다시 읽지 않으려고."""
+    places = {restaurant.id: _Place(restaurant) for restaurant in Restaurant.objects.filter(zone__user=user)}
+    for restaurant_id, category_id in Restaurant.categories.through.objects.filter(
+            restaurant_id__in=places).values_list("restaurant_id", "category_id"):
+        places[restaurant_id].category_ids.add(category_id)
+    for branch in Branch.objects.filter(restaurant_id__in=places):
+        places[branch.restaurant_id].branches[branch.name_key] = branch
+    for menu in Menu.objects.filter(restaurant_id__in=places):
+        places[menu.restaurant_id].menus[menu.name_key] = menu
+    for restaurant_id, ordered_at, menu, branch, point, content in RestaurantReview.objects.filter(
+            restaurant_id__in=places).values_list("restaurant_id", "ordered_at", "menu__name", "branch__name", "point",
+                                                  "content"):
+        places[restaurant_id].seen.add((ordered_at, normalize_menu(menu), normalize_menu(branch), point, content.strip()))
+    return places
+
+
 def import_archive(user, archive, dry_run=False):
     """검증된 archive(dict, version 2)를 합친다. 무엇이 새로 생기고 무엇을 건너뛰었는지 센 결과를 돌려준다.
 
     dry_run이면 같은 계산을 하고 되돌린다 (가져오기 전 미리보기).
+    이미 있는 기록은 처음에 한 번에 읽고, 새로 만들 것은 모아 두었다가 끝에 종류별로 한꺼번에 저장한다.
     """
     summary = {key: 0 for key in ("zones_created", "categories_created", "restaurants_created",
                                   "restaurants_matched", "reviews_created", "reviews_skipped",
@@ -243,6 +273,32 @@ def import_archive(user, archive, dry_run=False):
         for keyword in archive["categories"]:
             category_for(keyword)
 
+        # (장소 id, 이름 키) → _Place
+        places = {(place.restaurant.zone_id, _name_key(place.restaurant.name)): place
+                  for place in _existing_places(user).values()}
+        new_restaurants, new_tags, new_branches, new_menus, new_reviews = [], [], [], [], []
+
+        def branch_for(place, name):
+            name = tidy_menu(name)
+            if not name:
+                return None
+            key = normalize_menu(name)
+            if key not in place.branches:
+                place.branches[key] = Branch(restaurant=place.restaurant, name=name, name_key=key)
+                new_branches.append(place.branches[key])
+            return place.branches[key]
+
+        def menu_for(place, name):
+            # 리뷰 작성과 같은 규칙: 같은 음식점에서 공백·대소문자만 다른 메뉴는 처음 쓴 표기를 쓴다
+            name = tidy_menu(name)
+            if not name:
+                return None
+            key = normalize_menu(name)
+            if key not in place.menus:
+                place.menus[key] = Menu(restaurant=place.restaurant, name=name, name_key=key)
+                new_menus.append(place.menus[key])
+            return place.menus[key]
+
         for zone_data in archive["zones"]:
             zone_name = zone_data["name"].strip()
             zone = zones_by_name.get(zone_name)
@@ -255,37 +311,50 @@ def import_archive(user, archive, dry_run=False):
             for keyword in zone_data["categories"]:
                 category_for(keyword)
 
-            restaurants = {_name_key(r.name): r for r in Restaurant.objects.filter(zone=zone)}
             for restaurant_data in zone_data["restaurants"]:
                 name = restaurant_data["name"].strip()
-                restaurant = restaurants.get(_name_key(name))
-                if restaurant is None:
-                    restaurant = Restaurant.objects.create(zone=zone, name=name,
-                                                           description=restaurant_data["description"],
-                                                           address=restaurant_data["address"])
-                    restaurants[_name_key(name)] = restaurant
+                place = places.get((zone.id, _name_key(name)))
+                if place is None:
+                    place = _Place(Restaurant(zone=zone, name=name, description=restaurant_data["description"],
+                                              address=restaurant_data["address"]))
+                    places[(zone.id, _name_key(name))] = place
+                    new_restaurants.append(place.restaurant)
                     summary["restaurants_created"] += 1
                 else:
                     # 이미 있는 음식점의 이름·설명은 그대로 둔다 (지금 서버 쪽이 더 최신일 수 있다)
                     summary["restaurants_matched"] += 1
 
-                tags = [category_for(keyword) for keyword in restaurant_data["categories"]]
-                restaurant.categories.add(*[tag for tag in tags if tag is not None])
+                # 이미 붙은 태그에 더하기만 한다
+                for category in filter(None, map(category_for, restaurant_data["categories"])):
+                    if category.id not in place.category_ids:
+                        place.category_ids.add(category.id)
+                        new_tags.append((place.restaurant, category.id))
 
-                branches = {b.name_key: b for b in Branch.objects.filter(restaurant=restaurant)}
+                for branch_name in restaurant_data["branches"]:
+                    branch_for(place, branch_name)
 
-                def branch_for(name, restaurant=restaurant, branches=branches):
-                    name = tidy_menu(name)
-                    if not name:
-                        return None
-                    if normalize_menu(name) not in branches:
-                        branches[normalize_menu(name)] = Branch.objects.create(
-                            restaurant=restaurant, name=name, name_key=normalize_menu(name))
-                    return branches[normalize_menu(name)]
+                for review in restaurant_data["reviews"]:
+                    menu_name = tidy_menu(review["menu"])
+                    signature = (review["ordered_at"], normalize_menu(menu_name), normalize_menu(review["branch"]),
+                                 review["point"], review["content"].strip())
+                    if signature in place.seen:
+                        summary["reviews_skipped"] += 1
+                        continue
+                    place.seen.add(signature)
+                    new_reviews.append(RestaurantReview(
+                        restaurant=place.restaurant, user=user, ordered_at=review["ordered_at"],
+                        menu=menu_for(place, menu_name), branch=branch_for(place, review["branch"]),
+                        point=review["point"], content=review["content"].strip()))
 
-                for name in restaurant_data["branches"]:
-                    branch_for(name)
-                _merge_reviews(user, restaurant, restaurant_data["reviews"], summary, branch_for)
+        # 음식점을 먼저 저장해야 id가 생기고, 그 뒤에 음식점을 가리키는 것들을 저장할 수 있다
+        Restaurant.objects.bulk_create(new_restaurants)
+        Tag = Restaurant.categories.through
+        Tag.objects.bulk_create([Tag(restaurant_id=restaurant.id, category_id=category_id)
+                                 for restaurant, category_id in new_tags])
+        Branch.objects.bulk_create(new_branches)
+        Menu.objects.bulk_create(new_menus)
+        RestaurantReview.objects.bulk_create(new_reviews)
+        summary["reviews_created"] = len(new_reviews)
 
         _merge_guides(user, archive["guides"], summary)
 
@@ -293,30 +362,6 @@ def import_archive(user, archive, dry_run=False):
             transaction.set_rollback(True)
 
     return summary
-
-
-def _merge_reviews(user, restaurant, reviews, summary, branch_for):
-    existing = RestaurantReview.objects.filter(restaurant=restaurant).select_related("menu", "branch")
-    seen = {(r.ordered_at, normalize_menu(r.menu_name), normalize_menu(r.branch_name), r.point, r.content.strip())
-            for r in existing}
-
-    to_create = []
-    for review in reviews:
-        menu_name = tidy_menu(review["menu"])
-        signature = (review["ordered_at"], normalize_menu(menu_name), normalize_menu(review["branch"]), review["point"],
-                     review["content"].strip())
-        if signature in seen:
-            summary["reviews_skipped"] += 1
-            continue
-        seen.add(signature)
-        # 같은 음식점의 메뉴 표기를 맞춘다 (리뷰 작성과 같은 규칙: 처음 쓴 표기)
-        to_create.append(RestaurantReview(restaurant=restaurant, user=user, ordered_at=review["ordered_at"],
-                                          menu=get_or_create_menu(restaurant, menu_name),
-                                          branch=branch_for(review["branch"]), point=review["point"],
-                                          content=review["content"].strip()))
-
-    RestaurantReview.objects.bulk_create(to_create)
-    summary["reviews_created"] += len(to_create)
 
 
 def _merge_guides(user, guides, summary):
@@ -329,6 +374,7 @@ def _merge_guides(user, guides, summary):
                    Restaurant.objects.filter(zone__user=user).select_related("zone")
                    .prefetch_related("branches", "menus")}
 
+    entries, entry_menus = [], []
     for guide_data in guides:
         title = guide_data["title"].strip()
         if _name_key(title) in titles:
@@ -348,7 +394,13 @@ def _merge_guides(user, guides, summary):
             seen.add(restaurant.id)
             branches = {branch.name_key: branch for branch in restaurant.branches.all()}
             menus = {menu.name_key: menu for menu in restaurant.menus.all()}
-            entry = guide.entries.create(restaurant=restaurant, position=len(seen) - 1,
-                                         branch=branches.get(normalize_menu(entry_data["branch"])),
-                                         comment=entry_data["comment"].strip())
-            entry.menus.set([menus[key] for key in map(normalize_menu, entry_data["menus"]) if key in menus])
+            entry = GuideEntry(guide=guide, restaurant=restaurant, position=len(seen) - 1,
+                               branch=branches.get(normalize_menu(entry_data["branch"])),
+                               comment=entry_data["comment"].strip())
+            entries.append(entry)
+            entry_menus.extend((entry, menus[key]) for key in dict.fromkeys(map(normalize_menu, entry_data["menus"]))
+                               if key in menus)
+
+    GuideEntry.objects.bulk_create(entries)
+    EntryMenu = GuideEntry.menus.through
+    EntryMenu.objects.bulk_create([EntryMenu(guideentry_id=entry.id, menu_id=menu.id) for entry, menu in entry_menus])

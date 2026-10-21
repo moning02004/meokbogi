@@ -1,7 +1,7 @@
 import re
 from datetime import date, timedelta
 
-from django.db.models import Avg, CharField, Count, Max, Prefetch, Q, Subquery, Value
+from django.db.models import Avg, CharField, Count, Max, Q, Subquery, Value, prefetch_related_objects
 from django.db.models.functions import Coalesce, Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from apps.restaurant.menus import normalize_menu
 from apps.restaurant.models import Restaurant
 from apps.restaurant.serializers import RestaurantListSerializer
-from apps.restaurant.views import annotate_restaurants, sort_restaurants
+from apps.restaurant.views import annotate_restaurants, ordered_tags, sort_restaurants
 from apps.zone.models import Category, Zone
 from apps.zone.serializers import CategoryManageSerializer, ZoneDashboardSerializer, ZoneListSerializer
 from apps.zone.stats import (
@@ -71,9 +71,7 @@ class ZoneDashboardAPIView(RetrieveAPIView):
         )
         zone = get_object_or_404(queryset, pk=self.kwargs["zone_pk"])
 
-        restaurants = Restaurant.objects.filter(zone=zone).prefetch_related(
-            Prefetch("categories", queryset=Category.objects.order_by("id"))
-        ).annotate(
+        restaurants = Restaurant.objects.filter(zone=zone).annotate(
             review_avg=Coalesce(Avg("review_set__point"), 0.0),
             review_count=Count("review_set"),
             latest_ordered_at=Max("review_set__ordered_at"),
@@ -88,6 +86,9 @@ class ZoneDashboardAPIView(RetrieveAPIView):
         zone.forgotten_restaurants = list(restaurants.filter(
             review_avg__gte=0.6, latest_ordered_at__lt=current_date - timedelta(days=FORGOTTEN_AFTER_DAYS),
         ).order_by("latest_ordered_at", "-review_avg")[:5])
+        # 세 목록의 카테고리 태그를 한 번에 읽는다
+        prefetch_related_objects(zone.delicious_restaurants + zone.recently_ordered_restaurants
+                                 + zone.forgotten_restaurants, ordered_tags())
 
         # 홈 카드의 작은 차트: 최근 여섯 달
         starts = month_starts(current_date, DASHBOARD_MONTHS)
@@ -128,12 +129,7 @@ class CategoryListAPIView(ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return Category.objects.filter(user_id=self.request.user.id).annotate(
-            restaurant_count=Count("restaurants", distinct=True),
-            # 이 카테고리만 붙은 음식점 수. 0이 아니면 지울 수 없다 (그 음식점이 카테고리 없이 남는다)
-            exclusive_restaurant_count=Count("restaurants", distinct=True,
-                                             filter=Q(restaurants__in=Subquery(single_tag_restaurants()))),
-        ).order_by("id")
+        return with_restaurant_counts(self.request.user.id).order_by("id")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -144,6 +140,15 @@ class CategoryListAPIView(ListCreateAPIView):
     def perform_create(self, serializer):
         ensure_unique_keyword(self.request.user.id, serializer.validated_data["keyword"])
         serializer.save(user=self.request.user)
+
+
+def with_restaurant_counts(user_id):
+    return Category.objects.filter(user_id=user_id).annotate(
+        restaurant_count=Count("restaurants", distinct=True),
+        # 이 카테고리만 붙은 음식점 수. 0이 아니면 지울 수 없다 (그 음식점이 카테고리 없이 남는다)
+        exclusive_restaurant_count=Count("restaurants", distinct=True,
+                                         filter=Q(restaurants__in=Subquery(single_tag_restaurants(user_id)))),
+    )
 
 
 def zone_counts_by_category(user_id):
@@ -170,8 +175,10 @@ class CategoryRestaurantsAPIView(APIView):
         for restaurant in restaurants:
             group = groups.setdefault(restaurant.zone_id, {"zone": {"id": restaurant.zone_id, "name": restaurant.zone.name},
                                                            "restaurants": []})
-            group["restaurants"].append(RestaurantListSerializer(restaurant).data)
-        return Response([groups[zone_id] for zone_id in sorted(groups)])
+            group["restaurants"].append(restaurant)
+        return Response([{**groups[zone_id], "restaurants": RestaurantListSerializer(groups[zone_id]["restaurants"],
+                                                                                     many=True).data}
+                         for zone_id in sorted(groups)])
 
 
 def ensure_unique_keyword(user_id, keyword, exclude_pk=None):
@@ -194,16 +201,19 @@ class CategoryDetailAPIView(RetrieveUpdateDestroyAPIView):
         serializer.save()
 
     def get_queryset(self):
-        return Category.objects.filter(user_id=self.request.user.id)
+        # 이름을 바꿔도 묶인 음식점 수는 그대로라 응답에 미리 센 값을 쓴다 (음식점마다 다시 세지 않게)
+        return with_restaurant_counts(self.request.user.id)
 
     def perform_destroy(self, instance):
         # 카테고리는 태그라 지워도 음식점은 남는다. 다만 이 카테고리 하나만 붙은 음식점이 카테고리 없이 남지 않게 막는다.
-        alone = instance.restaurants.filter(id__in=Subquery(single_tag_restaurants())).count()
+        alone = instance.exclusive_restaurant_count
         if alone:
             raise ValidationError({"detail": f"이 카테고리만 붙은 음식점이 {alone}곳 있어요. "
                                              f"그 음식점에 다른 카테고리를 붙인 뒤 지워주세요."})
         instance.delete()
 
 
-def single_tag_restaurants():
-    return Restaurant.objects.annotate(tag_count=Count("categories")).filter(tag_count=1).values("id")
+def single_tag_restaurants(user_id):
+    """카테고리가 하나만 붙은 내 음식점 id. 남의 음식점까지 세지 않게 사용자로 좁힌다."""
+    return Restaurant.objects.filter(zone__user_id=user_id).annotate(tag_count=Count("categories")) \
+        .filter(tag_count=1).values("id")
