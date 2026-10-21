@@ -12,7 +12,7 @@ import {LoadingPage} from "@/components/loading"
 import {errorMessage} from "@/lib/api"
 import {RESTAURANT_PAGE} from "@/constants/routeUrl"
 import {getReviewTextBox} from "@/components/ui/review_textbox"
-import {parseLocalDate} from "@/lib/date"
+import {parseLocalDate, today} from "@/lib/date"
 import {fetchZoneMonth, fetchZoneStats, MonthDay, parseMonth, ZoneStatsResponse} from "@/lib/stats"
 import {useAuthStore} from "@/store/auth"
 import {useZoneStore} from "@/store/zone"
@@ -64,18 +64,21 @@ export default function Page() {
     const activeMonth = stats?.months.find((row) => row.month === selectedMonth) ?? stats?.months[stats.months.length - 1]
     const activeMonthKey = activeMonth?.month
     const detailKey = `${selectedZoneId}:${activeMonthKey}`
+    // 처음 열 때는 통계를 기다리지 않고 이번 달 기록을 함께 받는다 (요청 두 개를 차례로 보내지 않게).
+    // 자정 무렵 기기 시간대가 달라 서버의 마지막 달과 어긋나면 통계가 온 뒤 그 달로 다시 받는다.
+    const fetchMonthKey = activeMonthKey ?? today().slice(0, 7)
 
     useEffect(() => {
-        if (!selectedZoneId || !activeMonthKey) return
+        if (!selectedZoneId) return
         let ignore = false
 
-        fetchZoneMonth(selectedZoneId, activeMonthKey).then((res) => {
-            if (!ignore) setMonthDetail({key: `${selectedZoneId}:${activeMonthKey}`, days: res.days})
+        fetchZoneMonth(selectedZoneId, fetchMonthKey).then((res) => {
+            if (!ignore) setMonthDetail({key: `${selectedZoneId}:${fetchMonthKey}`, days: res.days})
         }).catch((error) => toast.error(errorMessage(error)))
         return () => {
             ignore = true
         }
-    }, [selectedZoneId, activeMonthKey])
+    }, [selectedZoneId, fetchMonthKey])
 
     if (!token || !selectedZone) return <LoadingPage/>
 

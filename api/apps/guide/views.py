@@ -70,7 +70,7 @@ def replace_entries(guide, entries, user):
     restaurants = {restaurant.id: restaurant for restaurant in Restaurant.objects.filter(
         zone__user_id=user.id, id__in=[entry["restaurant"] for entry in entries]).prefetch_related("branches", "menus")}
 
-    guide.entries.all().delete()
+    created, entry_menus = [], []
     for position, data in enumerate(entries):
         restaurant = restaurants.get(data["restaurant"])
         if restaurant is None:
@@ -79,21 +79,28 @@ def replace_entries(guide, entries, user):
             raise ValidationError({"entries": f"'{restaurant.name}'의 지점이 아니에요."})
 
         by_key = {menu.name_key: menu for menu in restaurant.menus.all()}
-        menus = []
+        menus = {}
         for name in data["menus"]:
             menu = by_key.get(normalize_menu(name))
             if menu is None:
                 raise ValidationError({"entries": f"'{name}'은(는) '{restaurant.name}'에서 기록한 메뉴가 아니에요."})
-            menus.append(menu)
+            menus[menu.id] = menu
 
         address = data.get("address")
         if address is not None and address.strip() != restaurant.address:
             restaurant.address = address.strip()
             restaurant.save(update_fields=["address"])
 
-        entry = GuideEntry.objects.create(guide=guide, restaurant=restaurant, branch_id=data["branch"],
-                                          position=position, comment=data["comment"].strip())
-        entry.menus.set(menus)
+        entry = GuideEntry(guide=guide, restaurant=restaurant, branch_id=data["branch"],
+                           position=position, comment=data["comment"].strip())
+        created.append(entry)
+        entry_menus.extend((entry, menu_id) for menu_id in menus)
+
+    # 실린 집은 몇 곳 안 되므로 지우고 한꺼번에 다시 만든다
+    GuideEntry.objects.filter(guide=guide).delete()
+    GuideEntry.objects.bulk_create(created)
+    EntryMenu = GuideEntry.menus.through
+    EntryMenu.objects.bulk_create([EntryMenu(guideentry_id=entry.id, menu_id=menu_id) for entry, menu_id in entry_menus])
     # 실린 집만 바꿔도 "고친 날"이 바뀌게 한다
     guide.save(update_fields=["updated_at"])
 
@@ -102,7 +109,8 @@ class GuideEntriesAPIView(APIView):
     """실린 집 저장(PUT {entries: [{restaurant, branch, comment, menus}]}). 순서는 보낸 순서."""
 
     def put(self, request, *args, **kwargs):
-        guide = my_guide_or_404(request, self.kwargs["guide_pk"])
+        # 저장 전에는 주인인지만 본다. 실린 집은 저장한 뒤 한 번만 읽는다.
+        guide = get_object_or_404(Guide, pk=self.kwargs["guide_pk"], user_id=request.user.id)
         serializer = EntriesWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         replace_entries(guide, serializer.validated_data["entries"], request.user)

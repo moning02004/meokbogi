@@ -123,14 +123,26 @@ class RestaurantPickAPIView(APIView):
         # 기본은 실망한 곳을 뺀다. exclude_disappointing=0 이면 포함
         exclude = request.query_params.get("exclude_disappointing", "1") != "0"
 
-        picked = pick_restaurant(list(annotate_restaurants(queryset)), timezone.localdate(), exclude)
-        return Response({"restaurant": RestaurantListSerializer(picked).data if picked else None})
+        # 뽑을 때는 가중치에 쓰는 두 값만 읽고, 카테고리 같은 나머지는 뽑힌 한 곳만 읽는다
+        candidates = queryset.only("id").annotate(review_avg=Avg("review_set__point"),
+                                                  latest_ordered_at=Max("review_set__ordered_at"))
+        picked = pick_restaurant(list(candidates), timezone.localdate(), exclude)
+        if picked is None:
+            return Response({"restaurant": None})
+        restaurant = annotate_restaurants(Restaurant.objects.filter(pk=picked.pk)).get()
+        return Response({"restaurant": RestaurantListSerializer(restaurant).data})
 
 
 class RestaurantInfoViewSet(viewsets.ModelViewSet):
     serializer_class = RestaurantInfoSerializer
 
     def get_object(self):
+        # 고치기·지우기는 주인인지만 보면 된다. 리뷰·집계는 응답을 만들 때만 읽는다.
+        if self.request.method != "GET":
+            return get_object_or_404(my_restaurants(self.request), pk=self.kwargs["restaurant_pk"])
+        return self.get_detail()
+
+    def get_detail(self):
         queryset = my_restaurants(self.request).prefetch_related(
             Prefetch("review_set",
                      queryset=RestaurantReview.objects.select_related("menu", "branch").order_by("-ordered_at", "-id")),
@@ -143,7 +155,7 @@ class RestaurantInfoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save()
         # 바뀐 카테고리·집계를 응답에 담으려고 다시 읽는다
-        serializer.instance = self.get_object()
+        serializer.instance = self.get_detail()
 
 
 def my_reviews(request, restaurant_id):
