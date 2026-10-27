@@ -12,6 +12,7 @@ import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
 import {Skeleton} from "@/components/skeleton";
 import {LuEllipsisVertical, LuSearch, LuX} from "react-icons/lu";
 import {ActionDrawer} from "@/components/ui/action_drawer";
+import {Dropdown} from "@/components/ui/dropdown";
 import {apiRequest, toastError} from "@/lib/api";
 import toast from "react-hot-toast";
 import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
@@ -234,16 +235,7 @@ export default function Page() {
 
             <div className="flex items-center justify-between px-5 h-11">
                 <div className="text-[13px] font-semibold text-ink3">총 {totalCount}곳</div>
-                <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as RestaurantSort)}
-                    aria-label="정렬"
-                    className="text-[13px] font-semibold text-ink2 bg-transparent py-1 pl-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-strong rounded"
-                >
-                    {SORT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                </select>
+                <Dropdown value={sort} options={SORT_OPTIONS} onChange={setSort} label="정렬"/>
             </div>
             </div>
 
