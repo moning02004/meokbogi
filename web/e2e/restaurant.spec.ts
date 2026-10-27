@@ -191,7 +191,9 @@ test.describe("음식점과 리뷰", () => {
         const names = page.locator("p.font-bold")
         await expect(names).toHaveText(["나 별로", "가 최고"])  // 기본: 최근 방문순
 
-        await page.getByLabel("정렬").selectOption("rating")
+        await page.getByRole("combobox", {name: "정렬"}).click()
+        await page.getByRole("option", {name: "만족도순"}).click()
+        await expect(page.getByRole("combobox", {name: "정렬"})).toHaveText("만족도순")
         await expect(names).toHaveText(["가 최고", "나 별로"])
 
         await page.getByLabel("음식점 이름으로 찾기").fill("최고")
