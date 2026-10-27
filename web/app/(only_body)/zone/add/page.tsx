@@ -5,8 +5,7 @@ import {useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {FaArrowLeft} from "react-icons/fa";
-import {apiRequest, errorMessage} from "@/lib/api";
-import toast from "react-hot-toast";
+import {apiRequest, toastError} from "@/lib/api";
 import {ZONE_API} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {authLogout} from "@/lib/auth";
@@ -41,7 +40,7 @@ export default function Page() {
             setCategories(zone.category)
             router.replace("/home")
         }).catch((error) => {
-            toast.error(errorMessage(error, "장소를 만들지 못했어요."))
+            toastError(error, "장소를 만들지 못했어요.")
             setIsSubmitting(false)
         })
     }

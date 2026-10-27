@@ -1,7 +1,7 @@
 "use client"
 
 import {Suspense, useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {CategoryChips} from "@/components/restaurant/category_chips";
@@ -12,13 +12,13 @@ import {useZoneStore} from "@/store/zone";
 import {useCategoryStore} from "@/store/category";
 import {RestaurantListItemType} from "@/types/restaurant";
 import toast from "react-hot-toast";
-import {apiRequest, errorMessage} from "@/lib/api";
+import {apiRequest, toastError} from "@/lib/api";
 import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
 import {normalizeMenu} from "@/lib/menu";
 import {useCreateCategory} from "@/hooks/useCreateCategory";
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const {token} = useAuthStore.getState()
     const selectedZone = useZoneStore(state => state.selectedZone)
     const selectedZoneId = selectedZone?.id
@@ -129,12 +129,12 @@ export default function Page() {
             for (const branch of branches) {
                 await apiRequest[add.method](add.endpoint({restaurant: response.id}), {
                     body: JSON.stringify({name: branch.name}),
-                }).catch((error) => toast.error(errorMessage(error, `'${branch.name}' 지점을 추가하지 못했어요.`)))
+                }).catch((error) => toastError(error, `'${branch.name}' 지점을 추가하지 못했어요.`))
             }
             router.replace(RESTAURANT_PAGE.detail(response.id))
         }).catch((error) => {
             // Error 객체를 그대로 toast에 넘기면 React가 객체를 렌더링하려다 화면이 깨진다
-            toast.error(errorMessage(error, "음식점을 등록하지 못했어요."))
+            toastError(error, "음식점을 등록하지 못했어요.")
             setIsSubmitting(false)
         })
     }

@@ -1,10 +1,10 @@
 import {useState} from "react";
 import {ApiError, apiRequest} from "@/lib/api";
 import {useAuthStore} from "@/store/auth";
-import {useRouter} from "next/navigation";
+import {useAppRouter} from "@/components/navigation_progress";
 
 export const LoginForm = () => {
-    const router = useRouter()
+    const router = useAppRouter()
     const [username, setUsername] = useState<string>("")
     const [password, setPassword] = useState<string>("")
     const [errorMessage, setErrorMessage] = useState<string>("")

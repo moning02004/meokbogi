@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import {useAppRouter} from "@/components/navigation_progress";
 import { menuItems } from "@/constants/menus";
 
 export function Bottombar() {
-    const router = useRouter();
+    const router = useAppRouter();
     const pathname = usePathname();
 
     // 탭을 누르고 나서야 그 화면 코드를 받으면 휴대폰에서 한 박자 늦게 넘어간다. 미리 받아 둔다.

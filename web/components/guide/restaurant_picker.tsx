@@ -3,8 +3,7 @@
 import {useEffect, useState} from "react"
 import {Drawer} from "vaul"
 import {LuCheck, LuSearch} from "react-icons/lu"
-import toast from "react-hot-toast"
-import {errorMessage} from "@/lib/api"
+import {toastError} from "@/lib/api"
 import {categoryLabel, fetchAllRestaurants} from "@/lib/restaurant"
 import {useKeyboardInset, useVisibleHeight} from "@/hooks/useVisualViewport"
 import {RestaurantWithZoneType} from "@/types/restaurant"
@@ -57,7 +56,7 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
                 setHasMore(Boolean(res.next))
             })
             .catch((error) => {
-                if (!ignore) toast.error(errorMessage(error))
+                if (!ignore) toastError(error)
             })
             .finally(() => {
                 if (!ignore) setIsLoading(false)
@@ -77,7 +76,7 @@ export function RestaurantPicker({open, onOpenChange, pickedIds, onPick}: Restau
             })
             .catch((error) => {
                 setHasMore(false)
-                toast.error(errorMessage(error))
+                toastError(error)
             })
     }
 

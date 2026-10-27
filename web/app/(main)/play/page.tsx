@@ -1,20 +1,19 @@
 "use client"
 
 import {Suspense, useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import FoodCardShuffle from "@/components/play/shuffle_card";
 import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
 import {useCategoryStore} from "@/store/category";
 import {RecentRegisteredRestaurant, RestaurantListItemType} from "@/types/restaurant";
-import {apiRequest, errorMessage} from "@/lib/api";
+import {apiRequest, toastError} from "@/lib/api";
 import {categoryLabel, PaginatedResponse, pickRestaurant} from "@/lib/restaurant";
 import {useZoneStore} from "@/store/zone";
 import {daysSince} from "@/lib/date";
 import {FiArrowUpRight} from "react-icons/fi";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
-import toast from "react-hot-toast";
 
 // 뽑힌 이유를 한 줄로. 서버 가중치(오래 안 간 곳·만족도 높은 곳)를 사람이 읽는 말로 옮긴다.
 const pickReason = (restaurant: RestaurantListItemType) => {
@@ -25,7 +24,7 @@ const pickReason = (restaurant: RestaurantListItemType) => {
 }
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const {token} = useAuthStore.getState()
 
     const selectedZone = useZoneStore(state => state.selectedZone)
@@ -104,7 +103,7 @@ export default function Page() {
                 setPicked(restaurant)
                 setPickEmpty(restaurant === null)
             })
-            .catch((error) => toast.error(errorMessage(error, "뽑지 못했어요.")))
+            .catch((error) => toastError(error, "뽑지 못했어요."))
             .finally(() => setIsPicking(false))
     }
 

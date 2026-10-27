@@ -1,7 +1,7 @@
 "use client"
 
 import {useCallback, useEffect, useRef, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {RESTAURANT_API, RESTAURANT_PAGE} from "@/constants/routeUrl";
@@ -12,7 +12,7 @@ import {categoryLabel, fetchZoneRestaurants} from "@/lib/restaurant";
 import {Skeleton} from "@/components/skeleton";
 import {LuEllipsisVertical, LuSearch, LuX} from "react-icons/lu";
 import {ActionDrawer} from "@/components/ui/action_drawer";
-import {apiRequest, errorMessage} from "@/lib/api";
+import {apiRequest, toastError} from "@/lib/api";
 import toast from "react-hot-toast";
 import {RestaurantEditSheet} from "@/components/restaurant/restaurant_edit_sheet";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
@@ -25,7 +25,7 @@ const SORT_OPTIONS: { value: RestaurantSort; label: string }[] = [
 ]
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const {token} = useAuthStore.getState()
     const selectedZone = useZoneStore(state => state.selectedZone)
     const selectedZoneId = selectedZone?.id
@@ -91,7 +91,7 @@ export default function Page() {
             .catch((error) => {
                 if (ignore) return
                 setHasMore(false)
-                toast.error(errorMessage(error))
+                toastError(error)
             })
             .finally(() => {
                 if (!ignore) setIsLoading(false)
@@ -116,7 +116,7 @@ export default function Page() {
             .catch((error) => {
                 // 실패한 페이지를 센티널이 무한히 다시 요청하지 않도록 멈춘다
                 setHasMore(false)
-                toast.error(errorMessage(error))
+                toastError(error)
             })
             .finally(() => setIsFetchingMore(false))
     }, [selectedZoneId, selectedCategoryId, search, sort, page, isLoading, isFetchingMore, hasMore]);
@@ -151,7 +151,7 @@ export default function Page() {
         fetchRestaurant(_id).then((restaurant) => {
             setEditing((prev) => ({restaurant, seq: (prev?.seq ?? 0) + 1}))
             setIsEditOpen(true)
-        }).catch((error) => toast.error(errorMessage(error, "음식점 정보를 불러오지 못했어요.")))
+        }).catch((error) => toastError(error, "음식점 정보를 불러오지 못했어요."))
     }
 
     // 저장했으면 목록의 그 칸을, 지점을 바꿨으면 시트의 지점 목록을 새로 고친다
@@ -173,7 +173,7 @@ export default function Page() {
             setRestaurants((prev) => prev.filter(x => x.id !== _id))
             setTotalCount((prev) => Math.max(prev - 1, 0))
             toast.success("음식점을 삭제했어요.")
-        }).catch((error) => toast.error(errorMessage(error)))
+        }).catch((error) => toastError(error))
     }
 
     if (!token || !selectedZone) return <LoadingPage/>

@@ -5,7 +5,7 @@ import toast from "react-hot-toast"
 import {LuDownload, LuUpload} from "react-icons/lu"
 
 import {Modal} from "@/components/ui/modal"
-import {errorMessage} from "@/lib/api"
+import {toastError} from "@/lib/api"
 import {downloadArchive, importArchive, ImportSummary} from "@/lib/archive"
 
 interface ArchiveManagerProps {
@@ -24,7 +24,7 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
         if (busy) return
         setBusy(type)
         downloadArchive(type)
-            .catch((error) => toast.error(errorMessage(error, "내보내지 못했어요.")))
+            .catch((error) => toastError(error, "내보내지 못했어요."))
             .finally(() => setBusy(null))
     }
 
@@ -35,7 +35,7 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
         setBusy("preview")
         importArchive(file, true)
             .then((preview) => setPending({file, preview}))
-            .catch((error) => toast.error(errorMessage(error, "파일을 확인하지 못했어요.")))
+            .catch((error) => toastError(error, "파일을 확인하지 못했어요."))
             .finally(() => setBusy(null))
     }
 
@@ -50,7 +50,7 @@ export function ArchiveManager({onImported}: ArchiveManagerProps) {
                     : "새로 가져올 기록이 없었어요.")
                 onImported()
             })
-            .catch((error) => toast.error(errorMessage(error, "가져오지 못했어요.")))
+            .catch((error) => toastError(error, "가져오지 못했어요."))
             .finally(() => setBusy(null))
     }
 

@@ -7,7 +7,7 @@ import {useParams, useRouter} from "next/navigation"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
 import {BRANCH_API, RESTAURANT_API, RESTAURANT_REVIEW_API} from "@/constants/routeUrl";
-import {ApiError, apiRequest, errorMessage} from "@/lib/api";
+import {ApiError, apiRequest, errorMessage, toastError} from "@/lib/api";
 import {today} from "@/lib/date";
 import NotFound from "next/dist/client/components/builtin/not-found";
 import {MenuSummaryType, RestaurantReviewType, RestaurantType} from "@/types/restaurant";
@@ -152,7 +152,7 @@ export default function Page() {
             setHasMoreReviews(Boolean(res.next))
             setReviewPage(page)
         }).catch((error) => {
-            toast.error(errorMessage(error, "리뷰를 불러오지 못했어요."))
+            toastError(error, "리뷰를 불러오지 못했어요.")
         }).finally(() => setIsReviewLoading(false))
     }, [restaurantId, selectedBranch])
 
@@ -171,7 +171,7 @@ export default function Page() {
             toast.success(`'${branch.name}' 지점을 추가했어요.`)
             return branch
         }).catch((error) => {
-            toast.error(errorMessage(error, "지점을 추가하지 못했어요."))
+            toastError(error, "지점을 추가하지 못했어요.")
             throw error
         })
     }
@@ -199,7 +199,7 @@ export default function Page() {
                 toast.success("음식점이 삭제되었습니다.")
                 router.replace("/restaurant")
             })
-            .catch((error) => toast.error(errorMessage(error, "삭제에 실패했어요.")))
+            .catch((error) => toastError(error, "삭제에 실패했어요."))
     }
 
     const openSheet = (review: RestaurantReviewType | null, initial: Partial<ReviewDraft> = {}) => {
@@ -249,7 +249,7 @@ export default function Page() {
             if (!editing && activeTab === "all") fetchReviews(menuFilter, 1, false)
             toast.success(editing ? "리뷰를 고쳤어요." : "기록했어요.")
         }).catch((error) => {
-            toast.error(errorMessage(error, editing ? "리뷰를 고치지 못했어요." : "기록에 실패했어요. 잠시 후 다시 시도해주세요."))
+            toastError(error, editing ? "리뷰를 고치지 못했어요." : "기록에 실패했어요. 잠시 후 다시 시도해주세요.")
         })
     }
 
@@ -266,7 +266,7 @@ export default function Page() {
             fetchRestaurant()
             toast.success("리뷰를 삭제했어요.")
         }).catch((error) => {
-            toast.error(errorMessage(error, "삭제에 실패했어요. 잠시 후 다시 시도해주세요."))
+            toastError(error, "삭제에 실패했어요. 잠시 후 다시 시도해주세요.")
         })
     }
 

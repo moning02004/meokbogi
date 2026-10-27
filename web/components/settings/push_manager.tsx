@@ -5,7 +5,7 @@ import toast from "react-hot-toast"
 import {LuBellRing} from "react-icons/lu"
 
 import {API_HOST} from "@/constants/api"
-import {errorMessage} from "@/lib/api"
+import {toastError} from "@/lib/api"
 import {
     disablePush,
     enablePush,
@@ -54,7 +54,7 @@ export function PushManager() {
                 toast.success(enabled ? "이 기기의 알림을 껐어요." : "이 기기에서 알림을 받아요.")
                 return refreshCount()
             })
-            .catch((error) => toast.error(errorMessage(error, "알림을 설정하지 못했어요.")))
+            .catch((error) => toastError(error, "알림을 설정하지 못했어요."))
             .finally(() => setBusy(null))
     }
 
@@ -68,7 +68,7 @@ export function PushManager() {
                 else toast.error("알림을 받을 기기가 없어요. 먼저 알림 받기를 켜주세요.")
                 return refreshCount()
             })
-            .catch((error) => toast.error(errorMessage(error, "시험 알림을 보내지 못했어요.")))
+            .catch((error) => toastError(error, "시험 알림을 보내지 못했어요."))
             .finally(() => setBusy(null))
     }
 

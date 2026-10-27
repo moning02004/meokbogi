@@ -1,12 +1,12 @@
 "use client"
 
 import {useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {FaArrowLeft} from "react-icons/fa";
 import {LuChevronRight} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {GUIDE_PAGE} from "@/constants/routeUrl";
-import {errorMessage} from "@/lib/api";
+import {toastError} from "@/lib/api";
 import {createGuide, fetchGuides, GuideGrade} from "@/lib/guide";
 import {GuideType} from "@/types/guide";
 import {Skeleton} from "@/components/skeleton";
@@ -14,7 +14,7 @@ import {SpoonGradePicker, Spoons} from "@/components/guide/spoon_grade";
 
 // 먹골목: 내가 만든 골목 목록과 새 골목 만들기
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const [guides, setGuides] = useState<GuideType[] | null>(null)
     const [title, setTitle] = useState("")
     const [grade, setGrade] = useState<GuideGrade>(0)
@@ -23,7 +23,7 @@ export default function Page() {
     useEffect(() => {
         fetchGuides().then(setGuides).catch((error) => {
             setGuides([])
-            toast.error(errorMessage(error, "골목을 불러오지 못했어요."))
+            toastError(error, "골목을 불러오지 못했어요.")
         })
     }, [])
 
@@ -38,7 +38,7 @@ export default function Page() {
         createGuide(name, grade)
             .then((guide) => router.push(GUIDE_PAGE.detail(guide.id)))
             .catch((error) => {
-                toast.error(errorMessage(error, "골목을 만들지 못했어요."))
+                toastError(error, "골목을 만들지 못했어요.")
                 setIsCreating(false)
             })
     }

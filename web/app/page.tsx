@@ -1,7 +1,7 @@
 "use client"
 
 import {useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import toast from "react-hot-toast"
 import {BsForkKnife} from "react-icons/bs"
 import {FaAngleDown, FaGamepad, FaPlus} from "react-icons/fa"
@@ -16,7 +16,7 @@ import {useAuthStore} from "@/store/auth"
 const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/moning02004/meokbogi/main/install.sh | bash"
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const {token} = useAuthStore.getState()
 
     const [copied, setCopied] = useState(false)

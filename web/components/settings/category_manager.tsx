@@ -1,13 +1,13 @@
 "use client"
 
 import {useCallback, useEffect, useRef, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import toast from "react-hot-toast"
 import {LuChevronDown, LuSearch, LuX} from "react-icons/lu"
 
 import {getReviewTextBox} from "@/components/ui/review_textbox"
 import {CATEGORY_API, RESTAURANT_PAGE} from "@/constants/routeUrl"
-import {apiRequest, errorMessage} from "@/lib/api"
+import {apiRequest, toastError} from "@/lib/api"
 import {syncZones} from "@/lib/zone"
 import {useZoneStore} from "@/store/zone"
 import {RestaurantListItemType} from "@/types/restaurant"
@@ -26,7 +26,7 @@ const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, "")
 // 카테고리별로 어느 장소에 어떤 음식점이 있는지 본다. 카테고리는 장소와 상관없이 한 벌이고,
 // 새 카테고리는 음식점을 등록할 때 만든다. 여기서는 찾아보기와 이름 바꾸기·지우기만.
 export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
-    const router = useRouter()
+    const router = useAppRouter()
     const [categories, setCategories] = useState<ManagedCategoryType[] | null>(null)
     const [keyword, setKeyword] = useState("")
     const [openId, setOpenId] = useState<number | null>(null)
@@ -65,7 +65,7 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
         const restaurants = CATEGORY_API.restaurants
         apiRequest[restaurants.method]<ZoneGroup[]>(restaurants.endpoint({category: category.id}))
             .then((rows) => setGroups((prev) => ({...prev, [category.id]: rows})))
-            .catch((error) => toast.error(errorMessage(error, "음식점을 불러오지 못했어요.")))
+            .catch((error) => toastError(error, "음식점을 불러오지 못했어요."))
     }
 
     // 다른 장소의 음식점이면 그 장소로 바꾼 뒤 상세로 간다 (돌아왔을 때 목록이 그 장소 기준이도록)
@@ -97,7 +97,7 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
             toast.success("카테고리 이름을 바꿨어요.")
             return loadCategories(true)
         }).catch((error) => {
-            toast.error(errorMessage(error, "이름을 바꾸지 못했어요."))
+            toastError(error, "이름을 바꾸지 못했어요.")
         }).finally(() => setIsSubmitting(false))
     }
 
@@ -111,7 +111,7 @@ export function CategoryManager({onCategoriesChange}: CategoryManagerProps) {
             return loadCategories(true)
         }).catch((error) => {
             // 목록을 받은 뒤에 음식점이 생겼다면 서버가 400으로 막는다 (메시지는 서버가 준 사유)
-            toast.error(errorMessage(error, "카테고리를 지우지 못했어요."))
+            toastError(error, "카테고리를 지우지 못했어요.")
             return loadCategories(true)
         }).finally(() => {
             setIsSubmitting(false)

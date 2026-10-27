@@ -4,7 +4,7 @@ import {useState} from "react"
 import {Drawer} from "vaul"
 import toast from "react-hot-toast"
 import {BRANCH_API, RESTAURANT_API} from "@/constants/routeUrl"
-import {apiRequest, errorMessage} from "@/lib/api"
+import {apiRequest, toastError} from "@/lib/api"
 import {useKeyboardInset, useVisibleHeight} from "@/hooks/useVisualViewport"
 import {useCreateCategory} from "@/hooks/useCreateCategory"
 import {useCategoryStore} from "@/store/category"
@@ -45,7 +45,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
             onChanged("branches")
             toast.success(`'${branch.name}' 지점을 추가했어요.`)
         }).catch((error) => {
-            toast.error(errorMessage(error, "지점을 추가하지 못했어요."))
+            toastError(error, "지점을 추가하지 못했어요.")
             throw error
         })
     }
@@ -58,7 +58,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
                 toast.success(`'${branch.name}' 지점을 지웠어요.`)
             })
             .catch((error) => {
-                toast.error(errorMessage(error, "지점을 지우지 못했어요."))
+                toastError(error, "지점을 지우지 못했어요.")
                 throw error
             })
     }
@@ -83,7 +83,7 @@ export function RestaurantEditSheet({open, onOpenChange, restaurant, onChanged}:
             onChanged("saved")
             toast.success("음식점 정보를 저장했어요.")
         }).catch((error) => {
-            toast.error(errorMessage(error, "저장하지 못했어요. 잠시 후 다시 시도해주세요."))
+            toastError(error, "저장하지 못했어요. 잠시 후 다시 시도해주세요.")
         }).finally(() => setIsSaving(false))
     }
 

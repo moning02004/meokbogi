@@ -6,7 +6,7 @@ import {FaArrowLeft} from "react-icons/fa";
 import {LuChevronDown, LuChevronUp, LuX} from "react-icons/lu";
 import toast from "react-hot-toast";
 import {GUIDE_PAGE, RESTAURANT_API} from "@/constants/routeUrl";
-import {ApiError, apiRequest, errorMessage} from "@/lib/api";
+import {ApiError, apiRequest, errorMessage, toastError} from "@/lib/api";
 import {
     closeGuideShare,
     deleteGuide,
@@ -117,7 +117,7 @@ export default function Page() {
             })
             .catch((error) => {
                 if (ignore) return
-                toast.error(errorMessage(error, "골목을 불러오지 못했어요."))
+                toastError(error, "골목을 불러오지 못했어요.")
                 if (error instanceof ApiError && error.status === 404) router.replace(GUIDE_PAGE.list)
             })
         return () => {
@@ -180,7 +180,7 @@ export default function Page() {
                     visitCount: restaurant.ordered_count,
                 },
             ]))
-            .catch((error) => toast.error(errorMessage(error, "음식점 정보를 불러오지 못했어요.")))
+            .catch((error) => toastError(error, "음식점 정보를 불러오지 못했어요."))
     }
 
     // 성공하면 true. 공유하기 전에 먼저 저장할 때도 쓴다.
@@ -197,7 +197,7 @@ export default function Page() {
             apply(await saveGuideEntries(guideId, entries.map(toInput)))
             return true
         } catch (error) {
-            toast.error(errorMessage(error, "저장하지 못했어요. 잠시 후 다시 시도해주세요."))
+            toastError(error, "저장하지 못했어요. 잠시 후 다시 시도해주세요.")
             return false
         } finally {
             setIsSaving(false)
@@ -218,7 +218,7 @@ export default function Page() {
             setGuide((prev) => prev && {...prev, share_token: detail.share_token})
             toast.success("링크를 만들었어요.")
         } catch (error) {
-            toast.error(errorMessage(error, "링크를 만들지 못했어요."))
+            toastError(error, "링크를 만들지 못했어요.")
         } finally {
             setIsSharing(false)
         }
@@ -230,7 +230,7 @@ export default function Page() {
                 setGuide((prev) => prev && {...prev, share_token: null})
                 toast.success("공개를 껐어요. 보낸 링크는 더 이상 열리지 않아요.")
             })
-            .catch((error) => toast.error(errorMessage(error, "공개를 끄지 못했어요.")))
+            .catch((error) => toastError(error, "공개를 끄지 못했어요."))
     }
 
     const remove = () => {
@@ -239,7 +239,7 @@ export default function Page() {
                 toast.success("골목을 지웠어요.")
                 router.replace(GUIDE_PAGE.list)
             })
-            .catch((error) => toast.error(errorMessage(error, "골목을 지우지 못했어요.")))
+            .catch((error) => toastError(error, "골목을 지우지 못했어요."))
     }
 
     // PDF도 저장된 내용으로 만들어지므로 고친 게 있으면 먼저 저장한다
