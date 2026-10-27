@@ -1,15 +1,14 @@
 "use client"
 
 import {useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
-import toast from "react-hot-toast"
+import {useAppRouter} from "@/components/navigation_progress";
 import {FaArrowLeft} from "react-icons/fa"
 
 import {MonthCalendar} from "@/components/chart/month_calendar"
 import {MonthlyBars} from "@/components/chart/monthly_bars"
 import {RankBars} from "@/components/chart/rank_bars"
 import {LoadingPage} from "@/components/loading"
-import {errorMessage} from "@/lib/api"
+import {toastError} from "@/lib/api"
 import {RESTAURANT_PAGE} from "@/constants/routeUrl"
 import {getReviewTextBox} from "@/components/ui/review_textbox"
 import {parseLocalDate, today} from "@/lib/date"
@@ -30,7 +29,7 @@ const objectParticle = (word: string) => {
 }
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const {token} = useAuthStore.getState()
     const selectedZone = useZoneStore(state => state.selectedZone)
     const selectedZoneId = selectedZone?.id
@@ -54,7 +53,7 @@ export default function Page() {
             if (ignore) return
             setLoaded({zoneId: selectedZoneId, stats})
             setSelectedMonth(null)
-        }).catch((error) => toast.error(errorMessage(error)))
+        }).catch((error) => toastError(error))
         return () => {
             ignore = true
         }
@@ -74,7 +73,7 @@ export default function Page() {
 
         fetchZoneMonth(selectedZoneId, fetchMonthKey).then((res) => {
             if (!ignore) setMonthDetail({key: `${selectedZoneId}:${fetchMonthKey}`, days: res.days})
-        }).catch((error) => toast.error(errorMessage(error)))
+        }).catch((error) => toastError(error))
         return () => {
             ignore = true
         }

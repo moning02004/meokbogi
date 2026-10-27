@@ -3,24 +3,23 @@
 import {Suspense, useEffect, useState} from "react"
 import {useAuthStore} from "@/store/auth"
 import {LoadingPage} from "@/components/loading";
-import {errorMessage} from "@/lib/api";
+import {toastError} from "@/lib/api";
 import {syncZones} from "@/lib/zone";
 import {RESTAURANT_PAGE, STATS_PAGE, ZONE_PAGE} from "@/constants/routeUrl";
 import {MonthlyBars} from "@/components/chart/monthly_bars";
 import {MonthlyVisit} from "@/lib/stats";
 import {useZoneStore} from "@/store/zone";
 import {daysSince} from "@/lib/date";
-import toast from "react-hot-toast";
 import {DeliciousRestaurant, RecentRegisteredRestaurant} from "@/types/restaurant";
 import {categoryLabel, DashboardResponseType, fetchZoneDashboard} from "@/lib/restaurant";
 import {BsForkKnife} from "react-icons/bs";
 import {LuChevronRight} from "react-icons/lu";
 import {useCategoryStore} from "@/store/category";
-import {useRouter} from "next/navigation";
+import {useAppRouter} from "@/components/navigation_progress";
 import {getReviewTextBox} from "@/components/ui/review_textbox";
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
 
     const {token} = useAuthStore.getState()
     const selectedZone = useZoneStore(state => state.selectedZone)
@@ -41,7 +40,7 @@ export default function Page() {
     useEffect(() => {
         syncZones().then((rows) => {
             if (rows.length === 0) window.location.replace(ZONE_PAGE.add)
-        }).catch((error) => toast.error(errorMessage(error)))
+        }).catch((error) => toastError(error))
     }, []);
 
     useEffect(() => {
@@ -60,7 +59,7 @@ export default function Page() {
                 setMonthlyVisitedCount(res.monthly_visited_count)
                 setMonthlyVisits(res.monthly_visits ?? [])
             }
-        ).catch((error) => toast.error(errorMessage(error)))
+        ).catch((error) => toastError(error))
         return () => {
             ignore = true
         }

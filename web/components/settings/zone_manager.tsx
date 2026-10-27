@@ -1,20 +1,20 @@
 "use client"
 
 import {useCallback, useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import toast from "react-hot-toast"
 import {LuChevronRight, LuPlus} from "react-icons/lu"
 
 import {Modal} from "@/components/ui/modal"
 import {ZONE_API, ZONE_PAGE} from "@/constants/routeUrl"
-import {apiRequest, errorMessage} from "@/lib/api"
+import {apiRequest, toastError} from "@/lib/api"
 import {syncZones} from "@/lib/zone"
 import {fetchZoneRestaurants} from "@/lib/restaurant"
 import {ZoneType} from "@/types/zone"
 
 // 마이페이지에서는 존 목록만 보여주고, 실제 관리(카테고리 추가·삭제, 존 삭제)는 모달 안에서 한다.
 export function ZoneManager() {
-    const router = useRouter()
+    const router = useAppRouter()
 
     const [zones, setZones] = useState<ZoneType[] | null>(null)
     const [selected, setSelected] = useState<ZoneType | null>(null)
@@ -61,7 +61,7 @@ export function ZoneManager() {
             toast.success("장소 이름을 바꿨어요.")
             return loadZones()
         }).then(() => undefined).catch((error) => {
-            toast.error(errorMessage(error, "이름을 바꾸지 못했어요."))
+            toastError(error, "이름을 바꾸지 못했어요.")
         })
     }
 
@@ -79,7 +79,7 @@ export function ZoneManager() {
                 if (rows.length === 0) router.replace(ZONE_PAGE.add)
             })
             .catch((error) => {
-                toast.error(errorMessage(error, "존을 삭제하지 못했어요. 잠시 후 다시 시도해주세요."))
+                toastError(error, "존을 삭제하지 못했어요. 잠시 후 다시 시도해주세요.")
             })
     }
 

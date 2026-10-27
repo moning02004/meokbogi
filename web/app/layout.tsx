@@ -6,6 +6,7 @@ import {Toaster} from "react-hot-toast";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import {ServiceWorkerRegistrar} from "@/components/service_worker";
+import {NavigationProvider} from "@/components/navigation_progress";
 
 const geistMono = Geist_Mono({
     variable: "--font-geist-mono",
@@ -45,7 +46,9 @@ export default function RootLayout({
             className={`${geistMono.variable} h-full antialiased`}
         >
         <body className="min-h-full flex flex-col">
-        {children}
+        <NavigationProvider>
+            {children}
+        </NavigationProvider>
         <ServiceWorkerRegistrar/>
 
         <Toaster position="bottom-center" containerStyle={{

@@ -1,12 +1,12 @@
 "use client"
 
 import {Suspense, useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {LuChevronRight} from "react-icons/lu";
 import {LoadingPage} from "@/components/loading";
 import {BsForkKnife} from "react-icons/bs";
 import {GUIDE_PAGE, USER_API} from "@/constants/routeUrl";
-import {apiRequest, errorMessage} from "@/lib/api";
+import {apiRequest, toastError} from "@/lib/api";
 import {authLogout} from "@/lib/auth";
 import toast from "react-hot-toast";
 import {Modal} from "@/components/ui/modal";
@@ -27,7 +27,7 @@ interface UserType {
 }
 
 export default function Page() {
-    const router = useRouter()
+    const router = useAppRouter()
     const [user, setUser] = useState<UserType | null>(null)
     // 가져오기 뒤 존 관리 목록을 새로 읽게 하려고 key로 다시 만든다
     const [zoneListKey, setZoneListKey] = useState(0)
@@ -53,6 +53,12 @@ export default function Page() {
         fetchUserInfo()
     }, []);
 
+    // 먹골목·카테고리별 음식점은 처음 누를 때 화면 코드를 받느라 늦었다. 이 화면에 들어오면 미리 받아 둔다.
+    useEffect(() => {
+        router.prefetch(GUIDE_PAGE.list)
+        router.prefetch("/categories")
+    }, [router]);
+
     const startEditingName = () => {
         setNameInput(user?.first_name ?? "")
         setIsEditingName(true)
@@ -66,7 +72,7 @@ export default function Page() {
             setIsEditingName(false)
             fetchUserInfo()
         }).catch((error) => {
-            toast.error(errorMessage(error, "이름 수정에 실패했어요. 잠시 후 다시 시도해주세요."))
+            toastError(error, "이름 수정에 실패했어요. 잠시 후 다시 시도해주세요.")
         })
     }
 
@@ -99,7 +105,7 @@ export default function Page() {
             closePasswordForm()
         }).catch((error) => {
             // "현재 비밀번호가 올바르지 않습니다", "비밀번호가 너무 짧습니다" 등 서버가 준 사유를 보여준다
-            toast.error(errorMessage(error, "비밀번호 변경에 실패했어요."))
+            toastError(error, "비밀번호 변경에 실패했어요.")
         })
     }
 

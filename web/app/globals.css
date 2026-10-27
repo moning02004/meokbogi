@@ -190,3 +190,13 @@ body {
 .review-calendar .react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
   background: transparent; color: var(--ink);
 }
+
+/* 화면 이동 줄 (components/navigation_progress.tsx).
+   바로 넘어가는 이동에서는 깜빡이지 않게 잠깐 기다렸다 나타나고, 끝을 모르니 90%까지만 천천히 늘어난다 */
+.nav-progress { opacity: 0; animation: nav-progress-show 0.15s ease 0.12s forwards; }
+.nav-progress-bar { width: 0; animation: nav-progress-grow 8s cubic-bezier(0.1, 0.6, 0.2, 1) 0.12s forwards; }
+@keyframes nav-progress-show { to { opacity: 1; } }
+@keyframes nav-progress-grow { 0% { width: 0; } 10% { width: 45%; } 100% { width: 90%; } }
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar { animation: none; width: 100%; opacity: 0.7; }
+}

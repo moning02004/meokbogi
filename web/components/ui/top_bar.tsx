@@ -1,13 +1,13 @@
 import {ActionDrawer} from "@/components/ui/action_drawer";
 import {FaAngleDown} from "react-icons/fa";
-import {useRouter} from "next/navigation";
+import {useAppRouter} from "@/components/navigation_progress";
 import {ZONE_PAGE} from "@/constants/routeUrl";
 import {useZoneStore} from "@/store/zone";
 import {ZoneType} from "@/types/zone";
 import {useCategoryStore} from "@/store/category";
 
 export const Topbar = () => {
-    const router = useRouter()
+    const router = useAppRouter()
     const zones = useZoneStore((state) => state.zones)
     const selectedZone = useZoneStore((state) => state.selectedZone)
     const setSelectedZone = useZoneStore((state) => state.setSelectedZone)

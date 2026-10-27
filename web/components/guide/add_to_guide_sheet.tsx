@@ -1,11 +1,11 @@
 "use client"
 
 import {useEffect, useState} from "react"
-import {useRouter} from "next/navigation"
+import {useAppRouter} from "@/components/navigation_progress";
 import {Drawer} from "vaul"
 import toast from "react-hot-toast"
 import {GUIDE_PAGE} from "@/constants/routeUrl"
-import {errorMessage} from "@/lib/api"
+import {toastError} from "@/lib/api"
 import {addRestaurantToGuide, fetchGuides, MAX_GUIDE_ENTRIES} from "@/lib/guide"
 import {GuideType} from "@/types/guide"
 
@@ -17,7 +17,7 @@ interface AddToGuideSheetProps {
 
 // 음식점 상세의 "골목에 담기". 골목을 하나 고르면 그 끝에 싣는다. 한마디와 메뉴는 꾸미기 화면에서 붙인다.
 export function AddToGuideSheet({open, onOpenChange, restaurant}: AddToGuideSheetProps) {
-    const router = useRouter()
+    const router = useAppRouter()
     const [guides, setGuides] = useState<GuideType[] | null>(null)
     const [busyId, setBusyId] = useState<number | null>(null)
 
@@ -25,7 +25,7 @@ export function AddToGuideSheet({open, onOpenChange, restaurant}: AddToGuideShee
         if (!open) return
         fetchGuides().then(setGuides).catch((error) => {
             setGuides([])
-            toast.error(errorMessage(error, "골목을 불러오지 못했어요."))
+            toastError(error, "골목을 불러오지 못했어요.")
         })
     }, [open])
 
@@ -39,7 +39,7 @@ export function AddToGuideSheet({open, onOpenChange, restaurant}: AddToGuideShee
                     ? `이미 '${guide.title}'에 실려 있어요.`
                     : `'${guide.title}'에 담았어요.`)
             })
-            .catch((error) => toast.error(errorMessage(error, "골목에 담지 못했어요.")))
+            .catch((error) => toastError(error, "골목에 담지 못했어요."))
             .finally(() => setBusyId(null))
     }
 

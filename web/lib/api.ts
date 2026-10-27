@@ -1,6 +1,7 @@
 import {useAuthStore} from "@/store/auth";
 import {API_HOST} from "@/constants/api";
 import {AuthTokenResponse} from "@/types/auth";
+import toast from "react-hot-toast";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type RequestExtraOptions = {
@@ -64,6 +65,23 @@ export class ApiError extends Error {
 export const errorMessage = (error: unknown, fallback = "요청을 처리하지 못했어요.") =>
     error instanceof Error && error.message ? error.message : fallback;
 
+// 통신이 끊기면 화면마다 따로 띄우지 않고 하단 토스트 하나만 띄운다. 같은 id라 여러 요청이 동시에 실패해도 한 개다.
+export const NETWORK_ERROR_MESSAGE = "네트워크 연결이 불안정합니다.";
+const NETWORK_TOAST_ID = "network";
+
+export const showNetworkToast = (duration?: number) =>
+    toast.error(NETWORK_ERROR_MESSAGE, {id: NETWORK_TOAST_ID, duration});
+
+export const hideNetworkToast = () => toast.dismiss(NETWORK_TOAST_ID);
+
+export const isNetworkError = (error: unknown) => error instanceof ApiError && error.status === 0;
+
+// 실패를 토스트로 알린다. 통신이 끊긴 경우는 요청하는 곳에서 이미 띄웠으니 겹쳐 띄우지 않는다.
+export const toastError = (error: unknown, fallback?: string) => {
+    if (isNetworkError(error)) return;
+    toast.error(errorMessage(error, fallback));
+};
+
 function extractErrorMessage(status: number, body: unknown): string {
     if (status >= 500) return "서버에 문제가 생겼어요. 잠시 후 다시 시도해주세요.";
     if (status === 429) return "요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
@@ -102,7 +120,8 @@ async function request<T = unknown>(endPoint: string,
         headers,
         credentials: "include",
     }).catch(() => {
-        throw new ApiError(0, "네트워크 연결을 확인해주세요.");
+        showNetworkToast();
+        throw new ApiError(0, NETWORK_ERROR_MESSAGE);
     });
 
     let res = await send();
